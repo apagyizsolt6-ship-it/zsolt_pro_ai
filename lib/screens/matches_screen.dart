@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.2.5
+// Version: v0.3.1
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -12,6 +12,7 @@ import '../widgets/day_selector.dart';
 import '../widgets/league_header.dart';
 import '../widgets/match_card.dart';
 import '../widgets/search_bar_widget.dart';
+import 'match_detail_screen.dart';
 
 class MatchesScreen extends StatefulWidget {
   const MatchesScreen({super.key});
@@ -89,6 +90,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
     return groupedMatches;
   }
 
+  void _openMatchDetails(AppMatch match) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return MatchDetailScreen(
+            match: match,
+          );
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -161,17 +174,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               return MatchCard(
                                 match: match,
                                 onTap: () {
-                                  ScaffoldMessenger.of(context)
-                                      .hideCurrentSnackBar();
-
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${match.homeTeam} – '
-                                        '${match.awayTeam}',
-                                      ),
-                                    ),
-                                  );
+                                  _openMatchDetails(match);
                                 },
                               );
                             },
