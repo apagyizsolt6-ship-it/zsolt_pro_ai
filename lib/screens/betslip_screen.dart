@@ -1,18 +1,21 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.7.1
+// Version: v0.9.3
 // File: lib/screens/betslip_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
+import '../models/bet_builder_selection.dart';
 import '../models/betslip_item.dart';
 import '../services/betslip_service.dart';
 
 class BetslipScreen extends StatelessWidget {
   const BetslipScreen({super.key});
 
-  BetslipService get _betslipService => BetslipService.instance;
+  BetslipService get _betslipService {
+    return BetslipService.instance;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +53,8 @@ class BetslipScreen extends StatelessWidget {
         child: AnimatedBuilder(
           animation: _betslipService,
           builder: (context, child) {
-            final List<BetslipItem> items = _betslipService.items;
+            final List<BetslipItem> items =
+                _betslipService.items;
 
             if (items.isEmpty) {
               return _buildEmptyState();
@@ -110,7 +114,9 @@ class BetslipScreen extends StatelessWidget {
       children: [
         _buildSummaryCard(
           context: context,
-          itemCount: items.length,
+          matchCount: items.length,
+          selectionCount:
+              _betslipService.totalSelectionCount,
         ),
         Expanded(
           child: ListView.separated(
@@ -140,10 +146,17 @@ class BetslipScreen extends StatelessWidget {
 
   Widget _buildSummaryCard({
     required BuildContext context,
-    required int itemCount,
+    required int matchCount,
+    required int selectionCount,
   }) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
-    final double totalOdds = _betslipService.totalOdds;
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    final double totalOdds =
+        _betslipService.totalOdds;
+
+    final int averageAiScore =
+        _betslipService.averageAiScore;
 
     return Container(
       width: double.infinity,
@@ -158,7 +171,9 @@ class BetslipScreen extends StatelessWidget {
         color: colors.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: colors.primary.withValues(alpha: 0.25),
+          color: colors.primary.withValues(
+            alpha: 0.25,
+          ),
         ),
       ),
       child: Column(
@@ -170,7 +185,8 @@ class BetslipScreen extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius:
+                      BorderRadius.circular(14),
                 ),
                 child: Icon(
                   Icons.receipt_long,
@@ -181,20 +197,24 @@ class BetslipScreen extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Aktuális szelvény',
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontWeight:
+                            FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$itemCount kiválasztott tipp',
+                      '$matchCount mérkőzés • '
+                      '$selectionCount kiválasztás',
                       style: TextStyle(
-                        color: colors.onSurfaceVariant,
+                        color:
+                            colors.onSurfaceVariant,
                         fontSize: 14,
                       ),
                     ),
@@ -202,16 +222,20 @@ class BetslipScreen extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
+                padding:
+                    const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.green.withValues(
+                    alpha: 0.15,
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '$itemCount db',
+                  '$matchCount db',
                   style: const TextStyle(
                     color: Colors.greenAccent,
                     fontWeight: FontWeight.bold,
@@ -226,6 +250,29 @@ class BetslipScreen extends StatelessWidget {
             height: 1,
           ),
           const SizedBox(height: 14),
+          Row(
+            children: [
+              Text(
+                'Átlagos AI értékelés',
+                style: TextStyle(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$averageAiScore%',
+                style: TextStyle(
+                  color: _getAiScoreColor(
+                    averageAiScore,
+                  ),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Text(
@@ -259,8 +306,20 @@ class BetslipScreen extends StatelessWidget {
     required BuildContext context,
     required BetslipItem item,
   }) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
     final match = item.match;
+
+    final int displayedAiScore =
+        item.isBetBuilder
+            ? item.builderAiScore
+            : match.aiScore;
+
+    final double displayedOdds =
+        item.isBetBuilder
+            ? item.builderOdds
+            : item.odds;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -272,7 +331,8 @@ class BetslipScreen extends StatelessWidget {
           16,
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
           children: [
             Row(
               children: [
@@ -282,11 +342,13 @@ class BetslipScreen extends StatelessWidget {
                         ? 'Ismeretlen bajnokság'
                         : match.league,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    overflow:
+                        TextOverflow.ellipsis,
                     style: TextStyle(
                       color: colors.primary,
                       fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
                 ),
@@ -306,7 +368,8 @@ class BetslipScreen extends StatelessWidget {
               ],
             ),
             Text(
-              '${match.homeTeam} – ${match.awayTeam}',
+              '${match.homeTeam} – '
+              '${match.awayTeam}',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -318,33 +381,40 @@ class BetslipScreen extends StatelessWidget {
                 Icon(
                   Icons.schedule,
                   size: 17,
-                  color: colors.onSurfaceVariant,
+                  color:
+                      colors.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   _formatMatchDate(item),
                   style: TextStyle(
-                    color: colors.onSurfaceVariant,
+                    color:
+                        colors.onSurfaceVariant,
                     fontSize: 13,
                   ),
                 ),
                 if (match.isLive) ...[
                   const SizedBox(width: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(
+                    padding:
+                        const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.red.withValues(
+                        alpha: 0.15,
+                      ),
+                      borderRadius:
+                          BorderRadius.circular(12),
                     ),
                     child: const Text(
                       'ÉLŐ',
                       style: TextStyle(
                         color: Colors.redAccent,
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        fontWeight:
+                            FontWeight.bold,
                       ),
                     ),
                   ),
@@ -357,65 +427,43 @@ class BetslipScreen extends StatelessWidget {
               height: 1,
             ),
             const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: colors.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _marketIcon(item.market),
-                    color: colors.onPrimaryContainer,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.market,
-                        style: TextStyle(
-                          color: colors.primary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        item.selection,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+
+            if (item.isBetBuilder)
+              _buildBetBuilderDetails(
+                context: context,
+                item: item,
+              )
+            else
+              _buildSingleBetDetails(
+                context: context,
+                item: item,
+              ),
+
             const SizedBox(height: 16),
+
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding:
+                      const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: _getAiScoreColor(match.aiScore)
-                        .withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(14),
+                    color: _getAiScoreColor(
+                      displayedAiScore,
+                    ).withValues(
+                      alpha: 0.15,
+                    ),
+                    borderRadius:
+                        BorderRadius.circular(14),
                   ),
                   child: Text(
-                    'AI ${match.aiScore}%',
+                    'AI $displayedAiScore%',
                     style: TextStyle(
-                      color: _getAiScoreColor(match.aiScore),
+                      color: _getAiScoreColor(
+                        displayedAiScore,
+                      ),
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
@@ -423,24 +471,31 @@ class BetslipScreen extends StatelessWidget {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding:
+                      const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: item.odds > 0
-                        ? Colors.green.withValues(alpha: 0.15)
-                        : colors.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(14),
+                    color: displayedOdds > 0
+                        ? Colors.green.withValues(
+                            alpha: 0.15,
+                          )
+                        : colors
+                            .surfaceContainerHighest,
+                    borderRadius:
+                        BorderRadius.circular(14),
                   ),
                   child: Text(
-                    item.odds > 0
-                        ? 'Odds ${item.odds.toStringAsFixed(2)}'
+                    displayedOdds > 0
+                        ? 'Odds '
+                            '${displayedOdds.toStringAsFixed(2)}'
                         : 'Odds később',
                     style: TextStyle(
-                      color: item.odds > 0
+                      color: displayedOdds > 0
                           ? Colors.greenAccent
-                          : colors.onSurfaceVariant,
+                          : colors
+                              .onSurfaceVariant,
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
@@ -454,10 +509,255 @@ class BetslipScreen extends StatelessWidget {
     );
   }
 
-  String _formatMatchDate(BetslipItem item) {
+  Widget _buildSingleBetDetails({
+    required BuildContext context,
+    required BetslipItem item,
+  }) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: colors.primaryContainer,
+            borderRadius:
+                BorderRadius.circular(12),
+          ),
+          child: Icon(
+            _marketIcon(item.market),
+            color: colors.onPrimaryContainer,
+            size: 22,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.market,
+                style: TextStyle(
+                  color: colors.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                item.selection,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBetBuilderDetails({
+    required BuildContext context,
+    required BetslipItem item,
+  }) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.primaryContainer.withValues(
+          alpha: 0.18,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colors.primary.withValues(
+            alpha: 0.20,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius:
+                      BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.construction_outlined,
+                  color:
+                      colors.onPrimaryContainer,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Fogadáskészítő',
+                      style: TextStyle(
+                        color: colors.primary,
+                        fontSize: 13,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${item.builderSelections.length} '
+                      'kiválasztott tipp',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Divider(
+            color: colors.outlineVariant,
+            height: 1,
+          ),
+          const SizedBox(height: 10),
+          ...item.builderSelections.map(
+            (BetBuilderSelection selection) {
+              return _buildBuilderSelectionRow(
+                context: context,
+                selection: selection,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBuilderSelectionRow({
+    required BuildContext context,
+    required BetBuilderSelection selection,
+  }) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: 7,
+      ),
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            margin:
+                const EdgeInsets.only(top: 1),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(
+                alpha: 0.15,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check,
+              size: 16,
+              color: Colors.greenAccent,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  selection.selection,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  selection.market,
+                  style: TextStyle(
+                    color:
+                        colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: _getAiScoreColor(
+                selection.aiScore,
+              ).withValues(
+                alpha: 0.15,
+              ),
+              borderRadius:
+                  BorderRadius.circular(12),
+            ),
+            child: Text(
+              '${selection.aiScore}%',
+              style: TextStyle(
+                color: _getAiScoreColor(
+                  selection.aiScore,
+                ),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatMatchDate(
+    BetslipItem item,
+  ) {
     final match = item.match;
-    final String day = match.matchDate.day.toString().padLeft(2, '0');
-    final String month = match.matchDate.month.toString().padLeft(2, '0');
+
+    final String day =
+        match.matchDate.day
+            .toString()
+            .padLeft(2, '0');
+
+    final String month =
+        match.matchDate.month
+            .toString()
+            .padLeft(2, '0');
 
     if (match.matchTime.trim().isEmpty) {
       return '$month.$day.';
@@ -467,7 +767,12 @@ class BetslipScreen extends StatelessWidget {
   }
 
   IconData _marketIcon(String market) {
-    final String value = market.toLowerCase();
+    final String value =
+        market.toLowerCase();
+
+    if (value.contains('fogadáskészítő')) {
+      return Icons.construction_outlined;
+    }
 
     if (value.contains('szöglet')) {
       return Icons.flag_outlined;
@@ -481,7 +786,9 @@ class BetslipScreen extends StatelessWidget {
       return Icons.block_outlined;
     }
 
-    if (value.contains('szabálytalanság')) {
+    if (value.contains(
+      'szabálytalanság',
+    )) {
       return Icons.warning_amber_rounded;
     }
 
@@ -509,8 +816,12 @@ class BetslipScreen extends StatelessWidget {
   }
 
   Color _getAiScoreColor(int score) {
-    if (score >= 80) {
+    if (score >= 85) {
       return Colors.greenAccent;
+    }
+
+    if (score >= 75) {
+      return Colors.lightGreenAccent;
     }
 
     if (score >= 60) {
@@ -524,7 +835,8 @@ class BetslipScreen extends StatelessWidget {
     required BuildContext context,
     required BetslipItem item,
   }) {
-    final bool removed = _betslipService.removeMatch(item.id);
+    final bool removed =
+        _betslipService.removeMatch(item.id);
 
     if (!removed) {
       return;
@@ -535,7 +847,8 @@ class BetslipScreen extends StatelessWidget {
       ..showSnackBar(
         SnackBar(
           content: Text(
-            '${item.match.homeTeam} – ${item.match.awayTeam} eltávolítva.',
+            '${item.match.homeTeam} – '
+            '${item.match.awayTeam} eltávolítva.',
           ),
           action: SnackBarAction(
             label: 'Vissza',
@@ -550,24 +863,32 @@ class BetslipScreen extends StatelessWidget {
   Future<void> _showClearConfirmation(
     BuildContext context,
   ) async {
-    final bool? shouldClear = await showDialog<bool>(
+    final bool? shouldClear =
+        await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Szelvény ürítése'),
+          title: const Text(
+            'Szelvény ürítése',
+          ),
           content: const Text(
-            'Biztosan eltávolítod az összes tippet a szelvényről?',
+            'Biztosan eltávolítod az összes '
+            'tippet a szelvényről?',
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(false);
+                Navigator.of(
+                  dialogContext,
+                ).pop(false);
               },
               child: const Text('Mégse'),
             ),
             FilledButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(true);
+                Navigator.of(
+                  dialogContext,
+                ).pop(true);
               },
               child: const Text('Ürítés'),
             ),
@@ -576,7 +897,8 @@ class BetslipScreen extends StatelessWidget {
       },
     );
 
-    if (shouldClear != true || !context.mounted) {
+    if (shouldClear != true ||
+        !context.mounted) {
       return;
     }
 
@@ -586,7 +908,9 @@ class BetslipScreen extends StatelessWidget {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(
-          content: Text('A szelvényt kiürítettük.'),
+          content: Text(
+            'A szelvényt kiürítettük.',
+          ),
         ),
       );
   }
