@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.3.6
+// Version: v0.5.1
 // File: lib/screens/home_screen.dart
 // ===========================================
 
@@ -11,12 +11,12 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          "Zsolt Pro AI",
+          'Zsolt Pro AI',
           style: TextStyle(
             fontWeight: FontWeight.bold,
           ),
@@ -41,7 +41,7 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  "Üdv a Zsolt Pro AI alkalmazásban!",
+                  'Üdv a Zsolt Pro AI alkalmazásban!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: colorScheme.onPrimary,
@@ -51,67 +51,66 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "AI alapú sportfogadási elemző rendszer",
+                  'AI alapú sportfogadási elemző rendszer',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: colorScheme.onPrimary.withOpacity(0.9),
+                    color: colorScheme.onPrimary.withValues(
+                      alpha: 0.9,
+                    ),
                     fontSize: 15,
                   ),
                 ),
               ],
             ),
           ),
-
           const SizedBox(height: 24),
-
           const Text(
-            "Gyorsmenü",
+            'Gyorsmenü',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(height: 12),
-
-          _menuCard(
-            context,
-            Icons.psychology,
-            "AI Top 5",
-            "A legjobb AI tippek",
+          _MenuCard(
+            icon: Icons.psychology,
+            title: 'AI Top 5',
+            subtitle: 'A legjobb AI tippek',
           ),
-
-          _menuCard(
-            context,
-            Icons.sports_soccer,
-            "Meccsek",
-            "Mai és következő mérkőzések",
+          _MenuCard(
+            icon: Icons.sports_soccer,
+            title: 'Meccsek',
+            subtitle: 'Mai és következő mérkőzések',
           ),
-
-          _menuCard(
-            context,
-            Icons.receipt_long,
-            "Szelvény",
-            "Fogadásaid kezelése",
+          _MenuCard(
+            icon: Icons.receipt_long,
+            title: 'Szelvény',
+            subtitle: 'Fogadásaid kezelése',
           ),
-
-          _menuCard(
-            context,
-            Icons.settings,
-            "Beállítások",
-            "Alkalmazás beállításai",
+          _MenuCard(
+            icon: Icons.settings,
+            title: 'Beállítások',
+            subtitle: 'Alkalmazás beállításai',
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _menuCard(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-  ) {
+class _MenuCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _MenuCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -125,7 +124,10 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 18,
+        ),
       ),
     );
   }
