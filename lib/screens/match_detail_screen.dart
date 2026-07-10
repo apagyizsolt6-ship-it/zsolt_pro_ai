@@ -1,12 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.3.0
+// Version: v0.5.5
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
+import '../services/betslip_service.dart';
 
 class MatchDetailScreen extends StatelessWidget {
   final AppMatch match;
@@ -31,7 +32,12 @@ class MatchDetailScreen extends StatelessWidget {
         centerTitle: true,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: const EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          28,
+        ),
         children: [
           _MatchHeaderCard(
             match: match,
@@ -100,11 +106,11 @@ class MatchDetailScreen extends StatelessWidget {
                 value: '2,8',
               ),
               _StatisticRowData(
-                label: 'Over 1,5',
+                label: 'Több mint 1,5 gól',
                 value: '82%',
               ),
               _StatisticRowData(
-                label: 'Over 2,5',
+                label: 'Több mint 2,5 gól',
                 value: '64%',
               ),
               _StatisticRowData(
@@ -132,35 +138,57 @@ class MatchDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 22),
-          FilledButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '${match.homeTeam} – ${match.awayTeam} '
-                    'hozzáadva a szelvényhez.',
+          AnimatedBuilder(
+            animation: BetslipService.instance,
+            builder: (context, _) {
+              final bool isAdded =
+                  BetslipService.instance.contains(match.id);
+
+              return FilledButton.icon(
+                onPressed: () {
+                  BetslipService.instance.toggleMatch(match);
+
+                  final bool currentlyAdded =
+                      BetslipService.instance.contains(match.id);
+
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        currentlyAdded
+                            ? '${match.homeTeam} – ${match.awayTeam} hozzáadva a szelvényhez.'
+                            : '${match.homeTeam} – ${match.awayTeam} eltávolítva a szelvényről.',
+                      ),
+                    ),
+                  );
+                },
+                icon: Icon(
+                  isAdded
+                      ? Icons.check_circle
+                      : Icons.add_circle_outline,
+                ),
+                label: Text(
+                  isAdded
+                      ? 'A szelvényen van'
+                      : 'Hozzáadás a szelvényhez',
+                ),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(54),
+                  backgroundColor: isAdded
+                      ? Colors.green
+                      : colors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               );
             },
-            icon: const Icon(
-              Icons.add_circle_outline,
-            ),
-            label: const Text(
-              'Hozzáadás a szelvényhez',
-            ),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(54),
-              backgroundColor: colors.primary,
-              foregroundColor: colors.onPrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
           ),
         ],
       ),
@@ -335,7 +363,7 @@ class _AiRecommendationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
-    final double progress = (aiScore.clamp(0, 100)) / 100;
+    final double progress = aiScore.clamp(0, 100) / 100;
 
     return Card(
       child: Padding(
