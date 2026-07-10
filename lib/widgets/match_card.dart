@@ -1,14 +1,15 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.2.0
+// Version: v0.3.3
 // File: lib/widgets/match_card.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
+import '../services/favorites_service.dart';
 
-class MatchCard extends StatelessWidget {
+class MatchCard extends StatefulWidget {
   final AppMatch match;
   final VoidCallback? onTap;
 
@@ -19,7 +20,15 @@ class MatchCard extends StatelessWidget {
   });
 
   @override
+  State<MatchCard> createState() => _MatchCardState();
+}
+
+class _MatchCardState extends State<MatchCard> {
+  @override
   Widget build(BuildContext context) {
+    final bool favorite =
+        FavoritesService.isFavorite(widget.match.id);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       elevation: 2,
@@ -28,7 +37,7 @@ class MatchCard extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -36,74 +45,31 @@ class MatchCard extends StatelessWidget {
             children: [
 
               Text(
-                "🏆 ${match.league}",
+                "🏆 ${widget.match.league}",
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
                   color: Colors.blue,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
 
               const SizedBox(height: 12),
 
-              Row(
-                children: [
-
-                  const Icon(Icons.shield, size: 24),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    child: Text(
-                      match.homeTeam,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-
-                  if (match.isLive)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        "ÉLŐ",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                ],
+              Text(
+                widget.match.homeTeam,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
-              Row(
-                children: [
-
-                  const Icon(Icons.shield_outlined, size: 24),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    child: Text(
-                      match.awayTeam,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+              Text(
+                widget.match.awayTeam,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
 
               const Divider(height: 24),
@@ -111,16 +77,11 @@ class MatchCard extends StatelessWidget {
               Row(
                 children: [
 
-                  const Icon(Icons.access_time, size: 18),
+                  const Icon(Icons.access_time,size:18),
 
-                  const SizedBox(width: 6),
+                  const SizedBox(width:6),
 
-                  Text(
-                    match.matchTime,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  Text(widget.match.matchTime),
 
                   const Spacer(),
 
@@ -131,10 +92,11 @@ class MatchCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.blue,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius:
+                          BorderRadius.circular(20),
                     ),
                     child: Text(
-                      "🤖 ${match.aiScore}",
+                      "AI ${widget.match.aiScore}",
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -142,13 +104,20 @@ class MatchCard extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(width: 12),
-
-                  Icon(
-                    match.isFavorite
-                        ? Icons.star
-                        : Icons.star_border,
-                    color: Colors.amber,
+                  IconButton(
+                    icon: Icon(
+                      favorite
+                          ? Icons.star
+                          : Icons.star_border,
+                      color: Colors.amber,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        FavoritesService.toggleFavorite(
+                          widget.match.id,
+                        );
+                      });
+                    },
                   ),
                 ],
               ),
