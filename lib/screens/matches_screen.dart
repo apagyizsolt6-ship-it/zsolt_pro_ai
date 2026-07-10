@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.2.3
+// Version: v0.2.5
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -23,18 +23,22 @@ class MatchesScreen extends StatefulWidget {
 class _MatchesScreenState extends State<MatchesScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-  int selectedDay = 0;
-  String search = '';
+  int _selectedDayIndex = 0;
+  String _searchText = '';
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  DateTime get _today {
+    final DateTime now = DateTime.now();
+
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
   }
 
   DateTime get _selectedDate {
-    return DateTime(2026, 7, 10).add(
-      Duration(days: selectedDay),
+    return _today.add(
+      Duration(days: _selectedDayIndex),
     );
   }
 
@@ -44,41 +48,66 @@ class _MatchesScreenState extends State<MatchesScreen> {
         first.day == second.day;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final String normalizedSearch = search.trim().toLowerCase();
+  List<AppMatch> get _filteredMatches {
+    final String normalizedSearch = _searchText.trim().toLowerCase();
 
-    final List<AppMatch> filteredMatches = DemoMatches.matches.where((match) {
-      final bool matchesSelectedDate = _isSameDay(
+    final List<AppMatch> matches = DemoMatches.matches.where((match) {
+      final bool correctDate = _isSameDay(
         match.matchDate,
         _selectedDate,
       );
 
-      final bool matchesSearch = normalizedSearch.isEmpty ||
+      final bool correctSearch = normalizedSearch.isEmpty ||
           match.homeTeam.toLowerCase().contains(normalizedSearch) ||
           match.awayTeam.toLowerCase().contains(normalizedSearch) ||
           match.league.toLowerCase().contains(normalizedSearch);
 
-      return matchesSelectedDate && matchesSearch;
+      return correctDate && correctSearch;
     }).toList();
 
+    matches.sort(
+      (first, second) => first.matchTime.compareTo(second.matchTime),
+    );
+
+    return matches;
+  }
+
+  Map<String, List<AppMatch>> _groupMatchesByLeague(
+    List<AppMatch> matches,
+  ) {
     final Map<String, List<AppMatch>> groupedMatches = {};
 
-    for (final match in filteredMatches) {
+    for (final AppMatch match in matches) {
       groupedMatches.putIfAbsent(
         match.league,
-        () => [],
+        () => <AppMatch>[],
       );
 
       groupedMatches[match.league]!.add(match);
     }
+
+    return groupedMatches;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<AppMatch> matches = _filteredMatches;
+
+    final Map<String, List<AppMatch>> groupedMatches =
+        _groupMatchesByLeague(matches);
 
     final List<String> leagues = groupedMatches.keys.toList();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          '⚽ Meccsek',
+          'Meccsek',
           style: TextStyle(
             fontWeight: FontWeight.bold,
           ),
@@ -91,21 +120,21 @@ class _MatchesScreenState extends State<MatchesScreen> {
             controller: _searchController,
             onChanged: (value) {
               setState(() {
-                search = value;
+                _searchText = value;
               });
             },
           ),
           DaySelector(
-            selectedIndex: selectedDay,
+            selectedIndex: _selectedDayIndex,
             onChanged: (index) {
               setState(() {
-                selectedDay = index;
+                _selectedDayIndex = index;
               });
             },
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: filteredMatches.isEmpty
+            child: matches.isEmpty
                 ? const _EmptyMatchesView()
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(
@@ -116,29 +145,36 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     ),
                     itemCount: leagues.length,
                     itemBuilder: (context, leagueIndex) {
-                      final String league = leagues[leagueIndex];
-                      final List<AppMatch> matches =
-                          groupedMatches[league] ?? [];
+                      final String leagueName = leagues[leagueIndex];
+
+                      final List<AppMatch> leagueMatches =
+                          groupedMatches[leagueName] ?? <AppMatch>[];
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           LeagueHeader(
-                            leagueName: league,
+                            leagueName: leagueName,
                           ),
-                          ...matches.map(
-                            (match) => MatchCard(
-                              match: match,
-                              onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '${match.homeTeam} – ${match.awayTeam}',
+                          ...leagueMatches.map(
+                            (match) {
+                              return MatchCard(
+                                match: match,
+                                onTap: () {
+                                  ScaffoldMessenger.of(context)
+                                      .hideCurrentSnackBar();
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${match.homeTeam} – '
+                                        '${match.awayTeam}',
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
+                                  );
+                                },
+                              );
+                            },
                           ),
                         ],
                       );
@@ -156,32 +192,33 @@ class _EmptyMatchesView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.event_busy_outlined,
-              size: 72,
-              color: Colors.grey,
+              Icons.sports_soccer_outlined,
+              size: 76,
+              color: Theme.of(context).colorScheme.outline,
             ),
-            SizedBox(height: 16),
-            Text(
-              'Erre a napra nincs található mérkőzés.',
+            const SizedBox(height: 18),
+            const Text(
+              'Nincs megjeleníthető mérkőzés',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 19,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Válassz másik napot, vagy módosítsd a keresést.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.grey,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 15,
               ),
             ),
           ],
