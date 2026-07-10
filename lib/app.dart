@@ -1,15 +1,15 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.1.0
+// Version: v0.4.0
 // File: lib/app.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
-import 'screens/home_screen.dart';
 import 'screens/ai_top5_screen.dart';
-import 'screens/matches_screen.dart';
 import 'screens/betslip_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/matches_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/app_bottom_nav.dart';
 
@@ -21,7 +21,7 @@ class ZsoltProApp extends StatefulWidget {
 }
 
 class _ZsoltProAppState extends State<ZsoltProApp> {
-  int _currentIndex = 0;
+  int _selectedIndex = 0;
 
   final List<Widget> _pages = const [
     HomeScreen(),
@@ -34,12 +34,15 @@ class _ZsoltProAppState extends State<ZsoltProApp> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
       bottomNavigationBar: AppBottomNav(
-        currentIndex: _currentIndex,
+        currentIndex: _selectedIndex,
         onTap: (index) {
           setState(() {
-            _currentIndex = index;
+            _selectedIndex = index;
           });
         },
       ),
