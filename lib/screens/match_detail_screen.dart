@@ -1,8 +1,7 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.9.1
+// Version: v0.9.2
 // File: lib/screens/match_detail_screen.dart
-// 1. rész / 4
 // ===========================================
 
 import 'package:flutter/material.dart';
@@ -229,7 +228,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
           _ModeInformationCard(
             singleBetSelected:
-                _builderSelections.isEmpty,
+                _selectedSingleBet != null,
             builderSelectionCount:
                 _builderSelections.length,
           ),
@@ -242,8 +241,8 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
           const SizedBox(height: 8),
 
           Text(
-            'Válassz egyetlen fogadási piacot, '
-            'ha nem Fogadáskészítőt szeretnél használni.',
+            'Válassz egyetlen fogadási piacot, ha nem '
+            'Fogadáskészítőt szeretnél használni.',
             style: TextStyle(
               color: colors.onSurfaceVariant,
               fontSize: 14,
@@ -304,7 +303,8 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                 );
               });
             },
-          ),          const SizedBox(height: 18),
+          ),
+          const SizedBox(height: 18),
 
           AnimatedBuilder(
             animation: _betslipService,
@@ -621,8 +621,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   }
 }
 
-class _ModeInformationCard
-    extends StatelessWidget {
+class _ModeInformationCard extends StatelessWidget {
   final bool singleBetSelected;
   final int builderSelectionCount;
 
@@ -644,8 +643,7 @@ class _ModeInformationCard
           ? Colors.green.withValues(
               alpha: 0.12,
             )
-          : colors.primaryContainer
-              .withValues(
+          : colors.primaryContainer.withValues(
               alpha: 0.28,
             ),
       child: Padding(
@@ -670,8 +668,7 @@ class _ModeInformationCard
                     : Icons.touch_app_outlined,
                 color: builderMode
                     ? Colors.greenAccent
-                    : colors
-                        .onPrimaryContainer,
+                    : colors.onPrimaryContainer,
               ),
             ),
             const SizedBox(width: 13),
@@ -722,8 +719,7 @@ class _ModeInformationCard
   }
 }
 
-class _SelectedSingleBetCard
-    extends StatelessWidget {
+class _SelectedSingleBetCard extends StatelessWidget {
   final BetSelection selectedBet;
   final int aiScore;
 
@@ -738,8 +734,7 @@ class _SelectedSingleBetCard
         Theme.of(context).colorScheme;
 
     return Card(
-      color: colors.primaryContainer
-          .withValues(
+      color: colors.primaryContainer.withValues(
         alpha: 0.35,
       ),
       child: Padding(
@@ -824,7 +819,9 @@ class _SelectedSingleBetCard
       ),
     );
   }
-}class _MatchHeaderCard extends StatelessWidget {
+}
+
+class _MatchHeaderCard extends StatelessWidget {
   final AppMatch match;
 
   const _MatchHeaderCard({
@@ -886,7 +883,8 @@ class _SelectedSingleBetCard
                             : match.matchTime,
                         style: const TextStyle(
                           fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                              FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 5),
@@ -896,7 +894,8 @@ class _SelectedSingleBetCard
                           color:
                               colors.onSurfaceVariant,
                           fontSize: 13,
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                              FontWeight.bold,
                         ),
                       ),
                     ],
@@ -924,8 +923,10 @@ class _SelectedSingleBetCard
                 Text(
                   _formatDate(match.matchDate),
                   style: TextStyle(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
+                    color:
+                        colors.onSurfaceVariant,
+                    fontWeight:
+                        FontWeight.w500,
                   ),
                 ),
               ],
@@ -933,7 +934,8 @@ class _SelectedSingleBetCard
             if (match.isLive) ...[
               const SizedBox(height: 18),
               Container(
-                padding: const EdgeInsets.symmetric(
+                padding:
+                    const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 7,
                 ),
@@ -952,7 +954,8 @@ class _SelectedSingleBetCard
                   style: TextStyle(
                     color: Colors.redAccent,
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                        FontWeight.bold,
                   ),
                 ),
               ),
@@ -966,8 +969,10 @@ class _SelectedSingleBetCard
   String _formatDate(DateTime date) {
     final String year =
         date.year.toString();
+
     final String month =
         date.month.toString().padLeft(2, '0');
+
     final String day =
         date.day.toString().padLeft(2, '0');
 
@@ -1021,8 +1026,7 @@ class _TeamColumn extends StatelessWidget {
   }
 }
 
-class _AiRecommendationCard
-    extends StatelessWidget {
+class _AiRecommendationCard extends StatelessWidget {
   final int aiScore;
 
   const _AiRecommendationCard({
@@ -1047,26 +1051,22 @@ class _AiRecommendationCard
 
   String get _description {
     if (aiScore >= 90) {
-      return 'Az AI több elemzési tényező '
-          'alapján kiemelkedően erősnek '
-          'értékeli ezt a mérkőzést.';
+      return 'Az AI több elemzési tényező alapján '
+          'kiemelkedően erősnek értékeli ezt a mérkőzést.';
     }
 
     if (aiScore >= 80) {
-      return 'A forma és a várható '
-          'mérkőzéskép alapján erős '
-          'fogadási lehetőség lehet.';
+      return 'A forma és a várható mérkőzéskép alapján '
+          'erős fogadási lehetőség lehet.';
     }
 
     if (aiScore >= 65) {
-      return 'A tipp használható lehet, '
-          'de több kockázati tényezőt '
-          'is érdemes figyelembe venni.';
+      return 'A tipp használható lehet, de több kockázati '
+          'tényezőt is érdemes figyelembe venni.';
     }
 
-    return 'Az AI szerint ezen a '
-        'mérkőzésen fokozott óvatosság '
-        'indokolt.';
+    return 'Az AI szerint ezen a mérkőzésen fokozott '
+        'óvatosság indokolt.';
   }
 
   Color _scoreColor() {
@@ -1233,23 +1233,22 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
     return Row(
       children: [
         Container(
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .primaryContainer,
+            color: colors.primaryContainer,
             borderRadius:
                 BorderRadius.circular(11),
           ),
           child: Icon(
             icon,
-            color: Theme.of(context)
-                .colorScheme
-                .onPrimaryContainer,
+            color: colors.onPrimaryContainer,
             size: 21,
           ),
         ),
@@ -1265,7 +1264,10 @@ class _SectionTitle extends StatelessWidget {
         ),
       ],
     );
-  }class _FormCard extends StatelessWidget {
+  }
+}
+
+class _FormCard extends StatelessWidget {
   final String title;
   final List<String> form;
   final int score;
@@ -1372,7 +1374,8 @@ class _StatisticsCard extends StatelessWidget {
               return Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(
+                    padding:
+                        const EdgeInsets.symmetric(
                       vertical: 13,
                     ),
                     child: Row(
@@ -1421,5 +1424,4 @@ class _StatisticRowData {
     required this.label,
     required this.value,
   });
-}
 }
