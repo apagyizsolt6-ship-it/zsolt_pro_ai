@@ -1,10 +1,12 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.1.0
+// Version: v0.4.5
 // File: lib/screens/settings_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
+
+import '../services/theme_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,53 +16,73 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool darkMode = true;
-  bool notifications = true;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("⚙️ Beállítások"),
-        centerTitle: true,
-      ),
-      body: ListView(
-        children: [
-          SwitchListTile(
-            value: darkMode,
-            title: const Text("Sötét mód"),
-            subtitle: const Text("Világos / Sötét téma"),
-            secondary: const Icon(Icons.dark_mode),
-            onChanged: (value) {
-              setState(() {
-                darkMode = value;
-              });
-            },
+    return AnimatedBuilder(
+      animation: ThemeService.instance,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              "⚙️ Beállítások",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            centerTitle: true,
           ),
-          SwitchListTile(
-            value: notifications,
-            title: const Text("Értesítések"),
-            subtitle: const Text("AI tippek és meccsértesítések"),
-            secondary: const Icon(Icons.notifications_active),
-            onChanged: (value) {
-              setState(() {
-                notifications = value;
-              });
-            },
+          body: ListView(
+            children: [
+
+              SwitchListTile(
+                secondary: const Icon(Icons.dark_mode),
+                title: const Text("Sötét mód"),
+                subtitle: const Text(
+                  "Világos és sötét téma",
+                ),
+                value: ThemeService.instance.isDarkMode,
+                onChanged: (value) async {
+                  await ThemeService.instance.setDarkMode(
+                    value,
+                  );
+                },
+              ),
+
+              const Divider(),
+
+              const ListTile(
+                leading: Icon(Icons.notifications),
+                title: Text("Értesítések"),
+                subtitle: Text("Hamarosan"),
+              ),
+
+              const ListTile(
+                leading: Icon(Icons.language),
+                title: Text("Nyelv"),
+                subtitle: Text("Magyar"),
+              ),
+
+              const ListTile(
+                leading: Icon(Icons.info_outline),
+                title: Text("Verzió"),
+                subtitle: Text("v0.4.5"),
+              ),
+
+              const SizedBox(height: 40),
+
+              const Center(
+                child: Text(
+                  "© 2026 Zsolt Pro AI",
+                  style: TextStyle(
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const Divider(),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text("Alkalmazás verzió"),
-            subtitle: Text("v0.1.0 Foundation"),
-          ),
-          const ListTile(
-            leading: Icon(Icons.flag),
-            title: Text("Nyelv"),
-            subtitle: Text("Magyar"),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
