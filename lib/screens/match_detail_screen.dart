@@ -1,21 +1,61 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.5.5
+// Version: v0.7.0
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
+import '../models/betslip_item.dart';
 import '../services/betslip_service.dart';
+import '../widgets/bet_market_selector.dart';
 
-class MatchDetailScreen extends StatelessWidget {
+class MatchDetailScreen extends StatefulWidget {
   final AppMatch match;
 
   const MatchDetailScreen({
     super.key,
     required this.match,
   });
+
+  @override
+  State<MatchDetailScreen> createState() {
+    return _MatchDetailScreenState();
+  }
+}
+
+class _MatchDetailScreenState extends State<MatchDetailScreen> {
+  static const BetSelection _defaultSelection = BetSelection(
+    market: 'AI ajánlott piac',
+    selection: '1X és több mint 1,5 gól',
+    icon: Icons.auto_awesome,
+  );
+
+  BetSelection? _selectedBet;
+
+  AppMatch get match => widget.match;
+
+  BetslipService get _betslipService {
+    return BetslipService.instance;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    final BetslipItem? savedItem = _betslipService.getItem(match.id);
+
+    if (savedItem != null) {
+      _selectedBet = BetSelection(
+        market: savedItem.market,
+        selection: savedItem.selection,
+        icon: Icons.check_circle_outline,
+      );
+    } else {
+      _selectedBet = _defaultSelection;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +83,18 @@ class MatchDetailScreen extends StatelessWidget {
             match: match,
           ),
           const SizedBox(height: 16),
+
           _AiRecommendationCard(
             aiScore: match.aiScore,
           ),
           const SizedBox(height: 16),
+
           const _SectionTitle(
             icon: Icons.auto_graph,
             title: 'Forma – utolsó 5 mérkőzés',
           ),
           const SizedBox(height: 10),
+
           const Row(
             children: [
               Expanded(
@@ -72,11 +115,13 @@ class MatchDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 22),
+
           const _SectionTitle(
             icon: Icons.compare_arrows,
             title: 'Egymás elleni mérleg',
           ),
           const SizedBox(height: 10),
+
           const _StatisticsCard(
             rows: [
               _StatisticRowData(
@@ -94,11 +139,13 @@ class MatchDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 22),
+
           const _SectionTitle(
             icon: Icons.sports_soccer,
             title: 'Gólstatisztikák',
           ),
           const SizedBox(height: 10),
+
           const _StatisticsCard(
             rows: [
               _StatisticRowData(
@@ -120,11 +167,13 @@ class MatchDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 22),
+
           const _SectionTitle(
             icon: Icons.flag_outlined,
             title: 'Szögletek és lapok',
           ),
           const SizedBox(height: 10),
+
           const _StatisticsCard(
             rows: [
               _StatisticRowData(
@@ -137,60 +186,256 @@ class MatchDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 26),
+
+          const _SectionTitle(
+            icon: Icons.receipt_long_outlined,
+            title: 'Fogadási piac kiválasztása',
+          ),
+          const SizedBox(height: 8),
+
+          Text(
+            'Válaszd ki, milyen tipp kerüljön a szelvényre.',
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          BetMarketSelector(
+            selectedBet: _selectedBet,
+            onSelected: (BetSelection selection) {
+              setState(() {
+                _selectedBet = selection;
+              });
+            },
+          ),
+          const SizedBox(height: 10),
+
+          if (_selectedBet != null)
+            _SelectedBetCard(
+              selectedBet: _selectedBet!,
+              aiScore: match.aiScore,
+            ),
+
+          const SizedBox(height: 18),
+
           AnimatedBuilder(
-            animation: BetslipService.instance,
-            builder: (context, _) {
-              final bool isAdded =
-                  BetslipService.instance.contains(match.id);
+            animation: _betslipService,
+            builder: (context, child) {
+              final bool isAdded = _betslipService.contains(match.id);
 
-              return FilledButton.icon(
-                onPressed: () {
-                  BetslipService.instance.toggleMatch(match);
-
-                  final bool currentlyAdded =
-                      BetslipService.instance.contains(match.id);
-
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        currentlyAdded
-                            ? '${match.homeTeam} – ${match.awayTeam} hozzáadva a szelvényhez.'
-                            : '${match.homeTeam} – ${match.awayTeam} eltávolítva a szelvényről.',
+              return Column(
+                children: [
+                  FilledButton.icon(
+                    onPressed: _selectedBet == null
+                        ? null
+                        : () {
+                            _saveSelectedBet();
+                          },
+                    icon: Icon(
+                      isAdded
+                          ? Icons.sync
+                          : Icons.add_circle_outline,
+                    ),
+                    label: Text(
+                      isAdded
+                          ? 'Kiválasztott tipp frissítése'
+                          : 'Kiválasztott tipp hozzáadása',
+                    ),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(56),
+                      backgroundColor: isAdded
+                          ? Colors.green
+                          : colors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  );
-                },
-                icon: Icon(
-                  isAdded
-                      ? Icons.check_circle
-                      : Icons.add_circle_outline,
-                ),
-                label: Text(
-                  isAdded
-                      ? 'A szelvényen van'
-                      : 'Hozzáadás a szelvényhez',
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(54),
-                  backgroundColor: isAdded
-                      ? Colors.green
-                      : colors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
                   ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+
+                  if (isAdded) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        _removeFromBetslip();
+                      },
+                      icon: const Icon(
+                        Icons.delete_outline,
+                      ),
+                      label: const Text(
+                        'Eltávolítás a szelvényről',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        foregroundColor: Colors.redAccent,
+                        side: const BorderSide(
+                          color: Colors.redAccent,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               );
             },
           ),
         ],
+      ),
+    );
+  }
+
+  void _saveSelectedBet() {
+    final BetSelection? selectedBet = _selectedBet;
+
+    if (selectedBet == null) {
+      return;
+    }
+
+    final bool alreadyAdded = _betslipService.contains(match.id);
+
+    if (alreadyAdded) {
+      _betslipService.updateItem(
+        matchId: match.id,
+        market: selectedBet.market,
+        selection: selectedBet.selection,
+      );
+    } else {
+      _betslipService.addMatch(
+        match,
+        market: selectedBet.market,
+        selection: selectedBet.selection,
+      );
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            alreadyAdded
+                ? '${match.homeTeam} – ${match.awayTeam} tippje frissítve: ${selectedBet.selection}'
+                : '${match.homeTeam} – ${match.awayTeam} hozzáadva: ${selectedBet.selection}',
+          ),
+        ),
+      );
+  }
+
+  void _removeFromBetslip() {
+    final bool removed = _betslipService.removeMatch(match.id);
+
+    if (!removed) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            '${match.homeTeam} – ${match.awayTeam} eltávolítva a szelvényről.',
+          ),
+        ),
+      );
+  }
+}
+
+class _SelectedBetCard extends StatelessWidget {
+  final BetSelection selectedBet;
+  final int aiScore;
+
+  const _SelectedBetCard({
+    required this.selectedBet,
+    required this.aiScore,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+
+    return Card(
+      color: colors.primaryContainer.withValues(alpha: 0.35),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(
+                selectedBet.icon,
+                color: colors.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Kiválasztott tipp',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    selectedBet.market,
+                    style: TextStyle(
+                      color: colors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    selectedBet.selection,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 7,
+              ),
+              decoration: BoxDecoration(
+                color: colors.primary,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '$aiScore%',
+                style: TextStyle(
+                  color: colors.onPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
