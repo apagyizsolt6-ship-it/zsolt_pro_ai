@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.1.0
+// Version: v0.2.4
 // File: lib/widgets/day_selector.dart
 // ===========================================
 
@@ -16,65 +16,115 @@ class DaySelector extends StatelessWidget {
     required this.onChanged,
   });
 
-  static const List<Map<String, String>> days = [
-    {"day": "P", "date": "10.07"},
-    {"day": "Szo", "date": "11.07"},
-    {"day": "V", "date": "12.07"},
-    {"day": "H", "date": "13.07"},
-    {"day": "K", "date": "14.07"},
-    {"day": "Sze", "date": "15.07"},
+  static const List<String> _hungarianWeekdays = [
+    'H',
+    'K',
+    'Sze',
+    'Cs',
+    'P',
+    'Szo',
+    'V',
   ];
+
+  String _dayName(DateTime date) {
+    return _hungarianWeekdays[date.weekday - 1];
+  }
+
+  String _dateText(DateTime date) {
+    final String day = date.day.toString().padLeft(2, '0');
+    final String month = date.month.toString().padLeft(2, '0');
+
+    return '$day.$month';
+  }
+
+  List<DateTime> _nextSixDays() {
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
+
+    return List<DateTime>.generate(
+      6,
+      (index) => today.add(
+        Duration(days: index),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final List<DateTime> days = _nextSixDays();
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+
     return SizedBox(
-      height: 75,
+      height: 76,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: days.length,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemBuilder: (context, index) {
-          final selected = index == selectedIndex;
+          final DateTime date = days[index];
+          final bool selected = index == selectedIndex;
 
-          return GestureDetector(
-            onTap: () => onChanged(index),
-            child: Container(
-              width: 82,
-              margin: const EdgeInsets.only(right: 10),
-              decoration: BoxDecoration(
-                color: selected
-                    ? Colors.blue
-                    : Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    days[index]["day"]!,
-                    style: TextStyle(
-                      color: selected
-                          ? Colors.white
-                          : Theme.of(context)
-                              .textTheme
-                              .bodyLarge
-                              ?.color,
-                      fontWeight: FontWeight.bold,
-                    ),
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => onChanged(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                width: 76,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? colorScheme.primary
+                      : colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: selected
+                        ? colorScheme.primary
+                        : colorScheme.outlineVariant,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    days[index]["date"]!,
-                    style: TextStyle(
-                      color: selected
-                          ? Colors.white70
-                          : Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.color,
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: colorScheme.primary.withValues(
+                              alpha: 0.28,
+                            ),
+                            blurRadius: 12,
+                            offset: const Offset(0, 5),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _dayName(date),
+                      style: TextStyle(
+                        color: selected
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurface,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 5),
+                    Text(
+                      _dateText(date),
+                      style: TextStyle(
+                        color: selected
+                            ? colorScheme.onPrimary.withValues(alpha: 0.8)
+                            : colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
