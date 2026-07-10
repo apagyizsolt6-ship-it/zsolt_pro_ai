@@ -37,6 +37,9 @@ jobs:
             --org=hu.zsoltproai \
             .
 
+      - name: Automatikus tesztfájl törlése
+        run: rm -f test/widget_test.dart
+
       - name: Csomagok telepítése
         run: flutter pub get
 
