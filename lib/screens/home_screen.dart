@@ -1,6 +1,8 @@
+// ===========================================
 // Zsolt Pro AI
-// Version: v0.1.0
+// Version: v0.3.6
 // File: lib/screens/home_screen.dart
+// ===========================================
 
 import 'package:flutter/material.dart';
 
@@ -9,10 +11,12 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Zsolt Pro AI',
+          "Zsolt Pro AI",
           style: TextStyle(
             fontWeight: FontWeight.bold,
           ),
@@ -22,64 +26,97 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-
-          const SizedBox(height: 10),
-
-          _menuCard(
-            icon: Icons.psychology,
-            title: "AI Top 5",
-            subtitle: "A mai legjobb AI tippek",
-            color: Colors.blue,
-          ),
-
-          const SizedBox(height: 16),
-
-          _menuCard(
-            icon: Icons.sports_soccer,
-            title: "Meccsek",
-            subtitle: "Mai, élő és következő 6 nap",
-            color: Colors.green,
-          ),
-
-          const SizedBox(height: 16),
-
-          _menuCard(
-            icon: Icons.receipt_long,
-            title: "Szelvény",
-            subtitle: "Fogadásaid kezelése",
-            color: Colors.orange,
-          ),
-
-          const SizedBox(height: 30),
-
-          const Center(
-            child: Text(
-              "Zsolt Pro AI v0.1",
-              style: TextStyle(
-                color: Colors.grey,
-              ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              borderRadius: BorderRadius.circular(20),
             ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.psychology,
+                  color: colorScheme.onPrimary,
+                  size: 56,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "Üdv a Zsolt Pro AI alkalmazásban!",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colorScheme.onPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "AI alapú sportfogadási elemző rendszer",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colorScheme.onPrimary.withOpacity(0.9),
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          const Text(
+            "Gyorsmenü",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          _menuCard(
+            context,
+            Icons.psychology,
+            "AI Top 5",
+            "A legjobb AI tippek",
+          ),
+
+          _menuCard(
+            context,
+            Icons.sports_soccer,
+            "Meccsek",
+            "Mai és következő mérkőzések",
+          ),
+
+          _menuCard(
+            context,
+            Icons.receipt_long,
+            "Szelvény",
+            "Fogadásaid kezelése",
+          ),
+
+          _menuCard(
+            context,
+            Icons.settings,
+            "Beállítások",
+            "Alkalmazás beállításai",
           ),
         ],
       ),
     );
   }
 
-  Widget _menuCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-  }) {
+  Widget _menuCard(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+  ) {
     return Card(
-      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: color,
-          child: Icon(
-            icon,
-            color: Colors.white,
-          ),
+          child: Icon(icon),
         ),
         title: Text(
           title,
