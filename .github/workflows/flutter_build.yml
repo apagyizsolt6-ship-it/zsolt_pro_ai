@@ -11,34 +11,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Repository letöltése
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Java 17 beállítása
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Setup Flutter
+      - name: Flutter telepítése
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
-      - name: Flutter Version
+      - name: Flutter verzió ellenőrzése
         run: flutter --version
 
-      - name: Install dependencies
+      - name: Android projektfájlok létrehozása
+        run: |
+          flutter create \
+            --platforms=android \
+            --project-name=zsolt_pro_ai \
+            --org=hu.zsoltproai \
+            .
+
+      - name: Csomagok telepítése
         run: flutter pub get
 
-      - name: Analyze
+      - name: Dart kód ellenőrzése
         run: flutter analyze
 
-      - name: Build APK
+      - name: Release APK elkészítése
         run: flutter build apk --release
 
-      - name: Upload APK
+      - name: APK feltöltése
         uses: actions/upload-artifact@v4
         with:
-          name: ZsoltProAI-APK
+          name: Zsolt-Pro-AI-release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
