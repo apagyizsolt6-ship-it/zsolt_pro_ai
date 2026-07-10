@@ -1,12 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.6.0
+// Version: v0.8.2
 // File: lib/services/betslip_service.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
+import '../models/bet_builder_selection.dart';
 import '../models/betslip_item.dart';
 
 class BetslipService extends ChangeNotifier {
@@ -29,6 +30,13 @@ class BetslipService extends ChangeNotifier {
   }
 
   int get itemCount => _items.length;
+
+  int get totalSelectionCount {
+    return _items.fold<int>(
+      0,
+      (total, item) => total + item.selectionCount,
+    );
+  }
 
   bool get isEmpty => _items.isEmpty;
 
@@ -75,10 +83,33 @@ class BetslipService extends ChangeNotifier {
     return addItem(item);
   }
 
+  bool addBetBuilder(
+    AppMatch match, {
+    required List<BetBuilderSelection> selections,
+    double odds = 0.0,
+  }) {
+    if (selections.isEmpty) {
+      return false;
+    }
+
+    final BetslipItem item = BetslipItem(
+      match: match,
+      market: 'Fogadáskészítő',
+      selection: '${selections.length} kiválasztott tipp',
+      builderSelections: List<BetBuilderSelection>.unmodifiable(
+        selections,
+      ),
+      odds: odds,
+    );
+
+    return addItem(item);
+  }
+
   bool updateItem({
     required String matchId,
     String? market,
     String? selection,
+    List<BetBuilderSelection>? builderSelections,
     double? odds,
   }) {
     final int index = _items.indexWhere(
@@ -94,12 +125,57 @@ class BetslipService extends ChangeNotifier {
     _items[index] = currentItem.copyWith(
       market: market,
       selection: selection,
+      builderSelections: builderSelections,
       odds: odds,
     );
 
     notifyListeners();
 
     return true;
+  }
+
+  bool updateBetBuilder({
+    required String matchId,
+    required List<BetBuilderSelection> selections,
+    double? odds,
+  }) {
+    if (selections.isEmpty) {
+      return false;
+    }
+
+    return updateItem(
+      matchId: matchId,
+      market: 'Fogadáskészítő',
+      selection: '${selections.length} kiválasztott tipp',
+      builderSelections: List<BetBuilderSelection>.unmodifiable(
+        selections,
+      ),
+      odds: odds,
+    );
+  }
+
+  bool saveBetBuilder(
+    AppMatch match, {
+    required List<BetBuilderSelection> selections,
+    double odds = 0.0,
+  }) {
+    if (selections.isEmpty) {
+      return false;
+    }
+
+    if (contains(match.id)) {
+      return updateBetBuilder(
+        matchId: match.id,
+        selections: selections,
+        odds: odds,
+      );
+    }
+
+    return addBetBuilder(
+      match,
+      selections: selections,
+      odds: odds,
+    );
   }
 
   bool removeMatch(String matchId) {
@@ -143,7 +219,9 @@ class BetslipService extends ChangeNotifier {
 
     final List<double> validOdds = _items
         .map(
-          (item) => item.odds,
+          (item) => item.isBetBuilder
+              ? item.builderOdds
+              : item.odds,
         )
         .where(
           (odds) => odds > 0,
@@ -158,6 +236,24 @@ class BetslipService extends ChangeNotifier {
       1.0,
       (total, odds) => total * odds,
     );
+  }
+
+  int get averageAiScore {
+    if (_items.isEmpty) {
+      return 0;
+    }
+
+    final int total = _items.fold<int>(
+      0,
+      (sum, item) {
+        return sum +
+            (item.isBetBuilder
+                ? item.builderAiScore
+                : item.match.aiScore);
+      },
+    );
+
+    return (total / _items.length).round();
   }
 
   void clear() {
