@@ -1,57 +1,82 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.1.0
+// Version: v0.4.1
 // File: lib/data/demo_matches.dart
 // ===========================================
 
 import '../models/app_match.dart';
 
 class DemoMatches {
-  static List<AppMatch> get matches => [
-        AppMatch(
-          id: "1",
-          league: "Premier League",
-          homeTeam: "Arsenal",
-          awayTeam: "Chelsea",
-          matchDate: DateTime(2026, 7, 10),
-          matchTime: "18:30",
-          aiScore: 94,
-        ),
-        AppMatch(
-          id: "2",
-          league: "La Liga",
-          homeTeam: "Barcelona",
-          awayTeam: "Sevilla",
-          matchDate: DateTime(2026, 7, 10),
-          matchTime: "21:00",
-          aiScore: 91,
-        ),
-        AppMatch(
-          id: "3",
-          league: "Serie A",
-          homeTeam: "Inter",
-          awayTeam: "Milan",
-          matchDate: DateTime(2026, 7, 11),
-          matchTime: "20:45",
-          aiScore: 89,
-        ),
-        AppMatch(
-          id: "4",
-          league: "Bundesliga",
-          homeTeam: "Bayern München",
-          awayTeam: "RB Leipzig",
-          matchDate: DateTime(2026, 7, 12),
-          matchTime: "18:30",
-          aiScore: 87,
-        ),
-        AppMatch(
-          id: "5",
-          league: "Ligue 1",
-          homeTeam: "PSG",
-          awayTeam: "Lyon",
-          matchDate: DateTime(2026, 7, 13),
-          matchTime: "21:00",
-          aiScore: 90,
-        ),
-      ];
-}
+  DemoMatches._();
+
+  static DateTime get _today {
+    final DateTime now = DateTime.now();
+
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
+  }
+
+  static DateTime _day(int offset) {
+    return _today.add(
+      Duration(days: offset),
+    );
+  }
+
+  static List<AppMatch> get matches {
+    return [
+      AppMatch(
+        id: 'match_001',
+        league: 'Premier League',
+        homeTeam: 'Arsenal',
+        awayTeam: 'Chelsea',
+        matchDate: _day(0),
+        matchTime: '18:30',
+        aiScore: 94,
+        isFavorite: false,
+        isLive: false,
+      ),
+      AppMatch(
+        id: 'match_002',
+        league: 'Premier League',
+        homeTeam: 'Liverpool',
+        awayTeam: 'Manchester City',
+        matchDate: _day(0),
+        matchTime: '20:45',
+        aiScore: 91,
+        isFavorite: false,
+        isLive: false,
+      ),
+      AppMatch(
+        id: 'match_003',
+        league: 'La Liga',
+        homeTeam: 'Barcelona',
+        awayTeam: 'Sevilla',
+        matchDate: _day(0),
+        matchTime: '21:00',
+        aiScore: 89,
+        isFavorite: false,
+        isLive: false,
+      ),
+      AppMatch(
+        id: 'match_004',
+        league: 'Serie A',
+        homeTeam: 'Inter',
+        awayTeam: 'Milan',
+        matchDate: _day(1),
+        matchTime: '20:45',
+        aiScore: 88,
+        isFavorite: false,
+        isLive: false,
+      ),
+      AppMatch(
+        id: 'match_005',
+        league: 'Bundesliga',
+        homeTeam: 'Bayern München',
+        awayTeam: 'RB Leipzig',
+        matchDate: _day(1),
+        matchTime: '18:30',
+        aiScore: 87,
+        isFavorite:
