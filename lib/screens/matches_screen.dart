@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.13.2
+// Version: v0.13.6
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -132,8 +132,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     return result;
   }
 
-  Map<String, List<AppMatch>>
-      _groupMatchesByLeague(
+  Map<String, List<AppMatch>> _groupMatchesByLeague(
     List<AppMatch> matches,
   ) {
     final Map<String, List<AppMatch>> grouped =
@@ -157,10 +156,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
         entries = grouped.entries.toList()
           ..sort(
             (
-              MapEntry<String, List<AppMatch>>
-                  first,
-              MapEntry<String, List<AppMatch>>
-                  second,
+              MapEntry<String, List<AppMatch>> first,
+              MapEntry<String, List<AppMatch>> second,
             ) {
               return first.key
                   .toLowerCase()
@@ -922,8 +919,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
             SportMonksFixture fixture,
           ) {
             return !fixture.placeholder &&
-                fixture.homeTeam.trim().isNotEmpty &&
-                fixture.awayTeam.trim().isNotEmpty;
+                fixture.homeTeam
+                    .trim()
+                    .isNotEmpty &&
+                fixture.awayTeam
+                    .trim()
+                    .isNotEmpty;
           },
         )
         .map(
@@ -959,6 +960,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
         fixture.id.toString(),
       ),
       isLive: fixture.isLive,
+      homeTeamLogoUrl:
+          fixture.homeTeamImagePath.trim(),
+      awayTeamLogoUrl:
+          fixture.awayTeamImagePath.trim(),
+      leagueLogoUrl:
+          fixture.leagueImagePath.trim(),
     );
   }
 
