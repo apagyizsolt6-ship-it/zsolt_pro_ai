@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.14.4
+// Version: v0.14.5
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -78,19 +78,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
             normalizedSearch.isEmpty ||
                 match.homeTeam
                     .toLowerCase()
-                    .contains(
-                      normalizedSearch,
-                    ) ||
+                    .contains(normalizedSearch) ||
                 match.awayTeam
                     .toLowerCase()
-                    .contains(
-                      normalizedSearch,
-                    ) ||
+                    .contains(normalizedSearch) ||
                 match.league
                     .toLowerCase()
-                    .contains(
-                      normalizedSearch,
-                    );
+                    .contains(normalizedSearch);
 
         final bool favoriteMatches =
             !_favoritesOnly ||
@@ -130,8 +124,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             first.league
                 .toLowerCase()
                 .compareTo(
-                  second.league
-                      .toLowerCase(),
+                  second.league.toLowerCase(),
                 );
 
         if (leagueComparison != 0) {
@@ -141,8 +134,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
         return first.homeTeam
             .toLowerCase()
             .compareTo(
-              second.homeTeam
-                  .toLowerCase(),
+              second.homeTeam.toLowerCase(),
             );
       },
     );
@@ -314,8 +306,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
               return first.key
                   .toLowerCase()
                   .compareTo(
-                    second.key
-                        .toLowerCase(),
+                    second.key.toLowerCase(),
                   );
             },
           );
@@ -366,8 +357,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             ? Colors.red.withValues(
                 alpha: 0.08,
               )
-            : colors.primaryContainer
-                .withValues(
+            : colors.primaryContainer.withValues(
                 alpha: 0.22,
               ),
         borderRadius:
@@ -486,8 +476,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       ),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: colors.primaryContainer
-            .withValues(
+        color: colors.primaryContainer.withValues(
           alpha: 0.25,
         ),
         borderRadius:
@@ -923,9 +912,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       await _findNextAvailableDate(
         showLoading: false,
       );
-    } on MatchRepositoryException catch (
-      error,
-    ) {
+    } on MatchRepositoryException catch (error) {
       if (!mounted) {
         return;
       }
@@ -1022,9 +1009,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           }
         }
       });
-    } on MatchRepositoryException catch (
-      error,
-    ) {
+    } on MatchRepositoryException catch (error) {
       if (!mounted) {
         return;
       }
@@ -1105,9 +1090,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             'mérkőzésnap meccsei láthatók. '
             '${_buildSourceInformation(result)}';
       });
-    } on MatchRepositoryException catch (
-      error,
-    ) {
+    } on MatchRepositoryException catch (error) {
       if (!mounted) {
         return;
       }
