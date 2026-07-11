@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.14.0
+// Version: v0.14.1
 // File: lib/screens/ai_top5_screen.dart
 // ===========================================
 
@@ -120,14 +120,17 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         _buildHeaderCard(
           colors: colors,
         ),
+
         if (_informationMessage != null) ...[
           const SizedBox(height: 14),
           _buildInformationBanner(
             colors: colors,
           ),
         ],
+
         const SizedBox(height: 20),
-        ...List<AppMatch>.generate(
+
+        ...List<Widget>.generate(
           _topMatches.length,
           (int index) {
             final AppMatch match =
@@ -523,6 +526,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
 
       setState(() {
         _topMatches = topMatches;
+
         _loadedDate = topMatches.isEmpty
             ? null
             : selectedDate;
@@ -822,6 +826,7 @@ class _TopMatchCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
+
                   _SmallNetworkLogo(
                     imageUrl:
                         match.leagueLogoUrl,
@@ -829,7 +834,9 @@ class _TopMatchCard extends StatelessWidget {
                         Icons.emoji_events_outlined,
                     size: 34,
                   ),
+
                   const SizedBox(width: 9),
+
                   Expanded(
                     child: Text(
                       match.league,
@@ -843,6 +850,7 @@ class _TopMatchCard extends StatelessWidget {
                       ),
                     ),
                   ),
+
                   Container(
                     padding:
                         const EdgeInsets.symmetric(
@@ -867,7 +875,9 @@ class _TopMatchCard extends StatelessWidget {
                   ),
                 ],
               ),
+
               const SizedBox(height: 17),
+
               Row(
                 children: [
                   Expanded(
@@ -880,6 +890,7 @@ class _TopMatchCard extends StatelessWidget {
                           Icons.shield,
                     ),
                   ),
+
                   Padding(
                     padding:
                         const EdgeInsets.symmetric(
@@ -914,6 +925,7 @@ class _TopMatchCard extends StatelessWidget {
                       ],
                     ),
                   ),
+
                   Expanded(
                     child: _TopTeamDisplay(
                       teamName:
@@ -926,7 +938,9 @@ class _TopMatchCard extends StatelessWidget {
                   ),
                 ],
               ),
+
               const SizedBox(height: 16),
+
               ClipRRect(
                 borderRadius:
                     BorderRadius.circular(20),
@@ -938,7 +952,9 @@ class _TopMatchCard extends StatelessWidget {
                       colors.surfaceContainerHighest,
                 ),
               ),
+
               const SizedBox(height: 13),
+
               Row(
                 children: [
                   Icon(
@@ -958,7 +974,9 @@ class _TopMatchCard extends StatelessWidget {
                   ),
                 ],
               ),
+
               const SizedBox(height: 9),
+
               Container(
                 width: double.infinity,
                 padding:
@@ -980,7 +998,9 @@ class _TopMatchCard extends StatelessWidget {
                   ),
                 ),
               ),
+
               const SizedBox(height: 11),
+
               Row(
                 children: [
                   Icon(
