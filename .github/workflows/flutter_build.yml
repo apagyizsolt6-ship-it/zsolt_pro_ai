@@ -37,7 +37,7 @@ jobs:
             --org=hu.zsoltproai \
             .
 
-      - name: Internetengedély hozzáadása
+      - name: Android internetengedélyek hozzáadása
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -50,31 +50,26 @@ jobs:
               encoding="utf-8"
           )
 
-          permission = (
-              '<uses-permission '
-              'android:name="android.permission.INTERNET" />'
+          permissions = [
+              '<uses-permission android:name="android.permission.INTERNET" />',
+              '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
+          ]
+
+          manifest_end = content.find(">")
+
+          for permission in permissions:
+              if permission not in content:
+                  content = (
+                      content[:manifest_end + 1]
+                      + "\n    "
+                      + permission
+                      + content[manifest_end + 1:]
+                  )
+
+          manifest_path.write_text(
+              content,
+              encoding="utf-8",
           )
-
-          if permission not in content:
-              content = content.replace(
-                  "<manifest",
-                  "<manifest",
-                  1,
-              )
-
-              manifest_end = content.find(">")
-
-              content = (
-                  content[:manifest_end + 1]
-                  + "\n    "
-                  + permission
-                  + content[manifest_end + 1:]
-              )
-
-              manifest_path.write_text(
-                  content,
-                  encoding="utf-8",
-              )
 
           print(
               manifest_path.read_text(
@@ -92,21 +87,31 @@ jobs:
       - name: Dart kód ellenőrzése
         run: flutter analyze
 
-      - name: The Odds API kulcs ellenőrzése
+      - name: API kulcsok ellenőrzése
         env:
           THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+          SPORTMONKS_API_TOKEN: ${{ secrets.SPORTMONKS_API_TOKEN }}
         run: |
           if [ -z "$THE_ODDS_API_KEY" ]; then
             echo "HIBA: A THE_ODDS_API_KEY GitHub Secret nincs beállítva."
             exit 1
           fi
 
+          if [ -z "$SPORTMONKS_API_TOKEN" ]; then
+            echo "HIBA: A SPORTMONKS_API_TOKEN GitHub Secret nincs beállítva."
+            exit 1
+          fi
+
+          echo "Mindkét API-kulcs be van állítva."
+
       - name: Release APK elkészítése
         env:
           THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+          SPORTMONKS_API_TOKEN: ${{ secrets.SPORTMONKS_API_TOKEN }}
         run: |
           flutter build apk --release \
-            --dart-define=THE_ODDS_API_KEY="$THE_ODDS_API_KEY"
+            --dart-define=THE_ODDS_API_KEY="$THE_ODDS_API_KEY" \
+            --dart-define=SPORTMONKS_API_TOKEN="$SPORTMONKS_API_TOKEN"
 
       - name: APK feltöltése
         uses: actions/upload-artifact@v4
