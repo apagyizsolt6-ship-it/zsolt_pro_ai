@@ -1,14 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.14.1
+// Version: v0.14.6
 // File: lib/screens/ai_top5_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
-import '../services/favorites_service.dart';
-import '../services/sportmonks_service.dart';
+import '../services/match_repository.dart';
 import 'match_detail_screen.dart';
 
 class AITop5Screen extends StatefulWidget {
@@ -23,16 +22,18 @@ class AITop5Screen extends StatefulWidget {
 }
 
 class _AITop5ScreenState extends State<AITop5Screen> {
-  final SportMonksService _sportMonksService =
-      SportMonksService.instance;
+  final MatchRepository _matchRepository =
+      MatchRepository.instance;
 
   bool _isLoading = false;
-  bool _isSearchingNextDate = false;
 
   String? _errorMessage;
   String? _informationMessage;
+  String? _warningMessage;
 
   DateTime? _loadedDate;
+
+  MatchRepositoryResult? _repositoryResult;
 
   List<AppMatch> _topMatches = <AppMatch>[];
 
@@ -49,9 +50,6 @@ class _AITop5ScreenState extends State<AITop5Screen> {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -75,35 +73,34 @@ class _AITop5ScreenState extends State<AITop5Screen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadTopMatches,
-          child: _buildBody(
-            context: context,
-            colors: colors,
+          child: _buildContent(
+            context,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildBody({
-    required BuildContext context,
-    required ColorScheme colors,
-  }) {
-    if (_isLoading && _topMatches.isEmpty) {
+  Widget _buildContent(
+    BuildContext context,
+  ) {
+    if (_isLoading &&
+        _topMatches.isEmpty) {
       return _buildLoadingState(
-        colors: colors,
+        context,
       );
     }
 
     if (_errorMessage != null &&
         _topMatches.isEmpty) {
       return _buildErrorState(
-        colors: colors,
+        context,
       );
     }
 
     if (_topMatches.isEmpty) {
       return _buildEmptyState(
-        colors: colors,
+        context,
       );
     }
 
@@ -118,13 +115,20 @@ class _AITop5ScreenState extends State<AITop5Screen> {
       ),
       children: [
         _buildHeaderCard(
-          colors: colors,
+          context,
         ),
+
+        if (_warningMessage != null) ...[
+          const SizedBox(height: 14),
+          _buildWarningBanner(
+            context,
+          ),
+        ],
 
         if (_informationMessage != null) ...[
           const SizedBox(height: 14),
           _buildInformationBanner(
-            colors: colors,
+            context,
           ),
         ],
 
@@ -132,7 +136,9 @@ class _AITop5ScreenState extends State<AITop5Screen> {
 
         ...List<Widget>.generate(
           _topMatches.length,
-          (int index) {
+          (
+            int index,
+          ) {
             final AppMatch match =
                 _topMatches[index];
 
@@ -160,9 +166,16 @@ class _AITop5ScreenState extends State<AITop5Screen> {
     );
   }
 
-  Widget _buildHeaderCard({
-    required ColorScheme colors,
-  }) {
+  Widget _buildHeaderCard(
+    BuildContext context,
+  ) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    final String sourceLabel =
+        _repositoryResult?.sourceLabel ??
+            'SportMonks + TheSportsDB';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -174,7 +187,8 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius:
+            BorderRadius.circular(22),
       ),
       child: Row(
         children: [
@@ -205,13 +219,14 @@ class _AITop5ScreenState extends State<AITop5Screen> {
                   style: TextStyle(
                     color: colors.onPrimary,
                     fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                        FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   _loadedDate == null
-                      ? 'Valódi SportMonks meccsek'
+                      ? sourceLabel
                       : '${_formatDate(_loadedDate!)} • '
                           '${_topMatches.length} kiválasztott meccs',
                   style: TextStyle(
@@ -224,7 +239,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Az AI-pontszám jelenleg ideiglenes számítás.',
+                  '$sourceLabel • ideiglenes AI-pontszám',
                   style: TextStyle(
                     color: colors.onPrimary
                         .withValues(
@@ -241,9 +256,12 @@ class _AITop5ScreenState extends State<AITop5Screen> {
     );
   }
 
-  Widget _buildInformationBanner({
-    required ColorScheme colors,
-  }) {
+  Widget _buildWarningBanner(
+    BuildContext context,
+  ) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(13),
@@ -251,7 +269,8 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         color: Colors.orange.withValues(
           alpha: 0.10,
         ),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius:
+            BorderRadius.circular(14),
         border: Border.all(
           color: Colors.orangeAccent.withValues(
             alpha: 0.55,
@@ -263,16 +282,17 @@ class _AITop5ScreenState extends State<AITop5Screen> {
             CrossAxisAlignment.start,
         children: [
           const Icon(
-            Icons.info_outline,
+            Icons.warning_amber_rounded,
             color: Colors.orangeAccent,
             size: 21,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              _informationMessage!,
+              _warningMessage!,
               style: TextStyle(
-                color: colors.onSurfaceVariant,
+                color:
+                    colors.onSurfaceVariant,
                 fontSize: 13,
                 height: 1.35,
               ),
@@ -283,9 +303,60 @@ class _AITop5ScreenState extends State<AITop5Screen> {
     );
   }
 
-  Widget _buildLoadingState({
-    required ColorScheme colors,
-  }) {
+  Widget _buildInformationBanner(
+    BuildContext context,
+  ) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: colors.primaryContainer
+            .withValues(
+          alpha: 0.24,
+        ),
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color: colors.primary.withValues(
+            alpha: 0.35,
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline,
+            color: colors.primary,
+            size: 21,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _informationMessage!,
+              style: TextStyle(
+                color:
+                    colors.onSurfaceVariant,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState(
+    BuildContext context,
+  ) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
     return ListView(
       physics:
           const AlwaysScrollableScrollPhysics(),
@@ -296,23 +367,20 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           child: CircularProgressIndicator(),
         ),
         const SizedBox(height: 20),
-        Text(
-          _isSearchingNextDate
-              ? 'Következő mérkőzésnap keresése...'
-              : 'Valódi AI Top 5 betöltése...',
+        const Text(
+          'AI Top 5 betöltése...',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 19,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 9),
         Text(
-          _isSearchingNextDate
-              ? 'A SportMonks következő 30 napját '
-                  'ellenőrizzük.'
-              : 'A valódi mérkőzéseket kérjük le '
-                  'a SportMonks API-ból.',
+          'A SportMonks és a TheSportsDB '
+          'mérkőzéseit egyesítjük, majd '
+          'kiválasztjuk a legmagasabb '
+          'AI-pontszámú meccseket.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.onSurfaceVariant,
@@ -323,9 +391,12 @@ class _AITop5ScreenState extends State<AITop5Screen> {
     );
   }
 
-  Widget _buildErrorState({
-    required ColorScheme colors,
-  }) {
+  Widget _buildErrorState(
+    BuildContext context,
+  ) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
     return ListView(
       physics:
           const AlwaysScrollableScrollPhysics(),
@@ -335,7 +406,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         const Icon(
           Icons.cloud_off_outlined,
           size: 76,
-          color: Colors.orangeAccent,
+          color: Colors.redAccent,
         ),
         const SizedBox(height: 18),
         const Text(
@@ -349,7 +420,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         const SizedBox(height: 12),
         Text(
           _errorMessage ??
-              'Ismeretlen SportMonks hiba történt.',
+              'Ismeretlen adatforrás-hiba történt.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.onSurfaceVariant,
@@ -376,9 +447,12 @@ class _AITop5ScreenState extends State<AITop5Screen> {
     );
   }
 
-  Widget _buildEmptyState({
-    required ColorScheme colors,
-  }) {
+  Widget _buildEmptyState(
+    BuildContext context,
+  ) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
     return ListView(
       physics:
           const AlwaysScrollableScrollPhysics(),
@@ -401,9 +475,9 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'A SportMonks csomagodban a következő '
-          '30 napra sem találtunk megjeleníthető '
-          'mérkőzést.',
+          'A SportMonks és a TheSportsDB '
+          'a következő 30 napra sem talált '
+          'megjeleníthető mérkőzést.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.onSurfaceVariant,
@@ -444,106 +518,62 @@ class _AITop5ScreenState extends State<AITop5Screen> {
 
     setState(() {
       _isLoading = true;
-      _isSearchingNextDate = false;
       _errorMessage = null;
       _informationMessage = null;
+      _warningMessage = null;
+      _repositoryResult = null;
     });
 
     try {
-      List<SportMonksFixture> fixtures =
-          await _sportMonksService
-              .fetchFixturesByDate(
-        today,
+      final MatchTopResult result =
+          await _matchRepository.fetchTopMatches(
+        startDate: today,
+        limit: 5,
+        daysToCheck: 30,
       );
-
-      DateTime selectedDate = today;
-
-      List<AppMatch> matches =
-          _convertFixtures(
-        fixtures,
-      );
-
-      if (matches.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isSearchingNextDate = true;
-          });
-        }
-
-        final SportMonksAvailabilityResult
-            availability =
-            await _sportMonksService
-                .findNextAvailableFixtures(
-          startDate: today.add(
-            const Duration(days: 1),
-          ),
-          daysToCheck: 30,
-        );
-
-        if (availability.hasFixtures &&
-            availability.date != null) {
-          selectedDate =
-              availability.date!;
-
-          fixtures =
-              availability.fixtures;
-
-          matches =
-              _convertFixtures(
-            fixtures,
-          );
-        }
-      }
-
-      matches.sort(
-        (
-          AppMatch first,
-          AppMatch second,
-        ) {
-          final int aiComparison =
-              second.aiScore.compareTo(
-            first.aiScore,
-          );
-
-          if (aiComparison != 0) {
-            return aiComparison;
-          }
-
-          return first.matchTime.compareTo(
-            second.matchTime,
-          );
-        },
-      );
-
-      final List<AppMatch> topMatches =
-          matches.take(5).toList(
-                growable: false,
-              );
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _topMatches = topMatches;
+        _topMatches =
+            List<AppMatch>.from(
+          result.matches,
+        );
 
-        _loadedDate = topMatches.isEmpty
-            ? null
-            : selectedDate;
+        _loadedDate =
+            result.date;
 
-        if (topMatches.isNotEmpty &&
-            !_isSameDay(
-              selectedDate,
-              today,
-            )) {
-          _informationMessage =
-              'Ma nincs elérhető mérkőzés a '
-              'SportMonks csomagodban. A következő '
-              'elérhető nap Top tippjei láthatók: '
-              '${_formatDate(selectedDate)}';
+        _repositoryResult =
+            result.repositoryResult;
+
+        _warningMessage =
+            result.repositoryResult
+                ?.warningMessage;
+
+        if (result.hasMatches &&
+            result.date != null) {
+          if (_isSameDay(
+            result.date!,
+            today,
+          )) {
+            _informationMessage =
+                _buildSourceInformation(
+              result.repositoryResult,
+            );
+          } else {
+            _informationMessage =
+                'Ma nincs elérhető mérkőzés. '
+                'A következő elérhető nap '
+                'Top tippjei láthatók: '
+                '${_formatDate(result.date!)} '
+                '(${result.checkedDays} nap ellenőrizve). '
+                '${_buildSourceInformation(result.repositoryResult)}';
+          }
         }
       });
-    } on SportMonksException catch (error) {
+    } on MatchRepositoryException catch (error) {
       if (!mounted) {
         return;
       }
@@ -551,6 +581,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
       setState(() {
         _topMatches = <AppMatch>[];
         _loadedDate = null;
+        _repositoryResult = null;
         _errorMessage = error.message;
       });
     } catch (error) {
@@ -561,6 +592,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
       setState(() {
         _topMatches = <AppMatch>[];
         _loadedDate = null;
+        _repositoryResult = null;
         _errorMessage =
             'Váratlan hiba történt. '
             'Típus: ${error.runtimeType}. '
@@ -570,86 +602,38 @@ class _AITop5ScreenState extends State<AITop5Screen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _isSearchingNextDate = false;
         });
       }
     }
   }
 
-  List<AppMatch> _convertFixtures(
-    List<SportMonksFixture> fixtures,
+  String _buildSourceInformation(
+    MatchRepositoryResult? result,
   ) {
-    return fixtures
-        .where(
-          (
-            SportMonksFixture fixture,
-          ) {
-            return !fixture.placeholder &&
-                fixture.homeTeam
-                    .trim()
-                    .isNotEmpty &&
-                fixture.awayTeam
-                    .trim()
-                    .isNotEmpty;
-          },
-        )
-        .map(
-          _fixtureToAppMatch,
-        )
-        .toList(growable: false);
-  }
+    if (result == null) {
+      return '';
+    }
 
-  AppMatch _fixtureToAppMatch(
-    SportMonksFixture fixture,
-  ) {
-    final DateTime localStart =
-        fixture.startingAt.toLocal();
+    if (result.usedBothSources) {
+      return 'SportMonks: '
+          '${result.sportMonksCount} • '
+          'TheSportsDB: '
+          '${result.theSportsDbCount} • '
+          'egyesített lista: '
+          '${result.totalCount}.';
+    }
 
-    return AppMatch(
-      id: fixture.id.toString(),
-      league:
-          fixture.leagueName.trim().isEmpty
-              ? 'Ismeretlen bajnokság'
-              : fixture.leagueName.trim(),
-      homeTeam:
-          fixture.homeTeam.trim(),
-      awayTeam:
-          fixture.awayTeam.trim(),
-      matchDate: DateTime(
-        localStart.year,
-        localStart.month,
-        localStart.day,
-      ),
-      matchTime:
-          fixture.matchTime,
-      aiScore:
-          _createTemporaryAiScore(
-        fixture,
-      ),
-      isFavorite:
-          FavoritesService.isFavorite(
-        fixture.id.toString(),
-      ),
-      isLive:
-          fixture.isLive,
-      homeTeamLogoUrl:
-          fixture.homeTeamImagePath.trim(),
-      awayTeamLogoUrl:
-          fixture.awayTeamImagePath.trim(),
-      leagueLogoUrl:
-          fixture.leagueImagePath.trim(),
-    );
-  }
+    if (result.usedSportMonks) {
+      return 'SportMonks adatforrás: '
+          '${result.sportMonksCount} mérkőzés.';
+    }
 
-  int _createTemporaryAiScore(
-    SportMonksFixture fixture,
-  ) {
-    final int seed =
-        fixture.id +
-            fixture.homeTeam.length * 3 +
-            fixture.awayTeam.length * 5;
+    if (result.usedTheSportsDb) {
+      return 'TheSportsDB adatforrás: '
+          '${result.theSportsDbCount} mérkőzés.';
+    }
 
-    return 65 + seed.abs() % 31;
+    return '';
   }
 
   void _openMatchDetails(
@@ -688,7 +672,11 @@ class _AITop5ScreenState extends State<AITop5Screen> {
       return 'Hazai csapat nem kap ki';
     }
 
-    return 'Kevesebb mint 4,5 gól';
+    if (aiScore >= 78) {
+      return 'Kevesebb mint 4,5 gól';
+    }
+
+    return 'Kevesebb mint 5,5 gól';
   }
 
   String _confidenceText(
@@ -710,7 +698,11 @@ class _AITop5ScreenState extends State<AITop5Screen> {
       return 'Jó tipp';
     }
 
-    return 'Közepes tipp';
+    if (aiScore >= 75) {
+      return 'Közepes tipp';
+    }
+
+    return 'Óvatos tipp';
   }
 
   String _formatDate(
@@ -722,12 +714,18 @@ class _AITop5ScreenState extends State<AITop5Screen> {
     final String month =
         date.month
             .toString()
-            .padLeft(2, '0');
+            .padLeft(
+              2,
+              '0',
+            );
 
     final String day =
         date.day
             .toString()
-            .padLeft(2, '0');
+            .padLeft(
+              2,
+              '0',
+            );
 
     return '$year.$month.$day.';
   }
@@ -1045,12 +1043,18 @@ class _TopMatchCard extends StatelessWidget {
     final String month =
         date.month
             .toString()
-            .padLeft(2, '0');
+            .padLeft(
+              2,
+              '0',
+            );
 
     final String day =
         date.day
             .toString()
-            .padLeft(2, '0');
+            .padLeft(
+              2,
+              '0',
+            );
 
     return '$year.$month.$day.';
   }
@@ -1078,7 +1082,9 @@ class _TopTeamDisplay extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          teamName,
+          teamName.trim().isEmpty
+              ? 'Ismeretlen csapat'
+              : teamName,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
@@ -1148,6 +1154,17 @@ class _SmallNetworkLogo extends StatelessWidget {
                   return child;
                 }
 
+                final int? totalBytes =
+                    loadingProgress
+                        .expectedTotalBytes;
+
+                final double? progress =
+                    totalBytes == null
+                        ? null
+                        : loadingProgress
+                                .cumulativeBytesLoaded /
+                            totalBytes;
+
                 return Center(
                   child: SizedBox(
                     width: size * 0.35,
@@ -1155,14 +1172,7 @@ class _SmallNetworkLogo extends StatelessWidget {
                     child:
                         CircularProgressIndicator(
                       strokeWidth: 2,
-                      value: loadingProgress
-                                  .expectedTotalBytes ==
-                              null
-                          ? null
-                          : loadingProgress
-                                  .cumulativeBytesLoaded /
-                              loadingProgress
-                                  .expectedTotalBytes!,
+                      value: progress,
                     ),
                   ),
                 );
