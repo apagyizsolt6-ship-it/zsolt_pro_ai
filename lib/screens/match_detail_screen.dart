@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.9.2
+// Version: v0.12.1
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
@@ -10,6 +10,7 @@ import '../models/app_match.dart';
 import '../models/bet_builder_selection.dart';
 import '../models/betslip_item.dart';
 import '../services/betslip_service.dart';
+import '../services/the_odds_api_service.dart';
 import '../widgets/bet_builder_selector.dart';
 import '../widgets/bet_market_selector.dart';
 
@@ -34,21 +35,38 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     icon: Icons.auto_awesome,
   );
 
+  final BetslipService _betslipService = BetslipService.instance;
+  final TheOddsApiService _oddsService = TheOddsApiService.instance;
+
   BetSelection? _selectedSingleBet;
 
   List<BetBuilderSelection> _builderSelections =
       <BetBuilderSelection>[];
 
+  OddsEvent? _oddsEvent;
+  String? _oddsError;
+  String? _sportKey;
+
+  bool _isLoadingOdds = false;
+
   AppMatch get match => widget.match;
 
-  BetslipService get _betslipService {
-    return BetslipService.instance;
+  bool get _isBuilderMode {
+    return _builderSelections.isNotEmpty;
   }
 
   @override
   void initState() {
     super.initState();
 
+    _restoreSavedSelection();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadOdds();
+    });
+  }
+
+  void _restoreSavedSelection() {
     final BetslipItem? savedItem =
         _betslipService.getItem(match.id);
 
@@ -89,347 +107,874 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
         ),
         centerTitle: true,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          8,
-          16,
-          28,
-        ),
-        children: [
-          _MatchHeaderCard(
-            match: match,
+      body: RefreshIndicator(
+        onRefresh: _loadOdds,
+        child: ListView(
+          physics:
+              const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            28,
           ),
-          const SizedBox(height: 16),
-
-          _AiRecommendationCard(
-            aiScore: match.aiScore,
-          ),
-          const SizedBox(height: 18),
-
-          const _SectionTitle(
-            icon: Icons.auto_graph,
-            title: 'Forma – utolsó 5 mérkőzés',
-          ),
-          const SizedBox(height: 10),
-
-          const Row(
-            children: [
-              Expanded(
-                child: _FormCard(
-                  title: 'Hazai csapat',
-                  form: [
-                    'G',
-                    'G',
-                    'D',
-                    'G',
-                    'V',
-                  ],
-                  score: 78,
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _FormCard(
-                  title: 'Vendég csapat',
-                  form: [
-                    'V',
-                    'D',
-                    'G',
-                    'V',
-                    'D',
-                  ],
-                  score: 54,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-
-          const _SectionTitle(
-            icon: Icons.compare_arrows,
-            title: 'Egymás elleni mérleg',
-          ),
-          const SizedBox(height: 10),
-
-          const _StatisticsCard(
-            rows: [
-              _StatisticRowData(
-                label: 'Hazai győzelem',
-                value: '4',
-              ),
-              _StatisticRowData(
-                label: 'Döntetlen',
-                value: '2',
-              ),
-              _StatisticRowData(
-                label: 'Vendég győzelem',
-                value: '2',
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-
-          const _SectionTitle(
-            icon: Icons.sports_soccer,
-            title: 'Gólstatisztikák',
-          ),
-          const SizedBox(height: 10),
-
-          const _StatisticsCard(
-            rows: [
-              _StatisticRowData(
-                label: 'Átlagos gólszám',
-                value: '2,8',
-              ),
-              _StatisticRowData(
-                label: 'Több mint 1,5 gól',
-                value: '82%',
-              ),
-              _StatisticRowData(
-                label: 'Több mint 2,5 gól',
-                value: '64%',
-              ),
-              _StatisticRowData(
-                label: 'Mindkét csapat szerez gólt',
-                value: '61%',
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-
-          const _SectionTitle(
-            icon: Icons.flag_outlined,
-            title: 'Speciális statisztikák',
-          ),
-          const SizedBox(height: 10),
-
-          const _StatisticsCard(
-            rows: [
-              _StatisticRowData(
-                label: 'Várható szögletek',
-                value: '9–12',
-              ),
-              _StatisticRowData(
-                label: 'Várható büntetőlapok',
-                value: '3–5',
-              ),
-              _StatisticRowData(
-                label: 'Várható lesek',
-                value: '2–4',
-              ),
-              _StatisticRowData(
-                label: 'Várható szabálytalanságok',
-                value: '21–27',
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
-
-          _ModeInformationCard(
-            singleBetSelected:
-                _selectedSingleBet != null,
-            builderSelectionCount:
-                _builderSelections.length,
-          ),
-          const SizedBox(height: 22),
-
-          const _SectionTitle(
-            icon: Icons.touch_app_outlined,
-            title: 'Egyedi tipp',
-          ),
-          const SizedBox(height: 8),
-
-          Text(
-            'Válassz egyetlen fogadási piacot, ha nem '
-            'Fogadáskészítőt szeretnél használni.',
-            style: TextStyle(
-              color: colors.onSurfaceVariant,
-              fontSize: 14,
+          children: [
+            _MatchHeaderCard(
+              match: match,
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
-          BetMarketSelector(
-            selectedBet: _selectedSingleBet,
-            onSelected: (
-              BetSelection selection,
-            ) {
-              setState(() {
-                _selectedSingleBet = selection;
-                _builderSelections =
-                    <BetBuilderSelection>[];
-              });
-            },
-          ),
-          const SizedBox(height: 10),
-
-          if (_selectedSingleBet != null &&
-              _builderSelections.isEmpty)
-            _SelectedSingleBetCard(
-              selectedBet: _selectedSingleBet!,
+            _AiRecommendationCard(
               aiScore: match.aiScore,
             ),
+            const SizedBox(height: 18),
 
-          const SizedBox(height: 26),
-
-          const _SectionTitle(
-            icon: Icons.construction_outlined,
-            title: 'Fogadáskészítő PRO',
-          ),
-          const SizedBox(height: 8),
-
-          Text(
-            'Jelölj ki több piacot ugyanahhoz a '
-            'mérkőzéshez. A kiválasztások egyetlen '
-            'Fogadáskészítőként kerülnek a szelvényre.',
-            style: TextStyle(
-              color: colors.onSurfaceVariant,
-              fontSize: 14,
+            const _SectionTitle(
+              icon: Icons.currency_exchange,
+              title: 'Valódi oddsok',
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 10),
 
-          BetBuilderSelector(
-            selectedSelections:
-                _builderSelections,
-            onChanged: (
-              List<BetBuilderSelection> selections,
-            ) {
-              setState(() {
-                _builderSelections =
-                    List<BetBuilderSelection>.from(
-                  selections,
+            _RealOddsCard(
+              match: match,
+              event: _oddsEvent,
+              isLoading: _isLoadingOdds,
+              errorMessage: _oddsError,
+              sportKey: _sportKey,
+              homeQuote: _homeWinQuote,
+              drawQuote: _drawQuote,
+              awayQuote: _awayWinQuote,
+              over25Quote: _over25Quote,
+              under25Quote: _under25Quote,
+              onRefresh: _loadOdds,
+            ),
+            const SizedBox(height: 18),
+
+            if (!_isBuilderMode &&
+                _selectedSingleBet != null)
+              _ValueBetPanel(
+                selection:
+                    _selectedSingleBet!.selection,
+                aiProbability: match.aiScore,
+                quote: _selectedBetQuote,
+                isLoading: _isLoadingOdds,
+                errorMessage: _valueBetMessage,
+              ),
+
+            if (!_isBuilderMode &&
+                _selectedSingleBet != null)
+              const SizedBox(height: 22),
+
+            const _SectionTitle(
+              icon: Icons.auto_graph,
+              title: 'Forma – utolsó 5 mérkőzés',
+            ),
+            const SizedBox(height: 10),
+
+            const Row(
+              children: [
+                Expanded(
+                  child: _FormCard(
+                    title: 'Hazai csapat',
+                    form: [
+                      'G',
+                      'G',
+                      'D',
+                      'G',
+                      'V',
+                    ],
+                    score: 78,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: _FormCard(
+                    title: 'Vendég csapat',
+                    form: [
+                      'V',
+                      'D',
+                      'G',
+                      'V',
+                      'D',
+                    ],
+                    score: 54,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+
+            const _SectionTitle(
+              icon: Icons.compare_arrows,
+              title: 'Egymás elleni mérleg',
+            ),
+            const SizedBox(height: 10),
+
+            const _StatisticsCard(
+              rows: [
+                _StatisticRowData(
+                  label: 'Hazai győzelem',
+                  value: '4',
+                ),
+                _StatisticRowData(
+                  label: 'Döntetlen',
+                  value: '2',
+                ),
+                _StatisticRowData(
+                  label: 'Vendég győzelem',
+                  value: '2',
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+
+            const _SectionTitle(
+              icon: Icons.sports_soccer,
+              title: 'Gólstatisztikák',
+            ),
+            const SizedBox(height: 10),
+
+            const _StatisticsCard(
+              rows: [
+                _StatisticRowData(
+                  label: 'Átlagos gólszám',
+                  value: '2,8',
+                ),
+                _StatisticRowData(
+                  label: 'Több mint 1,5 gól',
+                  value: '82%',
+                ),
+                _StatisticRowData(
+                  label: 'Több mint 2,5 gól',
+                  value: '64%',
+                ),
+                _StatisticRowData(
+                  label:
+                      'Mindkét csapat szerez gólt',
+                  value: '61%',
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+
+            const _SectionTitle(
+              icon: Icons.flag_outlined,
+              title: 'Speciális statisztikák',
+            ),
+            const SizedBox(height: 10),
+
+            const _StatisticsCard(
+              rows: [
+                _StatisticRowData(
+                  label: 'Várható szögletek',
+                  value: '9–12',
+                ),
+                _StatisticRowData(
+                  label: 'Várható büntetőlapok',
+                  value: '3–5',
+                ),
+                _StatisticRowData(
+                  label: 'Várható lesek',
+                  value: '2–4',
+                ),
+                _StatisticRowData(
+                  label:
+                      'Várható szabálytalanságok',
+                  value: '21–27',
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+
+            _ModeInformationCard(
+              singleBetSelected:
+                  _selectedSingleBet != null,
+              builderSelectionCount:
+                  _builderSelections.length,
+            ),
+            const SizedBox(height: 22),
+
+            const _SectionTitle(
+              icon: Icons.touch_app_outlined,
+              title: 'Egyedi tipp',
+            ),
+            const SizedBox(height: 8),
+
+            Text(
+              'Válassz egyetlen fogadási piacot, '
+              'ha nem Fogadáskészítőt szeretnél használni.',
+              style: TextStyle(
+                color: colors.onSurfaceVariant,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            BetMarketSelector(
+              selectedBet: _selectedSingleBet,
+              onSelected: (
+                BetSelection selection,
+              ) {
+                setState(() {
+                  _selectedSingleBet = selection;
+                  _builderSelections =
+                      <BetBuilderSelection>[];
+                });
+              },
+            ),
+            const SizedBox(height: 10),
+
+            if (_selectedSingleBet != null &&
+                !_isBuilderMode)
+              _SelectedSingleBetCard(
+                selectedBet:
+                    _selectedSingleBet!,
+                aiScore: match.aiScore,
+                realOdds:
+                    _selectedBetQuote?.price,
+              ),
+
+            const SizedBox(height: 26),
+
+            const _SectionTitle(
+              icon: Icons.construction_outlined,
+              title: 'Fogadáskészítő PRO',
+            ),
+            const SizedBox(height: 8),
+
+            Text(
+              'Jelölj ki több piacot ugyanahhoz a '
+              'mérkőzéshez. A kiválasztások egyetlen '
+              'Fogadáskészítőként kerülnek a szelvényre.',
+              style: TextStyle(
+                color: colors.onSurfaceVariant,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            BetBuilderSelector(
+              selectedSelections:
+                  _builderSelections,
+              onChanged: (
+                List<BetBuilderSelection> selections,
+              ) {
+                setState(() {
+                  _builderSelections =
+                      List<BetBuilderSelection>.from(
+                    selections,
+                  );
+                });
+              },
+            ),
+            const SizedBox(height: 18),
+
+            AnimatedBuilder(
+              animation: _betslipService,
+              builder: (context, child) {
+                final BetslipItem? savedItem =
+                    _betslipService.getItem(
+                  match.id,
                 );
-              });
-            },
-          ),
-          const SizedBox(height: 18),
 
-          AnimatedBuilder(
-            animation: _betslipService,
-            builder: (context, child) {
-              final BetslipItem? savedItem =
-                  _betslipService.getItem(match.id);
+                final bool hasSavedItem =
+                    savedItem != null;
 
-              final bool hasSavedItem =
-                  savedItem != null;
+                return Column(
+                  children: [
+                    if (_isBuilderMode)
+                      FilledButton.icon(
+                        onPressed:
+                            _saveBetBuilder,
+                        icon: Icon(
+                          hasSavedItem &&
+                                  savedItem
+                                      .isBetBuilder
+                              ? Icons.sync
+                              : Icons
+                                  .add_circle_outline,
+                        ),
+                        label: Text(
+                          hasSavedItem &&
+                                  savedItem
+                                      .isBetBuilder
+                              ? 'Fogadáskészítő frissítése'
+                              : 'Fogadáskészítő hozzáadása',
+                        ),
+                        style:
+                            FilledButton.styleFrom(
+                          minimumSize:
+                              const Size
+                                  .fromHeight(
+                            58,
+                          ),
+                          backgroundColor:
+                              Colors.green,
+                          foregroundColor:
+                              Colors.white,
+                          shape:
+                              RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              16,
+                            ),
+                          ),
+                          textStyle:
+                              const TextStyle(
+                            fontSize: 16,
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+                      )
+                    else
+                      FilledButton.icon(
+                        onPressed:
+                            _selectedSingleBet ==
+                                    null
+                                ? null
+                                : _saveSingleBet,
+                        icon: Icon(
+                          hasSavedItem &&
+                                  !savedItem
+                                      .isBetBuilder
+                              ? Icons.sync
+                              : Icons
+                                  .add_circle_outline,
+                        ),
+                        label: Text(
+                          hasSavedItem &&
+                                  !savedItem
+                                      .isBetBuilder
+                              ? 'Egyedi tipp frissítése'
+                              : 'Egyedi tipp hozzáadása',
+                        ),
+                        style:
+                            FilledButton.styleFrom(
+                          minimumSize:
+                              const Size
+                                  .fromHeight(
+                            58,
+                          ),
+                          backgroundColor:
+                              colors.primary,
+                          foregroundColor:
+                              Colors.white,
+                          shape:
+                              RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              16,
+                            ),
+                          ),
+                          textStyle:
+                              const TextStyle(
+                            fontSize: 16,
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+                      ),
 
-              final bool builderMode =
-                  _builderSelections.isNotEmpty;
-
-              return Column(
-                children: [
-                  if (builderMode)
-                    FilledButton.icon(
-                      onPressed: _saveBetBuilder,
-                      icon: Icon(
-                        hasSavedItem &&
-                                savedItem.isBetBuilder
-                            ? Icons.sync
-                            : Icons.add_circle_outline,
-                      ),
-                      label: Text(
-                        hasSavedItem &&
-                                savedItem.isBetBuilder
-                            ? 'Fogadáskészítő frissítése'
-                            : 'Fogadáskészítő hozzáadása',
-                      ),
-                      style: FilledButton.styleFrom(
-                        minimumSize:
-                            const Size.fromHeight(58),
-                        backgroundColor:
-                            Colors.green,
-                        foregroundColor:
-                            Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(16),
+                    if (hasSavedItem) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed:
+                            _removeFromBetslip,
+                        icon: const Icon(
+                          Icons.delete_outline,
                         ),
-                        textStyle:
-                            const TextStyle(
-                          fontSize: 16,
-                          fontWeight:
-                              FontWeight.bold,
+                        label: const Text(
+                          'Eltávolítás a szelvényről',
                         ),
-                      ),
-                    )
-                  else
-                    FilledButton.icon(
-                      onPressed:
-                          _selectedSingleBet == null
-                              ? null
-                              : _saveSingleBet,
-                      icon: Icon(
-                        hasSavedItem &&
-                                !savedItem.isBetBuilder
-                            ? Icons.sync
-                            : Icons.add_circle_outline,
-                      ),
-                      label: Text(
-                        hasSavedItem &&
-                                !savedItem.isBetBuilder
-                            ? 'Egyedi tipp frissítése'
-                            : 'Egyedi tipp hozzáadása',
-                      ),
-                      style: FilledButton.styleFrom(
-                        minimumSize:
-                            const Size.fromHeight(58),
-                        backgroundColor:
-                            colors.primary,
-                        foregroundColor:
-                            Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(16),
-                        ),
-                        textStyle:
-                            const TextStyle(
-                          fontSize: 16,
-                          fontWeight:
-                              FontWeight.bold,
+                        style:
+                            OutlinedButton.styleFrom(
+                          minimumSize:
+                              const Size
+                                  .fromHeight(
+                            52,
+                          ),
+                          foregroundColor:
+                              Colors.redAccent,
+                          side:
+                              const BorderSide(
+                            color:
+                                Colors.redAccent,
+                          ),
+                          shape:
+                              RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              16,
+                            ),
+                          ),
+                          textStyle:
+                              const TextStyle(
+                            fontSize: 15,
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-
-                  if (hasSavedItem) ...[
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: _removeFromBetslip,
-                      icon: const Icon(
-                        Icons.delete_outline,
-                      ),
-                      label: const Text(
-                        'Eltávolítás a szelvényről',
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize:
-                            const Size.fromHeight(52),
-                        foregroundColor:
-                            Colors.redAccent,
-                        side: const BorderSide(
-                          color: Colors.redAccent,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(16),
-                        ),
-                        textStyle:
-                            const TextStyle(
-                          fontSize: 15,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                    ],
                   ],
-                ],
-              );
-            },
-          ),
-        ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _loadOdds() async {
+    if (_isLoadingOdds) {
+      return;
+    }
+
+    final String? resolvedSportKey =
+        _resolveSportKey(match.league);
+
+    if (resolvedSportKey == null) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _sportKey = null;
+        _oddsEvent = null;
+        _oddsError =
+            'Ehhez a bajnoksághoz még nincs '
+            'beállítva Odds API sportkulcs.';
+      });
+
+      return;
+    }
+
+    setState(() {
+      _sportKey = resolvedSportKey;
+      _isLoadingOdds = true;
+      _oddsError = null;
+    });
+
+    try {
+      final OddsEvent? result =
+          await _oddsService.findMatchOdds(
+        sportKey: resolvedSportKey,
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+        matchDate: _matchDateTime(),
+        markets: const <String>[
+          'h2h',
+          'totals',
+        ],
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _oddsEvent = result;
+
+        if (result == null) {
+          _oddsError =
+              'A The Odds API nem talált egyező '
+              'mérkőzést vagy jelenlegi oddsot.';
+        }
+      });
+    } on OddsApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _oddsEvent = null;
+        _oddsError = error.message;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _oddsEvent = null;
+        _oddsError =
+            'Ismeretlen hiba történt: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingOdds = false;
+        });
+      }
+    }
+  }
+
+  DateTime _matchDateTime() {
+    final List<String> timeParts =
+        match.matchTime.split(':');
+
+    final int hour = timeParts.isNotEmpty
+        ? int.tryParse(timeParts.first) ?? 12
+        : 12;
+
+    final int minute = timeParts.length > 1
+        ? int.tryParse(timeParts[1]) ?? 0
+        : 0;
+
+    return DateTime(
+      match.matchDate.year,
+      match.matchDate.month,
+      match.matchDate.day,
+      hour,
+      minute,
+    );
+  }
+
+  String? _resolveSportKey(String league) {
+    final String normalized =
+        _normalizeText(league);
+
+    if (normalized.contains('premierleague') ||
+        normalized.contains('angolpremier')) {
+      return 'soccer_epl';
+    }
+
+    if (normalized.contains('championship')) {
+      return 'soccer_efl_champ';
+    }
+
+    if (normalized.contains('laliga') ||
+        normalized.contains('spanyol')) {
+      return 'soccer_spain_la_liga';
+    }
+
+    if (normalized.contains('seriea') ||
+        normalized.contains('olasz')) {
+      return 'soccer_italy_serie_a';
+    }
+
+    if (normalized.contains('bundesliga') ||
+        normalized.contains('nemet')) {
+      return 'soccer_germany_bundesliga';
+    }
+
+    if (normalized.contains('ligue1') ||
+        normalized.contains('francia')) {
+      return 'soccer_france_ligue_one';
+    }
+
+    if (normalized.contains('eredivisie') ||
+        normalized.contains('holland')) {
+      return 'soccer_netherlands_eredivisie';
+    }
+
+    if (normalized.contains('primeiraliga') ||
+        normalized.contains('portugal')) {
+      return 'soccer_portugal_primeira_liga';
+    }
+
+    if (normalized.contains('championsleague') ||
+        normalized.contains('bajnokokligaja')) {
+      return 'soccer_uefa_champs_league';
+    }
+
+    if (normalized.contains('europaleague') ||
+        normalized.contains('europaliga')) {
+      return 'soccer_uefa_europa_league';
+    }
+
+    if (normalized.contains('conferenceleague') ||
+        normalized.contains('konferencialiga')) {
+      return 'soccer_uefa_europa_conference_league';
+    }
+
+    if (normalized.contains('mls')) {
+      return 'soccer_usa_mls';
+    }
+
+    if (normalized.contains('australia') ||
+        normalized.contains('aleague')) {
+      return 'soccer_australia_aleague';
+    }
+
+    if (normalized.contains('brazil') ||
+        normalized.contains('brasileirao')) {
+      return 'soccer_brazil_campeonato';
+    }
+
+    if (normalized.contains('argentina')) {
+      return 'soccer_argentina_primera_division';
+    }
+
+    return null;
+  }
+
+  String _normalizeText(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ö', 'o')
+        .replaceAll('ő', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ü', 'u')
+        .replaceAll('ű', 'u')
+        .replaceAll(
+          RegExp(r'[^a-z0-9]'),
+          '',
+        );
+  }
+
+  _OddsQuote? get _homeWinQuote {
+    final OddsEvent? event = _oddsEvent;
+
+    if (event == null) {
+      return null;
+    }
+
+    return _findOutcomeQuote(
+      event: event,
+      marketKey: 'h2h',
+      outcomeName: event.homeTeam,
+    );
+  }
+
+  _OddsQuote? get _drawQuote {
+    final OddsEvent? event = _oddsEvent;
+
+    if (event == null) {
+      return null;
+    }
+
+    return _findOutcomeQuote(
+      event: event,
+      marketKey: 'h2h',
+      outcomeName: 'Draw',
+    );
+  }
+
+  _OddsQuote? get _awayWinQuote {
+    final OddsEvent? event = _oddsEvent;
+
+    if (event == null) {
+      return null;
+    }
+
+    return _findOutcomeQuote(
+      event: event,
+      marketKey: 'h2h',
+      outcomeName: event.awayTeam,
+    );
+  }
+
+  _OddsQuote? get _over25Quote {
+    final OddsEvent? event = _oddsEvent;
+
+    if (event == null) {
+      return null;
+    }
+
+    return _findTotalQuote(
+      event: event,
+      side: 'Over',
+      point: 2.5,
+    );
+  }
+
+  _OddsQuote? get _under25Quote {
+    final OddsEvent? event = _oddsEvent;
+
+    if (event == null) {
+      return null;
+    }
+
+    return _findTotalQuote(
+      event: event,
+      side: 'Under',
+      point: 2.5,
+    );
+  }
+
+  _OddsQuote? get _selectedBetQuote {
+    final BetSelection? selected =
+        _selectedSingleBet;
+
+    final OddsEvent? event = _oddsEvent;
+
+    if (selected == null || event == null) {
+      return null;
+    }
+
+    final String selection =
+        _normalizeText(selected.selection);
+
+    if (selection.contains('hazaigyozelem')) {
+      return _homeWinQuote;
+    }
+
+    if (selection == 'dontetlen') {
+      return _drawQuote;
+    }
+
+    if (selection.contains(
+      'vendeggyozelem',
+    )) {
+      return _awayWinQuote;
+    }
+
+    final bool isOver =
+        selection.contains('tobbmint');
+
+    final bool isUnder =
+        selection.contains('kevesebbmint');
+
+    final double? point =
+        _extractGoalPoint(
+      selected.selection,
+    );
+
+    if ((isOver || isUnder) &&
+        point != null) {
+      return _findTotalQuote(
+        event: event,
+        side: isOver ? 'Over' : 'Under',
+        point: point,
+      );
+    }
+
+    return null;
+  }
+
+  String? get _valueBetMessage {
+    if (_isLoadingOdds) {
+      return null;
+    }
+
+    if (_oddsError != null) {
+      return _oddsError;
+    }
+
+    if (_selectedBetQuote == null) {
+      return 'A kiválasztott piac oddsát a jelenlegi '
+          'h2h/totals lekérés még nem támogatja.';
+    }
+
+    return null;
+  }
+
+  double? _extractGoalPoint(String selection) {
+    final RegExp expression =
+        RegExp(r'(\d+)[,.](\d+)');
+
+    final RegExpMatch? result =
+        expression.firstMatch(selection);
+
+    if (result == null) {
+      return null;
+    }
+
+    final String value =
+        '${result.group(1)}.${result.group(2)}';
+
+    return double.tryParse(value);
+  }
+
+  _OddsQuote? _findOutcomeQuote({
+    required OddsEvent event,
+    required String marketKey,
+    required String outcomeName,
+  }) {
+    final String normalizedOutcome =
+        _normalizeText(outcomeName);
+
+    _OddsQuote? bestQuote;
+
+    for (final OddsBookmaker bookmaker
+        in event.bookmakers) {
+      final OddsMarket? market =
+          bookmaker.marketByKey(marketKey);
+
+      if (market == null) {
+        continue;
+      }
+
+      for (final OddsOutcome outcome
+          in market.outcomes) {
+        if (_normalizeText(outcome.name) !=
+            normalizedOutcome) {
+          continue;
+        }
+
+        if (outcome.price <= 0) {
+          continue;
+        }
+
+        if (bestQuote == null ||
+            outcome.price >
+                bestQuote.price) {
+          bestQuote = _OddsQuote(
+            price: outcome.price,
+            bookmaker: bookmaker.title,
+          );
+        }
+      }
+    }
+
+    return bestQuote;
+  }
+
+  _OddsQuote? _findTotalQuote({
+    required OddsEvent event,
+    required String side,
+    required double point,
+  }) {
+    _OddsQuote? bestQuote;
+
+    for (final OddsBookmaker bookmaker
+        in event.bookmakers) {
+      final OddsMarket? market =
+          bookmaker.marketByKey('totals');
+
+      if (market == null) {
+        continue;
+      }
+
+      for (final OddsOutcome outcome
+          in market.outcomes) {
+        final bool sameSide =
+            outcome.name.toLowerCase() ==
+                side.toLowerCase();
+
+        final bool samePoint =
+            outcome.point != null &&
+                (outcome.point! - point).abs() <
+                    0.001;
+
+        if (!sameSide ||
+            !samePoint ||
+            outcome.price <= 0) {
+          continue;
+        }
+
+        if (bestQuote == null ||
+            outcome.price >
+                bestQuote.price) {
+          bestQuote = _OddsQuote(
+            price: outcome.price,
+            bookmaker: bookmaker.title,
+          );
+        }
+      }
+    }
+
+    return bestQuote;
   }
 
   void _saveSingleBet() {
@@ -446,6 +991,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     final bool alreadySaved =
         existingItem != null;
 
+    final double odds =
+        _selectedBetQuote?.price ?? 0.0;
+
     if (alreadySaved) {
       _betslipService.updateItem(
         matchId: match.id,
@@ -453,13 +1001,14 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
         selection: selectedBet.selection,
         builderSelections:
             const <BetBuilderSelection>[],
-        odds: 0.0,
+        odds: odds,
       );
     } else {
       _betslipService.addMatch(
         match,
         market: selectedBet.market,
         selection: selectedBet.selection,
+        odds: odds,
       );
     }
 
@@ -470,11 +1019,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
           content: Text(
             alreadySaved
                 ? '${match.homeTeam} – '
-                    '${match.awayTeam} egyedi tippje '
-                    'frissítve: ${selectedBet.selection}'
+                    '${match.awayTeam} tippje frissítve.'
                 : '${match.homeTeam} – '
-                    '${match.awayTeam} hozzáadva: '
-                    '${selectedBet.selection}',
+                    '${match.awayTeam} hozzáadva.',
           ),
         ),
       );
@@ -482,19 +1029,24 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   void _saveBetBuilder() {
     if (_builderSelections.isEmpty) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Válassz ki legalább egy '
-              'Fogadáskészítő tippet.',
-            ),
-          ),
-        );
-
       return;
     }
+
+    final List<BetBuilderSelection>
+        selectionsWithOdds =
+        _builderSelections.map(
+      (BetBuilderSelection selection) {
+        final double odds =
+            _findBuilderSelectionOdds(
+                  selection,
+                ) ??
+                0.0;
+
+        return selection.copyWith(
+          odds: odds,
+        );
+      },
+    ).toList(growable: false);
 
     final bool alreadySaved =
         _betslipService.contains(match.id);
@@ -502,16 +1054,23 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     final bool saved =
         _betslipService.saveBetBuilder(
       match,
-      selections: _builderSelections,
+      selections: selectionsWithOdds,
     );
 
     if (!saved) {
       return;
     }
 
+    setState(() {
+      _builderSelections =
+          List<BetBuilderSelection>.from(
+        selectionsWithOdds,
+      );
+    });
+
     final int averageAi =
         _calculateBuilderAiScore(
-      _builderSelections,
+      selectionsWithOdds,
     );
 
     ScaffoldMessenger.of(context)
@@ -521,14 +1080,52 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
           content: Text(
             alreadySaved
                 ? 'Fogadáskészítő frissítve: '
-                    '${_builderSelections.length} tipp, '
+                    '${selectionsWithOdds.length} tipp, '
                     'AI $averageAi%.'
                 : 'Fogadáskészítő hozzáadva: '
-                    '${_builderSelections.length} tipp, '
+                    '${selectionsWithOdds.length} tipp, '
                     'AI $averageAi%.',
           ),
         ),
       );
+  }
+
+  double? _findBuilderSelectionOdds(
+    BetBuilderSelection selection,
+  ) {
+    final OddsEvent? event = _oddsEvent;
+
+    if (event == null) {
+      return null;
+    }
+
+    final String normalized =
+        _normalizeText(selection.selection);
+
+    final double? point =
+        _extractGoalPoint(
+      selection.selection,
+    );
+
+    if (point != null &&
+        normalized.contains('tobbmint')) {
+      return _findTotalQuote(
+        event: event,
+        side: 'Over',
+        point: point,
+      )?.price;
+    }
+
+    if (point != null &&
+        normalized.contains('kevesebbmint')) {
+      return _findTotalQuote(
+        event: event,
+        side: 'Under',
+        point: point,
+      )?.price;
+    }
+
+    return null;
   }
 
   void _removeFromBetslip() {
@@ -621,6 +1218,498 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   }
 }
 
+class _OddsQuote {
+  final double price;
+  final String bookmaker;
+
+  const _OddsQuote({
+    required this.price,
+    required this.bookmaker,
+  });
+}
+
+class _RealOddsCard extends StatelessWidget {
+  final AppMatch match;
+  final OddsEvent? event;
+  final bool isLoading;
+  final String? errorMessage;
+  final String? sportKey;
+  final _OddsQuote? homeQuote;
+  final _OddsQuote? drawQuote;
+  final _OddsQuote? awayQuote;
+  final _OddsQuote? over25Quote;
+  final _OddsQuote? under25Quote;
+  final Future<void> Function() onRefresh;
+
+  const _RealOddsCard({
+    required this.match,
+    required this.event,
+    required this.isLoading,
+    required this.errorMessage,
+    required this.sportKey,
+    required this.homeQuote,
+    required this.drawQuote,
+    required this.awayQuote,
+    required this.over25Quote,
+    required this.under25Quote,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer,
+                    borderRadius:
+                        BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.currency_exchange,
+                    color: colors.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'The Odds API',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Oddsok frissítése',
+                  onPressed:
+                      isLoading ? null : onRefresh,
+                  icon: const Icon(
+                    Icons.refresh,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+
+            if (isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 13),
+                      Text(
+                        'Valódi oddsok betöltése...',
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (event != null) ...[
+              Text(
+                '${event!.homeTeam} – '
+                '${event!.awayTeam}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (sportKey != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  sportKey!,
+                  style: TextStyle(
+                    color:
+                        colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              const Text(
+                '1X2 – legjobb elérhető odds',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _OddsBox(
+                      label: 'Hazai',
+                      quote: homeQuote,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _OddsBox(
+                      label: 'Döntetlen',
+                      quote: drawQuote,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _OddsBox(
+                      label: 'Vendég',
+                      quote: awayQuote,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Összes gól 2,5',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _OddsBox(
+                      label: 'Over 2,5',
+                      quote: over25Quote,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _OddsBox(
+                      label: 'Under 2,5',
+                      quote: under25Quote,
+                    ),
+                  ),
+                ],
+              ),
+            ] else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(
+                    alpha: 0.10,
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(14),
+                  border: Border.all(
+                    color:
+                        Colors.orangeAccent,
+                  ),
+                ),
+                child: Text(
+                  errorMessage ??
+                      'Nincs elérhető odds adat.',
+                  style: const TextStyle(
+                    color: Colors.orangeAccent,
+                  ),
+                ),
+              ),
+
+            if (!isLoading &&
+                event == null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh),
+                label: const Text(
+                  'Újrapróbálás',
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OddsBox extends StatelessWidget {
+  final String label;
+  final _OddsQuote? quote;
+
+  const _OddsBox({
+    required this.label,
+    required this.quote,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            quote == null
+                ? '—'
+                : quote!.price.toStringAsFixed(2),
+            style: TextStyle(
+              color: quote == null
+                  ? colors.onSurfaceVariant
+                  : colors.primary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            quote?.bookmaker ?? 'Nincs adat',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ValueBetPanel extends StatelessWidget {
+  final String selection;
+  final int aiProbability;
+  final _OddsQuote? quote;
+  final bool isLoading;
+  final String? errorMessage;
+
+  const _ValueBetPanel({
+    required this.selection,
+    required this.aiProbability,
+    required this.quote,
+    required this.isLoading,
+    required this.errorMessage,
+  });
+
+  double? get _fairOdds {
+    if (aiProbability <= 0) {
+      return null;
+    }
+
+    return 100 / aiProbability;
+  }
+
+  double? get _valuePercent {
+    final double? fair = _fairOdds;
+
+    if (fair == null || quote == null) {
+      return null;
+    }
+
+    return ((quote!.price / fair) - 1) * 100;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    final double? value = _valuePercent;
+
+    final bool isValue =
+        value != null && value > 0;
+
+    final Color statusColor = value == null
+        ? colors.onSurfaceVariant
+        : isValue
+            ? Colors.greenAccent
+            : Colors.redAccent;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.local_fire_department,
+                  color: Colors.orangeAccent,
+                ),
+                const SizedBox(width: 9),
+                const Expanded(
+                  child: Text(
+                    'AI Value Bet elemzés',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (isLoading)
+                  const SizedBox(
+                    width: 21,
+                    height: 21,
+                    child:
+                        CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            Text(
+              selection,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'AI valószínűség: $aiProbability%',
+              style: TextStyle(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 15),
+            _ValueLine(
+              label: 'Valódi odds',
+              value: quote == null
+                  ? '—'
+                  : quote!.price
+                      .toStringAsFixed(2),
+            ),
+            const SizedBox(height: 10),
+            _ValueLine(
+              label: 'AI Fair Odds',
+              value: _fairOdds == null
+                  ? '—'
+                  : _fairOdds!
+                      .toStringAsFixed(2),
+            ),
+            const SizedBox(height: 10),
+            _ValueLine(
+              label: 'Értékelőny',
+              value: value == null
+                  ? '—'
+                  : '${value > 0 ? '+' : ''}'
+                      '${value.toStringAsFixed(1)}%',
+              valueColor: statusColor,
+            ),
+            if (quote != null) ...[
+              const SizedBox(height: 10),
+              _ValueLine(
+                label: 'Legjobb iroda',
+                value: quote!.bookmaker,
+              ),
+            ],
+            const SizedBox(height: 15),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(
+                  alpha: 0.12,
+                ),
+                borderRadius:
+                    BorderRadius.circular(14),
+                border: Border.all(
+                  color: statusColor.withValues(
+                    alpha: 0.35,
+                  ),
+                ),
+              ),
+              child: Text(
+                value == null
+                    ? errorMessage ??
+                        'Valódi oddsra vár.'
+                    : isValue
+                        ? '🔥 VALUE BET – az odds magasabb '
+                            'az AI fair értékénél.'
+                        : 'NEM VALUE BET – az odds nem ad '
+                            'pozitív értékelőnyt.',
+                style: TextStyle(
+                  color: statusColor,
+                  fontWeight: FontWeight.bold,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ValueLine extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  const _ValueLine({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          value,
+          style: TextStyle(
+            color:
+                valueColor ?? colors.primary,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ModeInformationCard extends StatelessWidget {
   final bool singleBetSelected;
   final int builderSelectionCount;
@@ -650,67 +1739,27 @@ class _ModeInformationCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: builderMode
-                    ? Colors.green.withValues(
-                        alpha: 0.18,
-                      )
-                    : colors.primaryContainer,
-                borderRadius:
-                    BorderRadius.circular(14),
-              ),
-              child: Icon(
-                builderMode
-                    ? Icons.construction_outlined
-                    : Icons.touch_app_outlined,
-                color: builderMode
-                    ? Colors.greenAccent
-                    : colors.onPrimaryContainer,
-              ),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    builderMode
-                        ? 'Fogadáskészítő mód'
-                        : 'Egyedi tipp mód',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    builderMode
-                        ? '$builderSelectionCount '
-                            'kiválasztás aktív'
-                        : singleBetSelected
-                            ? 'Egyetlen tipp kerül '
-                                'a szelvényre'
-                            : 'Válassz egy tippet',
-                    style: TextStyle(
-                      color:
-                          colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
             Icon(
               builderMode
-                  ? Icons.check_circle
-                  : Icons.radio_button_checked,
+                  ? Icons.construction_outlined
+                  : Icons.touch_app_outlined,
               color: builderMode
                   ? Colors.greenAccent
                   : colors.primary,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Text(
+                builderMode
+                    ? 'Fogadáskészítő mód – '
+                        '$builderSelectionCount kiválasztás'
+                    : singleBetSelected
+                        ? 'Egyedi tipp mód'
+                        : 'Válassz egy tippet',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -722,10 +1771,12 @@ class _ModeInformationCard extends StatelessWidget {
 class _SelectedSingleBetCard extends StatelessWidget {
   final BetSelection selectedBet;
   final int aiScore;
+  final double? realOdds;
 
   const _SelectedSingleBetCard({
     required this.selectedBet,
     required this.aiScore,
+    required this.realOdds,
   });
 
   @override
@@ -740,44 +1791,22 @@ class _SelectedSingleBetCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                borderRadius:
-                    BorderRadius.circular(13),
-              ),
-              child: Icon(
-                selectedBet.icon,
-                color:
-                    colors.onPrimaryContainer,
-              ),
+            Icon(
+              selectedBet.icon,
+              color: colors.primary,
             ),
-            const SizedBox(width: 13),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Kiválasztott egyedi tipp',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
                   Text(
                     selectedBet.market,
                     style: TextStyle(
                       color: colors.primary,
-                      fontWeight:
-                          FontWeight.bold,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -785,34 +1814,35 @@ class _SelectedSingleBetCard extends StatelessWidget {
                     selectedBet.selection,
                     style: const TextStyle(
                       fontSize: 17,
-                      fontWeight:
-                          FontWeight.bold,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 7,
-              ),
-              decoration: BoxDecoration(
-                color: colors.primary,
-                borderRadius:
-                    BorderRadius.circular(20),
-              ),
-              child: Text(
-                '$aiScore%',
-                style: TextStyle(
-                  color: colors.onPrimary,
-                  fontSize: 13,
-                  fontWeight:
-                      FontWeight.bold,
+            Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$aiScore%',
+                  style: TextStyle(
+                    color: colors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  realOdds == null
+                      ? 'Odds —'
+                      : 'Odds '
+                          '${realOdds!.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -838,29 +1868,15 @@ class _MatchHeaderCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.emoji_events,
-                  color: colors.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    match.league.isEmpty
-                        ? 'Ismeretlen bajnokság'
-                        : match.league,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: colors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              match.league.isEmpty
+                  ? 'Ismeretlen bajnokság'
+                  : match.league,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.primary,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 22),
             Row(
@@ -871,35 +1887,19 @@ class _MatchHeaderCard extends StatelessWidget {
                     teamName: match.homeTeam,
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        match.matchTime.isEmpty
-                            ? '--:--'
-                            : match.matchTime,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
+                Column(
+                  children: [
+                    Text(
+                      match.matchTime.isEmpty
+                          ? '--:--'
+                          : match.matchTime,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'VS',
-                        style: TextStyle(
-                          color:
-                              colors.onSurfaceVariant,
-                          fontSize: 13,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const Text('VS'),
+                  ],
                 ),
                 Expanded(
                   child: _TeamColumn(
@@ -909,74 +1909,10 @@ class _MatchHeaderCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 16,
-                  color: colors.onSurfaceVariant,
-                ),
-                const SizedBox(width: 7),
-                Text(
-                  _formatDate(match.matchDate),
-                  style: TextStyle(
-                    color:
-                        colors.onSurfaceVariant,
-                    fontWeight:
-                        FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            if (match.isLive) ...[
-              const SizedBox(height: 18),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(
-                    alpha: 0.16,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.redAccent,
-                  ),
-                ),
-                child: const Text(
-                  '● ÉLŐ MÉRKŐZÉS',
-                  style: TextStyle(
-                    color: Colors.redAccent,
-                    fontSize: 12,
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final String year =
-        date.year.toString();
-
-    final String month =
-        date.month.toString().padLeft(2, '0');
-
-    final String day =
-        date.day.toString().padLeft(2, '0');
-
-    return '$year.$month.$day.';
   }
 }
 
@@ -991,26 +1927,16 @@ class _TeamColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
     return Column(
       children: [
-        Container(
-          width: 58,
-          height: 58,
-          decoration: BoxDecoration(
-            color: colors.primaryContainer,
-            borderRadius:
-                BorderRadius.circular(18),
-          ),
-          child: Icon(
-            icon,
-            size: 34,
-            color: colors.onPrimaryContainer,
-          ),
+        Icon(
+          icon,
+          size: 46,
+          color: Theme.of(context)
+              .colorScheme
+              .primary,
         ),
-        const SizedBox(height: 11),
+        const SizedBox(height: 10),
         Text(
           teamName,
           textAlign: TextAlign.center,
@@ -1033,186 +1959,36 @@ class _AiRecommendationCard extends StatelessWidget {
     required this.aiScore,
   });
 
-  String get _riskText {
-    if (aiScore >= 90) {
-      return 'Kiemelt AI ajánlás';
-    }
-
-    if (aiScore >= 80) {
-      return 'Erős AI ajánlás';
-    }
-
-    if (aiScore >= 65) {
-      return 'Közepes AI ajánlás';
-    }
-
-    return 'Kockázatos tipp';
-  }
-
-  String get _description {
-    if (aiScore >= 90) {
-      return 'Az AI több elemzési tényező alapján '
-          'kiemelkedően erősnek értékeli ezt a mérkőzést.';
-    }
-
-    if (aiScore >= 80) {
-      return 'A forma és a várható mérkőzéskép alapján '
-          'erős fogadási lehetőség lehet.';
-    }
-
-    if (aiScore >= 65) {
-      return 'A tipp használható lehet, de több kockázati '
-          'tényezőt is érdemes figyelembe venni.';
-    }
-
-    return 'Az AI szerint ezen a mérkőzésen fokozott '
-        'óvatosság indokolt.';
-  }
-
-  Color _scoreColor() {
-    if (aiScore >= 85) {
-      return Colors.greenAccent;
-    }
-
-    if (aiScore >= 70) {
-      return Colors.orangeAccent;
-    }
-
-    return Colors.redAccent;
-  }
-
   @override
   Widget build(BuildContext context) {
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
-    final double progress =
-        aiScore.clamp(0, 100) / 100;
-
-    final Color scoreColor =
-        _scoreColor();
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: colors.primaryContainer,
-                    borderRadius:
-                        BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.psychology,
-                    color:
-                        colors.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Zsolt Pro AI elemzés',
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: scoreColor.withValues(
-                      alpha: 0.15,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(18),
-                  ),
-                  child: Text(
-                    '$aiScore%',
-                    style: TextStyle(
-                      color: scoreColor,
-                      fontSize: 16,
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            const Icon(
+              Icons.psychology,
+              size: 38,
             ),
-            const SizedBox(height: 17),
-            ClipRRect(
-              borderRadius:
-                  BorderRadius.circular(20),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 10,
-                backgroundColor:
-                    colors.surfaceContainerHighest,
-                color: scoreColor,
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Zsolt Pro AI elemzés',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            const SizedBox(height: 14),
             Text(
-              _riskText,
+              '$aiScore%',
               style: TextStyle(
-                color: scoreColor,
-                fontSize: 16,
+                color: colors.primary,
+                fontSize: 19,
                 fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 7),
-            Text(
-              _description,
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 15),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: colors.primaryContainer
-                    .withValues(
-                  alpha: 0.28,
-                ),
-                borderRadius:
-                    BorderRadius.circular(14),
-              ),
-              child: Row(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.auto_awesome,
-                    color: colors.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 9),
-                  const Expanded(
-                    child: Text(
-                      'AI alapajánlás: '
-                      '1X és több mint 1,5 gól',
-                      style: TextStyle(
-                        fontWeight:
-                            FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ],
@@ -1233,26 +2009,15 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
     return Row(
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: colors.primaryContainer,
-            borderRadius:
-                BorderRadius.circular(11),
-          ),
-          child: Icon(
-            icon,
-            color: colors.onPrimaryContainer,
-            size: 21,
-          ),
+        Icon(
+          icon,
+          color: Theme.of(context)
+              .colorScheme
+              .primary,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 9),
         Expanded(
           child: Text(
             title,
@@ -1278,22 +2043,8 @@ class _FormCard extends StatelessWidget {
     required this.score,
   });
 
-  Color _formColor(String result) {
-    switch (result) {
-      case 'G':
-        return Colors.green;
-      case 'D':
-        return Colors.orange;
-      default:
-        return Colors.red;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1301,29 +2052,21 @@ class _FormCard extends StatelessWidget {
           children: [
             Text(
               title,
-              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
             Wrap(
-              alignment: WrapAlignment.center,
               spacing: 5,
-              runSpacing: 5,
               children: form.map(
                 (String result) {
                   return CircleAvatar(
                     radius: 13,
-                    backgroundColor:
-                        _formColor(result),
                     child: Text(
                       result,
                       style: const TextStyle(
-                        color: Colors.white,
                         fontSize: 11,
-                        fontWeight:
-                            FontWeight.bold,
                       ),
                     ),
                   );
@@ -1333,9 +2076,7 @@ class _FormCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               '$score%',
-              style: TextStyle(
-                color: colors.primary,
-                fontSize: 18,
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1355,9 +2096,6 @@ class _StatisticsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -1365,51 +2103,28 @@ class _StatisticsCard extends StatelessWidget {
           vertical: 8,
         ),
         child: Column(
-          children: List.generate(
-            rows.length,
-            (int index) {
-              final _StatisticRowData row =
-                  rows[index];
-
-              return Column(
-                children: [
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(
-                      vertical: 13,
+          children: rows.map(
+            (_StatisticRowData row) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(row.label),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            row.label,
-                            style: const TextStyle(
-                              fontWeight:
-                                  FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          row.value,
-                          style: TextStyle(
-                            color: colors.primary,
-                            fontWeight:
-                                FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      row.value,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  if (index < rows.length - 1)
-                    Divider(
-                      height: 1,
-                      color: colors.outlineVariant,
-                    ),
-                ],
+                  ],
+                ),
               );
             },
-          ),
+          ).toList(),
         ),
       ),
     );
