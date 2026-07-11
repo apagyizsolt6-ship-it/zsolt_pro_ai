@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.10.0
+// Version: v0.10.1
 // File: lib/screens/betslip_scanner_screen.dart
 // ===========================================
 
@@ -26,9 +26,6 @@ class _BetslipScannerScreenState
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
