@@ -1,10 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.10.1
+// Version: v0.10.2
 // File: lib/screens/betslip_scanner_screen.dart
 // ===========================================
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class BetslipScannerScreen extends StatefulWidget {
   const BetslipScannerScreen({super.key});
@@ -17,11 +20,16 @@ class BetslipScannerScreen extends StatefulWidget {
 
 class _BetslipScannerScreenState
     extends State<BetslipScannerScreen> {
+  final ImagePicker _imagePicker = ImagePicker();
+
+  XFile? _selectedImage;
   _ScannerSource? _selectedSource;
+
+  bool _isSelectingImage = false;
   bool _isAnalyzing = false;
 
   bool get _hasSelectedImage {
-    return _selectedSource != null;
+    return _selectedImage != null;
   }
 
   @override
@@ -45,38 +53,24 @@ class _BetslipScannerScreenState
             28,
           ),
           children: [
-            _buildHeaderCard(
-              context: context,
-            ),
+            _buildHeaderCard(),
             const SizedBox(height: 18),
-            _buildSourceSection(
-              context: context,
-            ),
+            _buildSourceSection(),
             const SizedBox(height: 18),
-            _buildImagePreview(
-              context: context,
-            ),
+            _buildImagePreview(),
             const SizedBox(height: 18),
-            _buildAnalyzeButton(
-              context: context,
-            ),
+            _buildAnalyzeButton(),
             const SizedBox(height: 18),
-            _buildResultCard(
-              context: context,
-            ),
+            _buildResultCard(),
             const SizedBox(height: 18),
-            _buildInformationCard(
-              context: context,
-            ),
+            _buildInformationCard(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeaderCard({
-    required BuildContext context,
-  }) {
+  Widget _buildHeaderCard() {
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
@@ -110,10 +104,10 @@ class _BetslipScannerScreenState
             ),
             const SizedBox(height: 10),
             Text(
-              'Fotózd le vagy válaszd ki a '
-              'Tippmix szelvényedet. A Zsolt Pro AI '
-              'felismeri majd a mérkőzéseket, piacokat, '
-              'tippeket és oddsokat.',
+              'Fotózd le vagy válaszd ki a Tippmix '
+              'szelvényedet. A Zsolt Pro AI később '
+              'felismeri a mérkőzéseket, piacokat, '
+              'tippeket, oddsokat és a tétet.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colors.onSurfaceVariant,
@@ -127,9 +121,7 @@ class _BetslipScannerScreenState
     );
   }
 
-  Widget _buildSourceSection({
-    required BuildContext context,
-  }) {
+  Widget _buildSourceSection() {
     return Column(
       crossAxisAlignment:
           CrossAxisAlignment.start,
@@ -149,9 +141,12 @@ class _BetslipScannerScreenState
                 selected:
                     _selectedSource ==
                     _ScannerSource.camera,
+                disabled: _isSelectingImage,
                 onTap: () {
-                  _selectSource(
-                    _ScannerSource.camera,
+                  _pickImage(
+                    source: ImageSource.camera,
+                    scannerSource:
+                        _ScannerSource.camera,
                   );
                 },
               ),
@@ -165,9 +160,12 @@ class _BetslipScannerScreenState
                 selected:
                     _selectedSource ==
                     _ScannerSource.gallery,
+                disabled: _isSelectingImage,
                 onTap: () {
-                  _selectSource(
-                    _ScannerSource.gallery,
+                  _pickImage(
+                    source: ImageSource.gallery,
+                    scannerSource:
+                        _ScannerSource.gallery,
                   );
                 },
               ),
@@ -178,9 +176,7 @@ class _BetslipScannerScreenState
     );
   }
 
-  Widget _buildImagePreview({
-    required BuildContext context,
-  }) {
+  Widget _buildImagePreview() {
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
@@ -193,10 +189,13 @@ class _BetslipScannerScreenState
           title: 'Kiválasztott kép',
         ),
         const SizedBox(height: 12),
-        Container(
+        AnimatedContainer(
+          duration: const Duration(
+            milliseconds: 200,
+          ),
           width: double.infinity,
           constraints: const BoxConstraints(
-            minHeight: 210,
+            minHeight: 230,
           ),
           decoration: BoxDecoration(
             color:
@@ -212,21 +211,39 @@ class _BetslipScannerScreenState
                   : 1,
             ),
           ),
-          child: _hasSelectedImage
-              ? _buildSelectedImagePlaceholder(
-                  context: context,
-                )
-              : _buildEmptyImagePlaceholder(
-                  context: context,
-                ),
+          clipBehavior: Clip.antiAlias,
+          child: _isSelectingImage
+              ? _buildLoadingPlaceholder()
+              : _hasSelectedImage
+                  ? _buildSelectedImage()
+                  : _buildEmptyPlaceholder(),
         ),
       ],
     );
   }
 
-  Widget _buildEmptyImagePlaceholder({
-    required BuildContext context,
-  }) {
+  Widget _buildLoadingPlaceholder() {
+    return const Padding(
+      padding: EdgeInsets.all(28),
+      child: Column(
+        mainAxisAlignment:
+            MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text(
+            'Kép betöltése...',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyPlaceholder() {
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
@@ -265,85 +282,88 @@ class _BetslipScannerScreenState
     );
   }
 
-  Widget _buildSelectedImagePlaceholder({
-    required BuildContext context,
-  }) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
+  Widget _buildSelectedImage() {
+    final XFile image = _selectedImage!;
 
-    final bool cameraSelected =
-        _selectedSource ==
-        _ScannerSource.camera;
-
-    return Padding(
-      padding: const EdgeInsets.all(22),
-      child: Column(
-        mainAxisAlignment:
-            MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 68,
-            height: 68,
-            decoration: BoxDecoration(
-              color: colors.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              cameraSelected
-                  ? Icons.camera_alt_outlined
-                  : Icons.photo_library_outlined,
-              size: 34,
-              color: colors.onPrimaryContainer,
-            ),
-          ),
-          const SizedBox(height: 15),
-          Text(
-            cameraSelected
-                ? 'Kamera kiválasztva'
-                : 'Galéria kiválasztva',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            'A következő fejlesztési lépésben '
-            'bekötjük a tényleges képkezelést.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colors.onSurfaceVariant,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 15),
-          TextButton.icon(
-            onPressed: () {
-              setState(() {
-                _selectedSource = null;
-              });
+    return Column(
+      children: [
+        AspectRatio(
+          aspectRatio: 3 / 4,
+          child: Image.file(
+            File(image.path),
+            width: double.infinity,
+            fit: BoxFit.contain,
+            errorBuilder: (
+              BuildContext context,
+              Object error,
+              StackTrace? stackTrace,
+            ) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'A kép nem jeleníthető meg.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
             },
-            icon: const Icon(
-              Icons.close,
-            ),
-            label: const Text(
-              'Kiválasztás törlése',
-            ),
           ),
-        ],
-      ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            14,
+            10,
+            14,
+            12,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                _selectedSource ==
+                        _ScannerSource.camera
+                    ? Icons.camera_alt_outlined
+                    : Icons.photo_library_outlined,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _selectedSource ==
+                          _ScannerSource.camera
+                      ? 'Kamerával készített kép'
+                      : 'Galériából kiválasztott kép',
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Kép törlése',
+                onPressed: _clearSelectedImage,
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.redAccent,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildAnalyzeButton({
-    required BuildContext context,
-  }) {
+  Widget _buildAnalyzeButton() {
     return FilledButton.icon(
       onPressed:
           !_hasSelectedImage ||
-              _isAnalyzing
-          ? null
-          : _startAnalysis,
+                  _isAnalyzing ||
+                  _isSelectingImage
+              ? null
+              : _startAnalysis,
       icon: _isAnalyzing
           ? const SizedBox(
               width: 21,
@@ -376,9 +396,7 @@ class _BetslipScannerScreenState
     );
   }
 
-  Widget _buildResultCard({
-    required BuildContext context,
-  }) {
+  Widget _buildResultCard() {
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
@@ -419,9 +437,11 @@ class _BetslipScannerScreenState
                         crossAxisAlignment:
                             CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Elemzésre vár',
-                            style: TextStyle(
+                          Text(
+                            _hasSelectedImage
+                                ? 'Kép készen áll'
+                                : 'Elemzésre vár',
+                            style: const TextStyle(
                               fontSize: 17,
                               fontWeight:
                                   FontWeight.bold,
@@ -429,8 +449,13 @@ class _BetslipScannerScreenState
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'A felismert mérkőzések '
-                            'és tippek itt jelennek meg.',
+                            _hasSelectedImage
+                                ? 'Az OCR és az AI '
+                                    'felismerés bekötése '
+                                    'következik.'
+                                : 'A felismert mérkőzések '
+                                    'és tippek itt jelennek '
+                                    'majd meg.',
                             style: TextStyle(
                               color: colors
                                   .onSurfaceVariant,
@@ -489,9 +514,7 @@ class _BetslipScannerScreenState
     );
   }
 
-  Widget _buildInformationCard({
-    required BuildContext context,
-  }) {
+  Widget _buildInformationCard() {
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
@@ -521,10 +544,9 @@ class _BetslipScannerScreenState
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'A felismerő később azt is '
-              'ellenőrizni fogja, hogy a '
-              'mérkőzések véget értek-e, és '
-              'a szelvény nyertes vagy vesztes lett-e.',
+              'A kamera és a galéria már működik. '
+              'A következő lépés a szelvényen '
+              'szereplő szöveg felismerése lesz.',
               style: TextStyle(
                 color: colors.onSurfaceVariant,
                 height: 1.4,
@@ -536,34 +558,117 @@ class _BetslipScannerScreenState
     );
   }
 
-  void _selectSource(
-    _ScannerSource source,
-  ) {
+  Future<void> _pickImage({
+    required ImageSource source,
+    required _ScannerSource scannerSource,
+  }) async {
+    if (_isSelectingImage) {
+      return;
+    }
+
     setState(() {
-      _selectedSource = source;
+      _isSelectingImage = true;
     });
 
-    final String message =
-        source == _ScannerSource.camera
-            ? 'A kamera bekötése lesz a következő lépés.'
-            : 'A galéria bekötése lesz a következő lépés.';
+    try {
+      final XFile? image =
+          await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 90,
+        maxWidth: 2200,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (image == null) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Nem választottál ki képet.',
+              ),
+            ),
+          );
+
+        return;
+      }
+
+      setState(() {
+        _selectedImage = image;
+        _selectedSource = scannerSource;
+      });
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              scannerSource ==
+                      _ScannerSource.camera
+                  ? 'A fénykép sikeresen elkészült.'
+                  : 'A kép sikeresen betöltődött.',
+            ),
+          ),
+        );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'A kép kiválasztása nem sikerült. '
+              'Ellenőrizd az alkalmazás '
+              'engedélyeit.',
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSelectingImage = false;
+        });
+      }
+    }
+  }
+
+  void _clearSelectedImage() {
+    setState(() {
+      _selectedImage = null;
+      _selectedSource = null;
+      _isAnalyzing = false;
+    });
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
+        const SnackBar(
+          content: Text(
+            'A kiválasztott kép törölve.',
+          ),
         ),
       );
   }
 
   Future<void> _startAnalysis() async {
+    if (!_hasSelectedImage) {
+      return;
+    }
+
     setState(() {
       _isAnalyzing = true;
     });
 
     await Future<void>.delayed(
-      const Duration(milliseconds: 900),
+      const Duration(
+        milliseconds: 1100,
+      ),
     );
 
     if (!mounted) {
@@ -579,8 +684,8 @@ class _BetslipScannerScreenState
       ..showSnackBar(
         const SnackBar(
           content: Text(
-            'Az AI képfelismerést a következő '
-            'lépésekben kötjük be.',
+            'A kép készen áll. Következőként '
+            'az OCR szövegfelismerést kötjük be.',
           ),
         ),
       );
@@ -637,6 +742,7 @@ class _SourceCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool selected;
+  final bool disabled;
   final VoidCallback onTap;
 
   const _SourceCard({
@@ -644,6 +750,7 @@ class _SourceCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.selected,
+    required this.disabled,
     required this.onTap,
   });
 
@@ -662,67 +769,75 @@ class _SourceCard extends StatelessWidget {
       borderRadius:
           BorderRadius.circular(18),
       child: InkWell(
-        onTap: onTap,
+        onTap: disabled ? null : onTap,
         borderRadius:
             BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(18),
-            border: Border.all(
-              color: selected
-                  ? colors.primary
-                  : colors.outlineVariant,
-              width: selected ? 1.5 : 1,
-            ),
+        child: AnimatedOpacity(
+          duration: const Duration(
+            milliseconds: 150,
           ),
-          child: Column(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer,
-                  borderRadius:
-                      BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  icon,
-                  color:
-                      colors.onPrimaryContainer,
-                  size: 27,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color:
-                      colors.onSurfaceVariant,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Icon(
-                selected
-                    ? Icons.check_circle
-                    : Icons
-                        .radio_button_unchecked,
+          opacity: disabled ? 0.55 : 1,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius:
+                  BorderRadius.circular(18),
+              border: Border.all(
                 color: selected
                     ? colors.primary
-                    : colors.onSurfaceVariant,
+                    : colors.outlineVariant,
+                width: selected ? 1.5 : 1,
               ),
-            ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color:
+                        colors.primaryContainer,
+                    borderRadius:
+                        BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: colors
+                        .onPrimaryContainer,
+                    size: 27,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color:
+                        colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Icon(
+                  selected
+                      ? Icons.check_circle
+                      : Icons
+                          .radio_button_unchecked,
+                  color: selected
+                      ? colors.primary
+                      : colors.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),
