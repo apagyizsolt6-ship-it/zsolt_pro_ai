@@ -46,8 +46,21 @@ jobs:
       - name: Dart kód ellenőrzése
         run: flutter analyze
 
+      - name: The Odds API kulcs ellenőrzése
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+        run: |
+          if [ -z "$THE_ODDS_API_KEY" ]; then
+            echo "HIBA: A THE_ODDS_API_KEY GitHub Secret nincs beállítva."
+            exit 1
+          fi
+
       - name: Release APK elkészítése
-        run: flutter build apk --release
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+        run: |
+          flutter build apk --release \
+            --dart-define=THE_ODDS_API_KEY="$THE_ODDS_API_KEY"
 
       - name: APK feltöltése
         uses: actions/upload-artifact@v4
