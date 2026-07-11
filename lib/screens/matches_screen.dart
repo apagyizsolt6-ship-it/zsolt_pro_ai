@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.13.1
+// Version: v0.13.2
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -38,12 +38,17 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   bool _favoritesOnly = false;
   bool _isLoading = false;
+  bool _isSearchingNextDate = false;
 
   String? _errorMessage;
+  String? _informationMessage;
+
+  DateTime? _displayedDate;
+  DateTime? _nextAvailableDate;
 
   List<AppMatch> _loadedMatches = <AppMatch>[];
 
-  DateTime get _selectedDate {
+  DateTime get _requestedDate {
     final DateTime now = DateTime.now();
 
     return DateTime(
@@ -51,6 +56,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
       now.month,
       now.day + _selectedDayIndex,
     );
+  }
+
+  DateTime get _activeDate {
+    return _displayedDate ?? _requestedDate;
   }
 
   @override
@@ -145,8 +154,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
 
     final List<MapEntry<String, List<AppMatch>>>
-        sortedEntries =
-        grouped.entries.toList()
+        entries = grouped.entries.toList()
           ..sort(
             (
               MapEntry<String, List<AppMatch>>
@@ -164,7 +172,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
     return <String, List<AppMatch>>{
       for (final MapEntry<String, List<AppMatch>>
-          entry in sortedEntries)
+          entry in entries)
         entry.key: entry.value,
     };
   }
@@ -221,8 +229,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
                 setState(() {
                   _selectedDayIndex = index;
+                  _displayedDate = null;
+                  _nextAvailableDate = null;
                   _loadedMatches = <AppMatch>[];
                   _errorMessage = null;
+                  _informationMessage = null;
                 });
 
                 _loadMatches();
@@ -241,6 +252,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
             _buildDataStatusBar(
               context: context,
             ),
+            if (_informationMessage != null)
+              _buildInformationBanner(
+                context: context,
+              ),
             Expanded(
               child: _buildContent(
                 context: context,
@@ -305,7 +320,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             child: Text(
               _errorMessage == null
                   ? 'SportMonks • '
-                      '${_formatSelectedDate()} • '
+                      '${_formatDate(_activeDate)} • '
                       '${_loadedMatches.length} mérkőzés'
                   : 'A SportMonks-adatok betöltése '
                       'nem sikerült.',
@@ -313,6 +328,57 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 color: colors.onSurfaceVariant,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInformationBanner({
+    required BuildContext context,
+  }) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(
+        16,
+        6,
+        16,
+        4,
+      ),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(
+          alpha: 0.10,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.orangeAccent.withValues(
+            alpha: 0.55,
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline,
+            color: Colors.orangeAccent,
+            size: 21,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _informationMessage!,
+              style: TextStyle(
+                color: colors.onSurfaceVariant,
+                fontSize: 13,
+                height: 1.35,
               ),
             ),
           ),
@@ -417,17 +483,22 @@ class _MatchesScreenState extends State<MatchesScreen> {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 18),
-            const Text(
-              'Valódi mérkőzések betöltése...',
+            Text(
+              _isSearchingNextDate
+                  ? 'Következő mérkőzésnap keresése...'
+                  : 'Valódi mérkőzések betöltése...',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'A SportMonks API adatait kérjük le.',
+              _isSearchingNextDate
+                  ? 'A SportMonks következő 30 napját '
+                      'ellenőrizzük.'
+                  : 'A SportMonks API adatait kérjük le.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colors.onSurfaceVariant,
@@ -452,7 +523,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
-          const SizedBox(height: 80),
+          const SizedBox(height: 70),
           const Icon(
             Icons.cloud_off_outlined,
             size: 72,
@@ -516,7 +587,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
-          const SizedBox(height: 80),
+          const SizedBox(height: 55),
           Icon(
             filterActive
                 ? Icons.filter_alt_off_outlined
@@ -540,14 +611,56 @@ class _MatchesScreenState extends State<MatchesScreen> {
             filterActive
                 ? 'Módosítsd a keresést vagy '
                     'kapcsold ki a kedvencek szűrését.'
-                : 'Húzd lefelé a képernyőt az '
-                    'adatok újbóli lekéréséhez.',
+                : _nextAvailableDate != null
+                    ? 'A következő elérhető '
+                        'mérkőzésnap: '
+                        '${_formatDate(_nextAvailableDate!)}'
+                    : 'A SportMonks csomagodban a '
+                        'következő 30 napban sem találtunk '
+                        'elérhető mérkőzést.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.onSurfaceVariant,
               height: 1.4,
             ),
           ),
+          if (!filterActive &&
+              _nextAvailableDate != null) ...[
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed:
+                  _openNextAvailableDate,
+              icon: const Icon(
+                Icons.event_available_outlined,
+              ),
+              label: Text(
+                'Meccsek megnyitása – '
+                '${_formatDate(_nextAvailableDate!)}',
+              ),
+              style: FilledButton.styleFrom(
+                minimumSize:
+                    const Size.fromHeight(52),
+              ),
+            ),
+          ],
+          if (!filterActive &&
+              _nextAvailableDate == null) ...[
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed:
+                  _isLoading ? null : _runDiagnostic,
+              icon: const Icon(
+                Icons.troubleshoot,
+              ),
+              label: const Text(
+                'SportMonks diagnosztika',
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize:
+                    const Size.fromHeight(52),
+              ),
+            ),
+          ],
           if (filterActive) ...[
             const SizedBox(height: 20),
             OutlinedButton.icon(
@@ -572,37 +685,70 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
     setState(() {
       _isLoading = true;
+      _isSearchingNextDate = false;
       _errorMessage = null;
+      _informationMessage = null;
+      _nextAvailableDate = null;
+      _displayedDate = _requestedDate;
     });
 
     try {
       final List<SportMonksFixture> fixtures =
           await _sportMonksService
               .fetchFixturesByDate(
-        _selectedDate,
+        _requestedDate,
       );
 
-      final List<AppMatch> matches = fixtures
-          .where(
-            (
-              SportMonksFixture fixture,
-            ) {
-              return !fixture.placeholder &&
-                  fixture.homeTeam.trim().isNotEmpty &&
-                  fixture.awayTeam.trim().isNotEmpty;
-            },
-          )
-          .map(
-            _fixtureToAppMatch,
-          )
-          .toList(growable: false);
+      final List<AppMatch> matches =
+          _convertFixtures(fixtures);
+
+      if (!mounted) {
+        return;
+      }
+
+      if (matches.isNotEmpty) {
+        setState(() {
+          _loadedMatches = matches;
+          _displayedDate = _requestedDate;
+        });
+
+        return;
+      }
+
+      setState(() {
+        _isSearchingNextDate = true;
+      });
+
+      final SportMonksAvailabilityResult
+          availability =
+          await _sportMonksService
+              .findNextAvailableFixtures(
+        startDate: _requestedDate.add(
+          const Duration(days: 1),
+        ),
+        daysToCheck: 30,
+      );
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _loadedMatches = matches;
+        _loadedMatches = <AppMatch>[];
+        _nextAvailableDate =
+            availability.date;
+
+        if (availability.hasFixtures) {
+          _informationMessage =
+              'A kiválasztott napon nincs meccs. '
+              'A következő elérhető mérkőzésnap '
+              '${_formatDate(availability.date!)}.';
+        } else {
+          _informationMessage =
+              'A kapcsolat működik, de a SportMonks '
+              'csomagodban a következő 30 napra sem '
+              'érhető el mérkőzés.';
+        }
       });
     } on SportMonksException catch (error) {
       if (!mounted) {
@@ -629,9 +775,161 @@ class _MatchesScreenState extends State<MatchesScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _isSearchingNextDate = false;
         });
       }
     }
+  }
+
+  Future<void> _openNextAvailableDate() async {
+    final DateTime? date =
+        _nextAvailableDate;
+
+    if (date == null || _isLoading) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _isSearchingNextDate = false;
+      _errorMessage = null;
+      _informationMessage = null;
+    });
+
+    try {
+      final List<SportMonksFixture> fixtures =
+          await _sportMonksService
+              .fetchFixturesByDate(
+        date,
+      );
+
+      final List<AppMatch> matches =
+          _convertFixtures(fixtures);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loadedMatches = matches;
+        _displayedDate = date;
+        _nextAvailableDate = null;
+        _informationMessage =
+            'A következő elérhető mérkőzésnap '
+            'meccsei láthatók.';
+      });
+    } on SportMonksException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage =
+            'A mérkőzésnap megnyitása nem '
+            'sikerült: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _runDiagnostic() async {
+    if (_isLoading) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _isSearchingNextDate = true;
+      _errorMessage = null;
+      _informationMessage = null;
+    });
+
+    try {
+      final SportMonksDiagnosticResult result =
+          await _sportMonksService.runDiagnostic(
+        daysToCheck: 30,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _nextAvailableDate =
+            result.firstAvailableDate;
+
+        if (result.hasFixtures) {
+          _informationMessage =
+              'Diagnosztika: ${result.leagueCount} '
+              'elérhető liga. Az első mérkőzésnap '
+              '${_formatDate(result.firstAvailableDate!)} '
+              '(${result.fixtureCount} meccs).';
+        } else {
+          _informationMessage =
+              'Diagnosztika: ${result.leagueCount} '
+              'elérhető liga, de a következő '
+              '${result.checkedDays} napban nincs '
+              'meccs a csomagodban.';
+        }
+      });
+    } on SportMonksException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage =
+            'A SportMonks diagnosztika nem '
+            'sikerült: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSearchingNextDate = false;
+        });
+      }
+    }
+  }
+
+  List<AppMatch> _convertFixtures(
+    List<SportMonksFixture> fixtures,
+  ) {
+    return fixtures
+        .where(
+          (
+            SportMonksFixture fixture,
+          ) {
+            return !fixture.placeholder &&
+                fixture.homeTeam.trim().isNotEmpty &&
+                fixture.awayTeam.trim().isNotEmpty;
+          },
+        )
+        .map(
+          _fixtureToAppMatch,
+        )
+        .toList(growable: false);
   }
 
   AppMatch _fixtureToAppMatch(
@@ -669,23 +967,25 @@ class _MatchesScreenState extends State<MatchesScreen> {
   ) {
     final int seed =
         fixture.id +
-        fixture.homeTeam.length * 3 +
-        fixture.awayTeam.length * 5;
+            fixture.homeTeam.length * 3 +
+            fixture.awayTeam.length * 5;
 
     return 65 + seed.abs() % 31;
   }
 
-  String _formatSelectedDate() {
+  String _formatDate(
+    DateTime date,
+  ) {
     final String year =
-        _selectedDate.year.toString();
+        date.year.toString();
 
     final String month =
-        _selectedDate.month
+        date.month
             .toString()
             .padLeft(2, '0');
 
     final String day =
-        _selectedDate.day
+        date.day
             .toString()
             .padLeft(2, '0');
 
