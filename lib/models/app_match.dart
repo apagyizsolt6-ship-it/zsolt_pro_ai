@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.1.0
+// Version: v0.13.5
 // File: lib/models/app_match.dart
 // ===========================================
 
@@ -15,6 +15,10 @@ class AppMatch {
   final bool isFavorite;
   final bool isLive;
 
+  final String homeTeamLogoUrl;
+  final String awayTeamLogoUrl;
+  final String leagueLogoUrl;
+
   const AppMatch({
     required this.id,
     required this.league,
@@ -25,7 +29,22 @@ class AppMatch {
     this.aiScore = 0,
     this.isFavorite = false,
     this.isLive = false,
+    this.homeTeamLogoUrl = '',
+    this.awayTeamLogoUrl = '',
+    this.leagueLogoUrl = '',
   });
+
+  bool get hasHomeTeamLogo {
+    return homeTeamLogoUrl.trim().isNotEmpty;
+  }
+
+  bool get hasAwayTeamLogo {
+    return awayTeamLogoUrl.trim().isNotEmpty;
+  }
+
+  bool get hasLeagueLogo {
+    return leagueLogoUrl.trim().isNotEmpty;
+  }
 
   AppMatch copyWith({
     String? id,
@@ -37,6 +56,9 @@ class AppMatch {
     int? aiScore,
     bool? isFavorite,
     bool? isLive,
+    String? homeTeamLogoUrl,
+    String? awayTeamLogoUrl,
+    String? leagueLogoUrl,
   }) {
     return AppMatch(
       id: id ?? this.id,
@@ -48,6 +70,12 @@ class AppMatch {
       aiScore: aiScore ?? this.aiScore,
       isFavorite: isFavorite ?? this.isFavorite,
       isLive: isLive ?? this.isLive,
+      homeTeamLogoUrl:
+          homeTeamLogoUrl ?? this.homeTeamLogoUrl,
+      awayTeamLogoUrl:
+          awayTeamLogoUrl ?? this.awayTeamLogoUrl,
+      leagueLogoUrl:
+          leagueLogoUrl ?? this.leagueLogoUrl,
     );
   }
 }
