@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.13.8
+// Version: v0.13.9
 // File: lib/screens/home_screen.dart
 // ===========================================
 
@@ -97,7 +97,7 @@ class HomeScreen extends StatelessWidget {
                 _openScreen(
                   context: context,
                   screen:
-                      const AiTop5Screen(),
+                      const AITop5Screen(),
                 );
               },
             ),
@@ -195,6 +195,10 @@ class _MenuCard extends StatelessWidget {
             vertical: 6,
           ),
           child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(
+              horizontal: 8,
+            ),
             leading: Container(
               width: 48,
               height: 48,
