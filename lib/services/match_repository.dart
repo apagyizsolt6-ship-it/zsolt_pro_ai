@@ -1,10 +1,11 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.14.3
+// Version: v0.15.1
 // File: lib/services/match_repository.dart
 // ===========================================
 
 import '../models/app_match.dart';
+import 'ai_engine_v2_service.dart';
 import 'favorites_service.dart';
 import 'sportmonks_service.dart';
 import 'the_sports_db_service.dart';
@@ -17,10 +18,11 @@ import 'the_sports_db_service.dart';
 /// - a két adatforrás eredményeinek egyesítése;
 /// - azonos mérkőzések kiszűrése;
 /// - egységes AppMatch objektumok létrehozása;
+/// - AI Engine 2.0 pontszám hozzárendelése;
 /// - következő elérhető mérkőzésnap megkeresése;
 /// - AI Top lista előállítása.
 ///
-/// A képernyőknek később már nem kell közvetlenül tudniuk,
+/// A képernyőknek nem kell közvetlenül tudniuk,
 /// hogy a mérkőzés melyik API-ból érkezett.
 class MatchRepository {
   MatchRepository._();
@@ -34,10 +36,10 @@ class MatchRepository {
   final TheSportsDbService _theSportsDbService =
       TheSportsDbService.instance;
 
+  final AiEngineV2Service _aiEngine =
+      AiEngineV2Service.instance;
+
   /// A TheSportsDB használatának központi kapcsolója.
-  ///
-  /// Ha később ki akarjuk kapcsolni vagy eltávolítani,
-  /// elég ezt false értékre állítani.
   static const bool _theSportsDbEnabled = true;
 
   /// SportMonks használata elsődleges adatforrásként.
@@ -73,8 +75,7 @@ class MatchRepository {
     if (_sportMonksEnabled) {
       try {
         final List<SportMonksFixture> fixtures =
-            await _sportMonksService
-                .fetchFixturesByDate(
+            await _sportMonksService.fetchFixturesByDate(
           normalizedDate,
         );
 
@@ -93,8 +94,7 @@ class MatchRepository {
     if (_theSportsDbEnabled) {
       try {
         final List<TheSportsDbEvent> events =
-            await _theSportsDbService
-                .fetchEventsByDate(
+            await _theSportsDbService.fetchEventsByDate(
           normalizedDate,
         );
 
@@ -112,10 +112,8 @@ class MatchRepository {
 
     final List<AppMatch> mergedMatches =
         _mergeMatches(
-      sportMonksMatches:
-          sportMonksMatches,
-      theSportsDbMatches:
-          theSportsDbMatches,
+      sportMonksMatches: sportMonksMatches,
+      theSportsDbMatches: theSportsDbMatches,
     );
 
     if (mergedMatches.isEmpty &&
@@ -131,22 +129,15 @@ class MatchRepository {
     return MatchRepositoryResult(
       date: normalizedDate,
       matches: mergedMatches,
-      sportMonksCount:
-          sportMonksMatches.length,
-      theSportsDbCount:
-          theSportsDbMatches.length,
-      sportMonksError:
-          sportMonksError,
-      theSportsDbError:
-          theSportsDbError,
-      usedSportMonks:
-          sportMonksMatches.isNotEmpty,
-      usedTheSportsDb:
-          theSportsDbMatches.isNotEmpty,
+      sportMonksCount: sportMonksMatches.length,
+      theSportsDbCount: theSportsDbMatches.length,
+      sportMonksError: sportMonksError,
+      theSportsDbError: theSportsDbError,
+      usedSportMonks: sportMonksMatches.isNotEmpty,
+      usedTheSportsDb: theSportsDbMatches.isNotEmpty,
     );
   }
 
-  /// A mai nap mérkőzéseit tölti be.
   Future<MatchRepositoryResult>
       fetchTodayMatches() {
     return fetchMatchesByDate(
@@ -154,7 +145,6 @@ class MatchRepository {
     );
   }
 
-  /// A holnapi nap mérkőzéseit tölti be.
   Future<MatchRepositoryResult>
       fetchTomorrowMatches() {
     return fetchMatchesByDate(
@@ -164,8 +154,6 @@ class MatchRepository {
     );
   }
 
-  /// Megkeresi az első olyan napot, amelyen van legalább
-  /// egy megjeleníthető mérkőzés.
   Future<MatchAvailabilityResult>
       findNextAvailableMatches({
     required DateTime startDate,
@@ -246,7 +234,6 @@ class MatchRepository {
     );
   }
 
-  /// Egy dátumintervallum összes mérkőzését lekéri.
   Future<List<AppMatch>> fetchMatchesBetween({
     required DateTime startDate,
     required DateTime endDate,
@@ -295,7 +282,7 @@ class MatchRepository {
   }
 
   /// A következő elérhető mérkőzésnap legjobb
-  /// AI-pontszámú meccseit adja vissza.
+  /// AI Engine 2.0 pontszámú meccseit adja vissza.
   Future<MatchTopResult> fetchTopMatches({
     DateTime? startDate,
     int limit = 5,
@@ -338,8 +325,7 @@ class MatchRepository {
         firstResult;
 
     if (availableMatches.isEmpty) {
-      final MatchAvailabilityResult
-          availability =
+      final MatchAvailabilityResult availability =
           await findNextAvailableMatches(
         startDate: normalizedStart.add(
           const Duration(days: 1),
@@ -351,16 +337,13 @@ class MatchRepository {
           availability.date == null) {
         return MatchTopResult(
           date: null,
-          matches:
-              const <AppMatch>[],
-          checkedDays:
-              availability.checkedDays,
+          matches: const <AppMatch>[],
+          checkedDays: availability.checkedDays,
           repositoryResult: null,
         );
       }
 
-      selectedDate =
-          availability.date!;
+      selectedDate = availability.date!;
 
       availableMatches =
           List<AppMatch>.from(
@@ -412,8 +395,7 @@ class MatchRepository {
             selectedDate,
           ) +
           1,
-      repositoryResult:
-          sourceResult,
+      repositoryResult: sourceResult,
     );
   }
 
@@ -422,6 +404,9 @@ class MatchRepository {
   /// Ha ugyanaz a mérkőzés mindkét API-ban megtalálható,
   /// a SportMonks-adat az elsődleges, de a hiányzó logókat
   /// a TheSportsDB adataiból kiegészítjük.
+  ///
+  /// Az egyesítés után az AI Engine 2.0 újraelemzi
+  /// a végleges mérkőzésobjektumot.
   List<AppMatch> _mergeMatches({
     required List<AppMatch>
         sportMonksMatches,
@@ -453,7 +438,8 @@ class MatchRepository {
         continue;
       }
 
-      merged[key] = existing.copyWith(
+      final AppMatch combined =
+          existing.copyWith(
         homeTeamLogoUrl:
             existing.homeTeamLogoUrl
                     .trim()
@@ -479,10 +465,17 @@ class MatchRepository {
             existing.isLive ||
                 theSportsDbMatch.isLive,
       );
+
+      merged[key] =
+          _applyAiEngineScore(
+        combined,
+      );
     }
 
     final List<AppMatch> result =
-        merged.values.toList();
+        merged.values
+            .map(_applyAiEngineScore)
+            .toList();
 
     result.sort(
       (
@@ -511,8 +504,7 @@ class MatchRepository {
             first.league
                 .toLowerCase()
                 .compareTo(
-                  second.league
-                      .toLowerCase(),
+                  second.league.toLowerCase(),
                 );
 
         if (leagueComparison != 0) {
@@ -547,11 +539,15 @@ class MatchRepository {
           unique[key];
 
       if (existing == null) {
-        unique[key] = match;
+        unique[key] =
+            _applyAiEngineScore(
+          match,
+        );
         continue;
       }
 
-      unique[key] = existing.copyWith(
+      final AppMatch combined =
+          existing.copyWith(
         homeTeamLogoUrl:
             existing.homeTeamLogoUrl
                     .trim()
@@ -573,6 +569,11 @@ class MatchRepository {
         isLive:
             existing.isLive ||
                 match.isLive,
+      );
+
+      unique[key] =
+          _applyAiEngineScore(
+        combined,
       );
     }
 
@@ -629,7 +630,8 @@ class MatchRepository {
     final String id =
         'sportmonks_${fixture.id}';
 
-    return AppMatch(
+    final AppMatch baseMatch =
+        AppMatch(
       id: id,
       league:
           fixture.leagueName.trim().isEmpty
@@ -644,27 +646,23 @@ class MatchRepository {
         localStart.month,
         localStart.day,
       ),
-      matchTime:
-          fixture.matchTime,
-      aiScore:
-          _createTemporaryAiScore(
-        sourceId: fixture.id,
-        league: fixture.leagueName,
-        homeTeam: fixture.homeTeam,
-        awayTeam: fixture.awayTeam,
-      ),
+      matchTime: fixture.matchTime,
+      aiScore: 0,
       isFavorite:
           FavoritesService.isFavorite(
         id,
       ),
-      isLive:
-          fixture.isLive,
+      isLive: fixture.isLive,
       homeTeamLogoUrl:
           fixture.homeTeamImagePath.trim(),
       awayTeamLogoUrl:
           fixture.awayTeamImagePath.trim(),
       leagueLogoUrl:
           fixture.leagueImagePath.trim(),
+    );
+
+    return _applyAiEngineScore(
+      baseMatch,
     );
   }
 
@@ -679,11 +677,8 @@ class MatchRepository {
     final String id =
         'thesportsdb_$rawId';
 
-    final int sourceId =
-        int.tryParse(event.id) ??
-            event.uniqueKey.hashCode;
-
-    return AppMatch(
+    final AppMatch baseMatch =
+        AppMatch(
       id: id,
       league:
           event.leagueName.trim().isEmpty
@@ -693,23 +688,14 @@ class MatchRepository {
           event.homeTeam.trim(),
       awayTeam:
           event.awayTeam.trim(),
-      matchDate:
-          event.matchDate,
-      matchTime:
-          event.matchTime,
-      aiScore:
-          _createTemporaryAiScore(
-        sourceId: sourceId,
-        league: event.leagueName,
-        homeTeam: event.homeTeam,
-        awayTeam: event.awayTeam,
-      ),
+      matchDate: event.matchDate,
+      matchTime: event.matchTime,
+      aiScore: 0,
       isFavorite:
           FavoritesService.isFavorite(
         id,
       ),
-      isLive:
-          event.isLive,
+      isLive: event.isLive,
       homeTeamLogoUrl:
           event.homeTeamBadgeUrl.trim(),
       awayTeamLogoUrl:
@@ -717,26 +703,29 @@ class MatchRepository {
       leagueLogoUrl:
           event.leagueBadgeUrl.trim(),
     );
+
+    return _applyAiEngineScore(
+      baseMatch,
+    );
   }
 
-  /// Ideiglenes, kiszámítható AI-pontszám.
+  /// AI Engine 2.0 elemzést készít a mérkőzéshez.
   ///
-  /// Nem véletlenszerű, ugyanahhoz a meccshez mindig
-  /// ugyanazt az eredményt adja. Később ezt cseréljük le
-  /// a valódi forma-, H2H-, gól- és oddselemzésre.
-  int _createTemporaryAiScore({
-    required int sourceId,
-    required String league,
-    required String homeTeam,
-    required String awayTeam,
-  }) {
-    final int seed =
-        sourceId.abs() +
-            league.length * 2 +
-            homeTeam.length * 3 +
-            awayTeam.length * 5;
+  /// Jelenleg a fallback statisztikákat használja.
+  /// Ez már nem fixture-ID-alapú vagy véletlenszerű érték.
+  /// A következő fejlesztési szakaszban a fallback adatokat
+  /// valódi forma-, H2H-, gól- és BTTS-adatok váltják fel.
+  AppMatch _applyAiEngineScore(
+    AppMatch match,
+  ) {
+    final AiMatchAnalysis analysis =
+        _aiEngine.analyzeWithFallbackData(
+      match: match,
+    );
 
-    return 65 + seed % 31;
+    return match.copyWith(
+      aiScore: analysis.aiScore,
+    );
   }
 
   String _createMatchKey(
@@ -780,7 +769,6 @@ class MatchRepository {
         .replaceAll('ä', 'a')
         .replaceAll('ë', 'e')
         .replaceAll('ï', 'i')
-        .replaceAll('ü', 'u')
         .replaceAll(
           RegExp(r'\b(fc|cf|sc|afc|fk|bk)\b'),
           '',
