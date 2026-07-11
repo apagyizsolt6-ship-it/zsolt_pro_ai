@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.13.0
+// Version: v0.13.1
 // File: lib/services/sportmonks_service.dart
 // ===========================================
 
@@ -43,17 +43,30 @@ class SportMonksService {
     }
 
     try {
-      final DateTime now = DateTime.now();
+      final SportMonksAvailabilityResult result =
+          await findNextAvailableFixtures(
+        startDate: DateTime.now(),
+        daysToCheck: 30,
+      );
 
-      final List<SportMonksFixture> fixtures =
-          await fetchFixturesByDate(now);
+      if (!result.hasFixtures) {
+        return const SportMonksConnectionResult(
+          success: true,
+          message:
+              'A SportMonks kapcsolat működik, de a következő '
+              '30 napban nincs elérhető mérkőzés a csomagodban.',
+          fixtureCount: 0,
+        );
+      }
 
       return SportMonksConnectionResult(
         success: true,
         message:
             'A SportMonks kapcsolat működik. '
-            '${fixtures.length} mérkőzés érhető el a mai napra.',
-        fixtureCount: fixtures.length,
+            '${result.fixtures.length} mérkőzés található '
+            '${_formatDate(result.date!)} napján.',
+        fixtureCount: result.fixtures.length,
+        firstAvailableDate: result.date,
       );
     } on SportMonksException catch (error) {
       return SportMonksConnectionResult(
@@ -104,8 +117,7 @@ class SportMonksService {
 
     while (hasMore) {
       final Uri uri = Uri.parse(
-        '$_baseUrl/fixtures/date/'
-        '$formattedDate',
+        '$_baseUrl/fixtures/date/$formattedDate',
       ).replace(
         queryParameters: <String, String>{
           'api_token': _apiToken,
@@ -144,6 +156,78 @@ class SportMonksService {
     );
 
     return fixtures;
+  }
+
+  Future<SportMonksAvailabilityResult>
+      findNextAvailableFixtures({
+    required DateTime startDate,
+    int daysToCheck = 30,
+    int perPage = 50,
+  }) async {
+    _ensureApiToken();
+
+    if (daysToCheck < 1) {
+      throw const SportMonksException(
+        'Legalább egy napot ellenőrizni kell.',
+      );
+    }
+
+    final int safeDaysToCheck =
+        daysToCheck.clamp(1, 90);
+
+    DateTime currentDate = DateTime(
+      startDate.year,
+      startDate.month,
+      startDate.day,
+    );
+
+    for (
+      int dayIndex = 0;
+      dayIndex < safeDaysToCheck;
+      dayIndex++
+    ) {
+      final List<SportMonksFixture> fixtures =
+          await fetchFixturesByDate(
+        currentDate,
+        perPage: perPage,
+      );
+
+      final List<SportMonksFixture>
+          validFixtures = fixtures
+              .where(
+                (
+                  SportMonksFixture fixture,
+                ) {
+                  return !fixture.placeholder &&
+                      fixture.homeTeam
+                          .trim()
+                          .isNotEmpty &&
+                      fixture.awayTeam
+                          .trim()
+                          .isNotEmpty;
+                },
+              )
+              .toList(growable: false);
+
+      if (validFixtures.isNotEmpty) {
+        return SportMonksAvailabilityResult(
+          date: currentDate,
+          fixtures: validFixtures,
+          checkedDays: dayIndex + 1,
+        );
+      }
+
+      currentDate = currentDate.add(
+        const Duration(days: 1),
+      );
+    }
+
+    return SportMonksAvailabilityResult(
+      date: null,
+      fixtures:
+          const <SportMonksFixture>[],
+      checkedDays: safeDaysToCheck,
+    );
   }
 
   Future<List<SportMonksFixture>>
@@ -201,6 +285,100 @@ class SportMonksService {
     );
 
     return fixtures;
+  }
+
+  Future<List<SportMonksLeague>>
+      fetchAvailableLeagues({
+    int perPage = 50,
+  }) async {
+    _ensureApiToken();
+
+    final List<SportMonksLeague> leagues =
+        <SportMonksLeague>[];
+
+    int page = 1;
+    bool hasMore = true;
+
+    while (hasMore) {
+      final Uri uri = Uri.parse(
+        '$_baseUrl/leagues',
+      ).replace(
+        queryParameters: <String, String>{
+          'api_token': _apiToken,
+          'include': 'country',
+          'per_page':
+              perPage.clamp(1, 50).toString(),
+          'page': page.toString(),
+        },
+      );
+
+      final _SportMonksApiResponse response =
+          await _get(uri);
+
+      final dynamic data = response.data;
+
+      if (data is List<dynamic>) {
+        leagues.addAll(
+          data
+              .whereType<
+                  Map<String, dynamic>>()
+              .map(
+                SportMonksLeague.fromJson,
+              ),
+        );
+      }
+
+      hasMore = response.hasMore;
+      page += 1;
+
+      if (page > 20) {
+        break;
+      }
+    }
+
+    leagues.sort(
+      (
+        SportMonksLeague first,
+        SportMonksLeague second,
+      ) {
+        return first.name
+            .toLowerCase()
+            .compareTo(
+              second.name.toLowerCase(),
+            );
+      },
+    );
+
+    return leagues;
+  }
+
+  Future<SportMonksDiagnosticResult>
+      runDiagnostic({
+    int daysToCheck = 30,
+  }) async {
+    _ensureApiToken();
+
+    final List<SportMonksLeague> leagues =
+        await fetchAvailableLeagues();
+
+    final SportMonksAvailabilityResult
+        availability =
+        await findNextAvailableFixtures(
+      startDate: DateTime.now(),
+      daysToCheck: daysToCheck,
+    );
+
+    return SportMonksDiagnosticResult(
+      leagueCount: leagues.length,
+      leagues: leagues,
+      firstAvailableDate:
+          availability.date,
+      fixtureCount:
+          availability.fixtures.length,
+      fixtures: availability.fixtures,
+      checkedDays:
+          availability.checkedDays,
+    );
   }
 
   Future<SportMonksFixture?>
@@ -287,8 +465,12 @@ class SportMonksService {
         )
         .where(
           (SportMonksFixture fixture) {
-            return fixture.homeTeam.isNotEmpty &&
-                fixture.awayTeam.isNotEmpty;
+            return fixture.homeTeam
+                    .trim()
+                    .isNotEmpty &&
+                fixture.awayTeam
+                    .trim()
+                    .isNotEmpty;
           },
         )
         .toList(growable: false);
@@ -297,7 +479,8 @@ class SportMonksService {
   Future<_SportMonksApiResponse> _get(
     Uri uri,
   ) async {
-    final HttpClient client = HttpClient();
+    final HttpClient client =
+        HttpClient();
 
     client.connectionTimeout =
         _connectionTimeout;
@@ -317,7 +500,7 @@ class SportMonksService {
 
       request.headers.set(
         HttpHeaders.userAgentHeader,
-        'Zsolt-Pro-AI/0.13.0',
+        'Zsolt-Pro-AI/0.13.1',
       );
 
       final HttpClientResponse response =
@@ -327,14 +510,15 @@ class SportMonksService {
                 _responseTimeout,
               );
 
-      final String body = await response
-          .transform(
-            utf8.decoder,
-          )
-          .join()
-          .timeout(
-            _responseTimeout,
-          );
+      final String body =
+          await response
+              .transform(
+                utf8.decoder,
+              )
+              .join()
+              .timeout(
+                _responseTimeout,
+              );
 
       if (response.statusCode < 200 ||
           response.statusCode >= 300) {
@@ -359,7 +543,8 @@ class SportMonksService {
         );
       }
 
-      final dynamic data = decoded['data'];
+      final dynamic data =
+          decoded['data'];
 
       final dynamic pagination =
           decoded['pagination'];
@@ -456,7 +641,7 @@ class SportMonksService {
         }
       }
     } catch (_) {
-      // Az alapértelmezett HTTP-hibaüzenet marad.
+      // Az alapértelmezett hibaüzenet marad.
     }
 
     if (message != null &&
@@ -474,12 +659,12 @@ class SportMonksService {
             '(HTTP 401): hibás vagy hiányzó API-token.';
       case 403:
         return 'SportMonks API hiba '
-            '(HTTP 403): ehhez az adathoz '
-            'nincs hozzáférés az előfizetésben.';
+            '(HTTP 403): ehhez az adathoz nincs '
+            'hozzáférés az előfizetésben.';
       case 404:
         return 'SportMonks API hiba '
             '(HTTP 404): a kért végpont vagy '
-            'mérkőzés nem található.';
+            'adat nem található.';
       case 429:
         return 'SportMonks API hiba '
             '(HTTP 429): túl sok API-kérés történt.';
@@ -556,7 +741,7 @@ class SportMonksService {
     }
   }
 
-  String _formatDate(
+  static String _formatDate(
     DateTime date,
   ) {
     final String year =
@@ -586,13 +771,121 @@ class SportMonksConnectionResult {
   final String message;
   final int? statusCode;
   final int? fixtureCount;
+  final DateTime? firstAvailableDate;
 
   const SportMonksConnectionResult({
     required this.success,
     required this.message,
     this.statusCode,
     this.fixtureCount,
+    this.firstAvailableDate,
   });
+}
+
+class SportMonksAvailabilityResult {
+  final DateTime? date;
+  final List<SportMonksFixture> fixtures;
+  final int checkedDays;
+
+  const SportMonksAvailabilityResult({
+    required this.date,
+    required this.fixtures,
+    required this.checkedDays,
+  });
+
+  bool get hasFixtures {
+    return date != null &&
+        fixtures.isNotEmpty;
+  }
+}
+
+class SportMonksDiagnosticResult {
+  final int leagueCount;
+  final List<SportMonksLeague> leagues;
+  final DateTime? firstAvailableDate;
+  final int fixtureCount;
+  final List<SportMonksFixture> fixtures;
+  final int checkedDays;
+
+  const SportMonksDiagnosticResult({
+    required this.leagueCount,
+    required this.leagues,
+    required this.firstAvailableDate,
+    required this.fixtureCount,
+    required this.fixtures,
+    required this.checkedDays,
+  });
+
+  bool get hasFixtures {
+    return firstAvailableDate != null &&
+        fixtures.isNotEmpty;
+  }
+}
+
+class SportMonksLeague {
+  final int id;
+  final int countryId;
+  final String name;
+  final String shortCode;
+  final String imagePath;
+  final String countryName;
+  final bool active;
+
+  const SportMonksLeague({
+    required this.id,
+    required this.countryId,
+    required this.name,
+    required this.shortCode,
+    required this.imagePath,
+    required this.countryName,
+    required this.active,
+  });
+
+  factory SportMonksLeague.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final Map<String, dynamic>? country =
+        json['country']
+                is Map<String, dynamic>
+            ? json['country']
+                as Map<String, dynamic>
+            : null;
+
+    return SportMonksLeague(
+      id: _toInt(json['id']),
+      countryId:
+          _toInt(json['country_id']),
+      name:
+          json['name']?.toString() ?? '',
+      shortCode:
+          json['short_code']?.toString() ??
+              '',
+      imagePath:
+          json['image_path']?.toString() ??
+              '',
+      countryName:
+          country?['name']?.toString() ??
+              '',
+      active: json['active'] == true,
+    );
+  }
+
+  static int _toInt(
+    dynamic value,
+  ) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0;
+  }
 }
 
 class SportMonksFixture {
@@ -674,12 +967,12 @@ class SportMonksFixture {
         state == 'ht' ||
         state == 'et' ||
         state == 'pen_live' ||
-        stateName.toLowerCase().contains(
-          'inplay',
-        ) ||
-        stateName.toLowerCase().contains(
-          'live',
-        );
+        stateName
+            .toLowerCase()
+            .contains('inplay') ||
+        stateName
+            .toLowerCase()
+            .contains('live');
   }
 
   bool get isFinished {
@@ -689,9 +982,9 @@ class SportMonksFixture {
     return state == 'ft' ||
         state == 'aet' ||
         state == 'pen' ||
-        stateName.toLowerCase().contains(
-          'finished',
-        );
+        stateName
+            .toLowerCase()
+            .contains('finished');
   }
 
   String get matchTime {
@@ -759,7 +1052,8 @@ class SportMonksFixture {
         _asMap(json['state']);
 
     final String rawStartingAt =
-        json['starting_at']?.toString() ?? '';
+        json['starting_at']?.toString() ??
+            '';
 
     final int timestamp =
         _toInt(
@@ -767,7 +1061,9 @@ class SportMonksFixture {
     );
 
     DateTime? parsedStartingAt =
-        DateTime.tryParse(rawStartingAt);
+        DateTime.tryParse(
+      rawStartingAt,
+    );
 
     if (parsedStartingAt == null &&
         timestamp > 0) {
@@ -786,8 +1082,8 @@ class SportMonksFixture {
           _toInt(json['season_id']),
       stateId:
           _toInt(json['state_id']),
-      name: json['name']?.toString() ??
-          '',
+      name:
+          json['name']?.toString() ?? '',
       startingAt: parsedStartingAt ??
           DateTime.fromMillisecondsSinceEpoch(
             0,
@@ -799,8 +1095,10 @@ class SportMonksFixture {
               '',
       placeholder:
           json['placeholder'] == true,
-      hasOdds: json['has_odds'] == true ||
-          json['has_premium_odds'] == true,
+      hasOdds:
+          json['has_odds'] == true ||
+              json['has_premium_odds'] ==
+                  true,
       leagueName:
           league?['name']?.toString() ??
               'Ismeretlen bajnokság',
@@ -932,8 +1230,8 @@ class SportMonksParticipant {
 
     return SportMonksParticipant(
       id: _toInt(json['id']),
-      name: json['name']?.toString() ??
-          '',
+      name:
+          json['name']?.toString() ?? '',
       shortCode:
           json['short_code']?.toString() ??
               '',
@@ -966,7 +1264,8 @@ class SportMonksParticipant {
   }
 }
 
-class SportMonksException implements Exception {
+class SportMonksException
+    implements Exception {
   final String message;
   final int? statusCode;
 
