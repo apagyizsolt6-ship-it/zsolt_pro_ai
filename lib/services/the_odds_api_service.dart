@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.11.1
+// Version: v0.11.2
 // File: lib/services/the_odds_api_service.dart
 // ===========================================
 
@@ -163,16 +163,16 @@ class TheOddsApiService {
 
     if (commenceTimeFrom != null) {
       parameters['commenceTimeFrom'] =
-          commenceTimeFrom
-              .toUtc()
-              .toIso8601String();
+          _formatApiDate(
+        commenceTimeFrom,
+      );
     }
 
     if (commenceTimeTo != null) {
       parameters['commenceTimeTo'] =
-          commenceTimeTo
-              .toUtc()
-              .toIso8601String();
+          _formatApiDate(
+        commenceTimeTo,
+      );
     }
 
     final Uri uri = Uri.parse(
@@ -440,7 +440,7 @@ class TheOddsApiService {
 
       request.headers.set(
         HttpHeaders.userAgentHeader,
-        'Zsolt-Pro-AI/0.11.1',
+        'Zsolt-Pro-AI/0.11.2',
       );
 
       final HttpClientResponse response =
@@ -520,6 +520,46 @@ class TheOddsApiService {
         force: true,
       );
     }
+  }
+
+  String _formatApiDate(
+    DateTime date,
+  ) {
+    final DateTime utcDate =
+        date.toUtc();
+
+    final String year =
+        utcDate.year
+            .toString()
+            .padLeft(4, '0');
+
+    final String month =
+        utcDate.month
+            .toString()
+            .padLeft(2, '0');
+
+    final String day =
+        utcDate.day
+            .toString()
+            .padLeft(2, '0');
+
+    final String hour =
+        utcDate.hour
+            .toString()
+            .padLeft(2, '0');
+
+    final String minute =
+        utcDate.minute
+            .toString()
+            .padLeft(2, '0');
+
+    final String second =
+        utcDate.second
+            .toString()
+            .padLeft(2, '0');
+
+    return '$year-$month-${day}T'
+        '$hour:$minute:${second}Z';
   }
 
   void _updateQuotaData(
