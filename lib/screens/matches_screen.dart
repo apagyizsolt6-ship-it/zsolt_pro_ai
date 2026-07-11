@@ -1,23 +1,25 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.13.6
+// Version: v0.14.4
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
-import '../screens/match_detail_screen.dart';
 import '../services/favorites_service.dart';
-import '../services/sportmonks_service.dart';
+import '../services/match_repository.dart';
 import '../widgets/day_selector.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/league_header.dart';
 import '../widgets/match_card.dart';
 import '../widgets/search_bar_widget.dart';
+import 'match_detail_screen.dart';
 
 class MatchesScreen extends StatefulWidget {
-  const MatchesScreen({super.key});
+  const MatchesScreen({
+    super.key,
+  });
 
   @override
   State<MatchesScreen> createState() {
@@ -29,8 +31,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
   final TextEditingController _searchController =
       TextEditingController();
 
-  final SportMonksService _sportMonksService =
-      SportMonksService.instance;
+  final MatchRepository _matchRepository =
+      MatchRepository.instance;
 
   int _selectedDayIndex = 0;
 
@@ -42,9 +44,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   String? _errorMessage;
   String? _informationMessage;
+  String? _warningMessage;
 
   DateTime? _displayedDate;
   DateTime? _nextAvailableDate;
+
+  MatchRepositoryResult? _lastRepositoryResult;
 
   List<AppMatch> _loadedMatches = <AppMatch>[];
 
@@ -60,6 +65,89 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   DateTime get _activeDate {
     return _displayedDate ?? _requestedDate;
+  }
+
+  List<AppMatch> get _filteredMatches {
+    final String normalizedSearch =
+        _searchText.trim().toLowerCase();
+
+    final List<AppMatch> result =
+        _loadedMatches.where(
+      (AppMatch match) {
+        final bool searchMatches =
+            normalizedSearch.isEmpty ||
+                match.homeTeam
+                    .toLowerCase()
+                    .contains(
+                      normalizedSearch,
+                    ) ||
+                match.awayTeam
+                    .toLowerCase()
+                    .contains(
+                      normalizedSearch,
+                    ) ||
+                match.league
+                    .toLowerCase()
+                    .contains(
+                      normalizedSearch,
+                    );
+
+        final bool favoriteMatches =
+            !_favoritesOnly ||
+                FavoritesService.isFavorite(
+                  match.id,
+                );
+
+        return searchMatches &&
+            favoriteMatches;
+      },
+    ).toList();
+
+    result.sort(
+      (
+        AppMatch first,
+        AppMatch second,
+      ) {
+        final int dateComparison =
+            first.matchDate.compareTo(
+          second.matchDate,
+        );
+
+        if (dateComparison != 0) {
+          return dateComparison;
+        }
+
+        final int timeComparison =
+            first.matchTime.compareTo(
+          second.matchTime,
+        );
+
+        if (timeComparison != 0) {
+          return timeComparison;
+        }
+
+        final int leagueComparison =
+            first.league
+                .toLowerCase()
+                .compareTo(
+                  second.league
+                      .toLowerCase(),
+                );
+
+        if (leagueComparison != 0) {
+          return leagueComparison;
+        }
+
+        return first.homeTeam
+            .toLowerCase()
+            .compareTo(
+              second.homeTeam
+                  .toLowerCase(),
+            );
+      },
+    );
+
+    return result;
   }
 
   @override
@@ -80,107 +168,15 @@ class _MatchesScreenState extends State<MatchesScreen> {
     super.dispose();
   }
 
-  List<AppMatch> get _filteredMatches {
-    final String normalizedSearch =
-        _searchText.trim().toLowerCase();
-
-    final List<AppMatch> result =
-        _loadedMatches.where(
-      (AppMatch match) {
-        final bool searchOk =
-            normalizedSearch.isEmpty ||
-                match.homeTeam
-                    .toLowerCase()
-                    .contains(normalizedSearch) ||
-                match.awayTeam
-                    .toLowerCase()
-                    .contains(normalizedSearch) ||
-                match.league
-                    .toLowerCase()
-                    .contains(normalizedSearch);
-
-        final bool favoriteOk =
-            !_favoritesOnly ||
-                FavoritesService.isFavorite(
-                  match.id,
-                );
-
-        return searchOk && favoriteOk;
-      },
-    ).toList();
-
-    result.sort(
-      (
-        AppMatch first,
-        AppMatch second,
-      ) {
-        final int dateComparison =
-            first.matchDate.compareTo(
-          second.matchDate,
-        );
-
-        if (dateComparison != 0) {
-          return dateComparison;
-        }
-
-        return first.matchTime.compareTo(
-          second.matchTime,
-        );
-      },
-    );
-
-    return result;
-  }
-
-  Map<String, List<AppMatch>> _groupMatchesByLeague(
-    List<AppMatch> matches,
-  ) {
-    final Map<String, List<AppMatch>> grouped =
-        <String, List<AppMatch>>{};
-
-    for (final AppMatch match in matches) {
-      final String leagueName =
-          match.league.trim().isEmpty
-              ? 'Ismeretlen bajnokság'
-              : match.league.trim();
-
-      grouped.putIfAbsent(
-        leagueName,
-        () => <AppMatch>[],
-      );
-
-      grouped[leagueName]!.add(match);
-    }
-
-    final List<MapEntry<String, List<AppMatch>>>
-        entries = grouped.entries.toList()
-          ..sort(
-            (
-              MapEntry<String, List<AppMatch>> first,
-              MapEntry<String, List<AppMatch>> second,
-            ) {
-              return first.key
-                  .toLowerCase()
-                  .compareTo(
-                    second.key.toLowerCase(),
-                  );
-            },
-          );
-
-    return <String, List<AppMatch>>{
-      for (final MapEntry<String, List<AppMatch>>
-          entry in entries)
-        entry.key: entry.value,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     final List<AppMatch> matches =
         _filteredMatches;
 
-    final Map<String, List<AppMatch>> grouped =
-        _groupMatchesByLeague(matches);
+    final Map<String, List<AppMatch>> groupedMatches =
+        _groupMatchesByLeague(
+      matches,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -215,8 +211,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 });
               },
             ),
+
             DaySelector(
-              selectedIndex: _selectedDayIndex,
+              selectedIndex:
+                  _selectedDayIndex,
               onChanged: (
                 int index,
               ) {
@@ -226,18 +224,23 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
                 setState(() {
                   _selectedDayIndex = index;
+                  _loadedMatches =
+                      <AppMatch>[];
                   _displayedDate = null;
                   _nextAvailableDate = null;
-                  _loadedMatches = <AppMatch>[];
+                  _lastRepositoryResult = null;
                   _errorMessage = null;
                   _informationMessage = null;
+                  _warningMessage = null;
                 });
 
                 _loadMatches();
               },
             ),
+
             FilterBar(
-              favoritesOnly: _favoritesOnly,
+              favoritesOnly:
+                  _favoritesOnly,
               onChanged: (
                 bool value,
               ) {
@@ -246,17 +249,26 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 });
               },
             ),
+
             _buildDataStatusBar(
               context: context,
             ),
+
+            if (_warningMessage != null)
+              _buildWarningBanner(
+                context: context,
+              ),
+
             if (_informationMessage != null)
               _buildInformationBanner(
                 context: context,
               ),
+
             Expanded(
               child: _buildContent(
                 context: context,
-                grouped: grouped,
+                groupedMatches:
+                    groupedMatches,
                 matches: matches,
               ),
             ),
@@ -264,6 +276,55 @@ class _MatchesScreenState extends State<MatchesScreen> {
         ),
       ),
     );
+  }
+
+  Map<String, List<AppMatch>>
+      _groupMatchesByLeague(
+    List<AppMatch> matches,
+  ) {
+    final Map<String, List<AppMatch>> grouped =
+        <String, List<AppMatch>>{};
+
+    for (final AppMatch match in matches) {
+      final String leagueName =
+          match.league.trim().isEmpty
+              ? 'Ismeretlen bajnokság'
+              : match.league.trim();
+
+      grouped.putIfAbsent(
+        leagueName,
+        () => <AppMatch>[],
+      );
+
+      grouped[leagueName]!.add(
+        match,
+      );
+    }
+
+    final List<MapEntry<String, List<AppMatch>>>
+        sortedEntries =
+        grouped.entries.toList()
+          ..sort(
+            (
+              MapEntry<String, List<AppMatch>>
+                  first,
+              MapEntry<String, List<AppMatch>>
+                  second,
+            ) {
+              return first.key
+                  .toLowerCase()
+                  .compareTo(
+                    second.key
+                        .toLowerCase(),
+                  );
+            },
+          );
+
+    return <String, List<AppMatch>>{
+      for (final MapEntry<String, List<AppMatch>>
+          entry in sortedEntries)
+        entry.key: entry.value,
+    };
   }
 
   Widget _buildDataStatusBar({
@@ -278,6 +339,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
       );
     }
 
+    final MatchRepositoryResult? result =
+        _lastRepositoryResult;
+
+    final bool hasError =
+        _errorMessage != null;
+
+    final String sourceLabel =
+        result?.sourceLabel ??
+            'SportMonks + TheSportsDB';
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(
@@ -288,43 +359,109 @@ class _MatchesScreenState extends State<MatchesScreen> {
       ),
       padding: const EdgeInsets.symmetric(
         horizontal: 12,
-        vertical: 9,
+        vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: colors.primaryContainer.withValues(
-          alpha: 0.22,
-        ),
-        borderRadius: BorderRadius.circular(14),
+        color: hasError
+            ? Colors.red.withValues(
+                alpha: 0.08,
+              )
+            : colors.primaryContainer
+                .withValues(
+                alpha: 0.22,
+              ),
+        borderRadius:
+            BorderRadius.circular(14),
         border: Border.all(
-          color: colors.primary.withValues(
-            alpha: 0.18,
-          ),
+          color: hasError
+              ? Colors.redAccent.withValues(
+                  alpha: 0.45,
+                )
+              : colors.primary.withValues(
+                  alpha: 0.18,
+                ),
         ),
       ),
       child: Row(
         children: [
           Icon(
-            _errorMessage == null
-                ? Icons.cloud_done_outlined
-                : Icons.cloud_off_outlined,
+            hasError
+                ? Icons.cloud_off_outlined
+                : Icons.cloud_done_outlined,
             size: 19,
-            color: _errorMessage == null
-                ? Colors.greenAccent
-                : Colors.orangeAccent,
+            color: hasError
+                ? Colors.redAccent
+                : Colors.greenAccent,
           ),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
-              _errorMessage == null
-                  ? 'SportMonks • '
+              hasError
+                  ? 'A mérkőzésadatok betöltése '
+                      'nem sikerült.'
+                  : '$sourceLabel • '
                       '${_formatDate(_activeDate)} • '
-                      '${_loadedMatches.length} mérkőzés'
-                  : 'A SportMonks-adatok betöltése '
-                      'nem sikerült.',
+                      '${_loadedMatches.length} mérkőzés',
               style: TextStyle(
-                color: colors.onSurfaceVariant,
+                color: hasError
+                    ? Colors.redAccent
+                    : colors.onSurfaceVariant,
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight:
+                    FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWarningBanner({
+    required BuildContext context,
+  }) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(
+        16,
+        6,
+        16,
+        4,
+      ),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(
+          alpha: 0.10,
+        ),
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.orangeAccent.withValues(
+            alpha: 0.55,
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.orangeAccent,
+            size: 21,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _warningMessage!,
+              style: TextStyle(
+                color:
+                    colors.onSurfaceVariant,
+                fontSize: 13,
+                height: 1.35,
               ),
             ),
           ),
@@ -349,13 +486,15 @@ class _MatchesScreenState extends State<MatchesScreen> {
       ),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.orange.withValues(
-          alpha: 0.10,
+        color: colors.primaryContainer
+            .withValues(
+          alpha: 0.25,
         ),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius:
+            BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.orangeAccent.withValues(
-            alpha: 0.55,
+          color: colors.primary.withValues(
+            alpha: 0.35,
           ),
         ),
       ),
@@ -363,9 +502,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline,
-            color: Colors.orangeAccent,
+            color: colors.primary,
             size: 21,
           ),
           const SizedBox(width: 10),
@@ -373,7 +512,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
             child: Text(
               _informationMessage!,
               style: TextStyle(
-                color: colors.onSurfaceVariant,
+                color:
+                    colors.onSurfaceVariant,
                 fontSize: 13,
                 height: 1.35,
               ),
@@ -386,10 +526,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   Widget _buildContent({
     required BuildContext context,
-    required Map<String, List<AppMatch>> grouped,
+    required Map<String, List<AppMatch>>
+        groupedMatches,
     required List<AppMatch> matches,
   }) {
-    if (_isLoading && _loadedMatches.isEmpty) {
+    if (_isLoading &&
+        _loadedMatches.isEmpty) {
       return _buildLoadingState(
         context: context,
       );
@@ -419,13 +561,15 @@ class _MatchesScreenState extends State<MatchesScreen> {
           16,
           28,
         ),
-        children: grouped.entries.map(
+        children:
+            groupedMatches.entries.map(
           (
             MapEntry<String, List<AppMatch>>
                 entry,
           ) {
             return Padding(
-              padding: const EdgeInsets.only(
+              padding:
+                  const EdgeInsets.only(
                 bottom: 18,
               ),
               child: Column(
@@ -441,7 +585,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       return MatchCard(
                         match: match,
                         onTap: () {
-                          Navigator.of(context).push(
+                          Navigator.of(context)
+                              .push(
                             MaterialPageRoute<void>(
                               builder: (
                                 BuildContext context,
@@ -482,23 +627,31 @@ class _MatchesScreenState extends State<MatchesScreen> {
             const SizedBox(height: 18),
             Text(
               _isSearchingNextDate
-                  ? 'Következő mérkőzésnap keresése...'
-                  : 'Valódi mérkőzések betöltése...',
+                  ? 'Következő mérkőzésnap '
+                      'keresése...'
+                  : 'Valódi mérkőzések '
+                      'betöltése...',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               _isSearchingNextDate
-                  ? 'A SportMonks következő 30 napját '
-                      'ellenőrizzük.'
-                  : 'A SportMonks API adatait kérjük le.',
+                  ? 'A SportMonks és a '
+                      'TheSportsDB következő '
+                      '30 napját ellenőrizzük.'
+                  : 'A SportMonks és a '
+                      'TheSportsDB adatait '
+                      'egyesítjük.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: colors.onSurfaceVariant,
+                color:
+                    colors.onSurfaceVariant,
+                height: 1.4,
               ),
             ),
           ],
@@ -524,7 +677,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           const Icon(
             Icons.cloud_off_outlined,
             size: 72,
-            color: Colors.orangeAccent,
+            color: Colors.redAccent,
           ),
           const SizedBox(height: 18),
           const Text(
@@ -532,16 +685,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 21,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
           const SizedBox(height: 12),
           Text(
             _errorMessage ??
-                'Ismeretlen SportMonks hiba.',
+                'Ismeretlen adatforrás-hiba.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: colors.onSurfaceVariant,
+              color:
+                  colors.onSurfaceVariant,
               fontSize: 14,
               height: 1.4,
             ),
@@ -557,9 +712,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
             label: const Text(
               'Újrapróbálás',
             ),
-            style: FilledButton.styleFrom(
+            style:
+                FilledButton.styleFrom(
               minimumSize:
-                  const Size.fromHeight(52),
+                  const Size.fromHeight(
+                52,
+              ),
             ),
           ),
         ],
@@ -590,37 +748,43 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 ? Icons.filter_alt_off_outlined
                 : Icons.event_busy_outlined,
             size: 72,
-            color: colors.onSurfaceVariant,
+            color:
+                colors.onSurfaceVariant,
           ),
           const SizedBox(height: 18),
           Text(
             filterActive
                 ? 'Nincs találat a szűrésre'
-                : 'Ezen a napon nincs elérhető mérkőzés',
+                : 'Ezen a napon nincs '
+                    'elérhető mérkőzés',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
           const SizedBox(height: 10),
           Text(
             filterActive
-                ? 'Módosítsd a keresést vagy '
-                    'kapcsold ki a kedvencek szűrését.'
+                ? 'Módosítsd a keresést, '
+                    'vagy kapcsold ki a '
+                    'kedvencek szűrését.'
                 : _nextAvailableDate != null
                     ? 'A következő elérhető '
                         'mérkőzésnap: '
                         '${_formatDate(_nextAvailableDate!)}'
-                    : 'A SportMonks csomagodban a '
-                        'következő 30 napban sem találtunk '
-                        'elérhető mérkőzést.',
+                    : 'A következő 30 napban '
+                        'egyik adatforrás sem '
+                        'talált mérkőzést.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: colors.onSurfaceVariant,
+              color:
+                  colors.onSurfaceVariant,
               height: 1.4,
             ),
           ),
+
           if (!filterActive &&
               _nextAvailableDate != null) ...[
             const SizedBox(height: 20),
@@ -634,30 +798,39 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 'Meccsek megnyitása – '
                 '${_formatDate(_nextAvailableDate!)}',
               ),
-              style: FilledButton.styleFrom(
+              style:
+                  FilledButton.styleFrom(
                 minimumSize:
-                    const Size.fromHeight(52),
+                    const Size.fromHeight(
+                  52,
+                ),
               ),
             ),
           ],
+
           if (!filterActive &&
               _nextAvailableDate == null) ...[
             const SizedBox(height: 20),
             OutlinedButton.icon(
-              onPressed:
-                  _isLoading ? null : _runDiagnostic,
+              onPressed: _isLoading
+                  ? null
+                  : _findNextAvailableDate,
               icon: const Icon(
-                Icons.troubleshoot,
+                Icons.search,
               ),
               label: const Text(
-                'SportMonks diagnosztika',
+                'Következő mérkőzésnap keresése',
               ),
-              style: OutlinedButton.styleFrom(
+              style:
+                  OutlinedButton.styleFrom(
                 minimumSize:
-                    const Size.fromHeight(52),
+                    const Size.fromHeight(
+                  52,
+                ),
               ),
             ),
           ],
+
           if (filterActive) ...[
             const SizedBox(height: 20),
             OutlinedButton.icon(
@@ -667,6 +840,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
               ),
               label: const Text(
                 'Szűrők törlése',
+              ),
+              style:
+                  OutlinedButton.styleFrom(
+                minimumSize:
+                    const Size.fromHeight(
+                  52,
+                ),
               ),
             ),
           ],
@@ -685,76 +865,77 @@ class _MatchesScreenState extends State<MatchesScreen> {
       _isSearchingNextDate = false;
       _errorMessage = null;
       _informationMessage = null;
+      _warningMessage = null;
       _nextAvailableDate = null;
       _displayedDate = _requestedDate;
+      _lastRepositoryResult = null;
     });
 
     try {
-      final List<SportMonksFixture> fixtures =
-          await _sportMonksService
-              .fetchFixturesByDate(
+      final MatchRepositoryResult result =
+          await _matchRepository
+              .fetchMatchesByDate(
         _requestedDate,
       );
-
-      final List<AppMatch> matches =
-          _convertFixtures(fixtures);
 
       if (!mounted) {
         return;
       }
 
-      if (matches.isNotEmpty) {
+      if (result.matches.isNotEmpty) {
         setState(() {
-          _loadedMatches = matches;
-          _displayedDate = _requestedDate;
+          _loadedMatches =
+              List<AppMatch>.from(
+            result.matches,
+          );
+
+          _displayedDate =
+              result.date;
+
+          _lastRepositoryResult =
+              result;
+
+          _warningMessage =
+              result.warningMessage;
+
+          _informationMessage =
+              _buildSourceInformation(
+            result,
+          );
         });
 
         return;
       }
 
       setState(() {
+        _loadedMatches =
+            <AppMatch>[];
+
+        _lastRepositoryResult =
+            result;
+
+        _warningMessage =
+            result.warningMessage;
+
         _isSearchingNextDate = true;
       });
 
-      final SportMonksAvailabilityResult
-          availability =
-          await _sportMonksService
-              .findNextAvailableFixtures(
-        startDate: _requestedDate.add(
-          const Duration(days: 1),
-        ),
-        daysToCheck: 30,
+      await _findNextAvailableDate(
+        showLoading: false,
       );
-
+    } on MatchRepositoryException catch (
+      error,
+    ) {
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _loadedMatches = <AppMatch>[];
-        _nextAvailableDate =
-            availability.date;
-
-        if (availability.hasFixtures) {
-          _informationMessage =
-              'A kiválasztott napon nincs meccs. '
-              'A következő elérhető mérkőzésnap '
-              '${_formatDate(availability.date!)}.';
-        } else {
-          _informationMessage =
-              'A kapcsolat működik, de a SportMonks '
-              'csomagodban a következő 30 napra sem '
-              'érhető el mérkőzés.';
-        }
-      });
-    } on SportMonksException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _loadedMatches = <AppMatch>[];
-        _errorMessage = error.message;
+        _loadedMatches =
+            <AppMatch>[];
+        _lastRepositoryResult = null;
+        _errorMessage =
+            error.message;
       });
     } catch (error) {
       if (!mounted) {
@@ -762,7 +943,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
       }
 
       setState(() {
-        _loadedMatches = <AppMatch>[];
+        _loadedMatches =
+            <AppMatch>[];
+        _lastRepositoryResult = null;
         _errorMessage =
             'Váratlan hiba történt. '
             'Típus: ${error.runtimeType}. '
@@ -778,85 +961,30 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
-  Future<void> _openNextAvailableDate() async {
-    final DateTime? date =
-        _nextAvailableDate;
-
-    if (date == null || _isLoading) {
+  Future<void> _findNextAvailableDate({
+    bool showLoading = true,
+  }) async {
+    if (_isLoading && showLoading) {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _isSearchingNextDate = false;
-      _errorMessage = null;
-      _informationMessage = null;
-    });
-
-    try {
-      final List<SportMonksFixture> fixtures =
-          await _sportMonksService
-              .fetchFixturesByDate(
-        date,
-      );
-
-      final List<AppMatch> matches =
-          _convertFixtures(fixtures);
-
-      if (!mounted) {
-        return;
-      }
-
+    if (showLoading) {
       setState(() {
-        _loadedMatches = matches;
-        _displayedDate = date;
-        _nextAvailableDate = null;
-        _informationMessage =
-            'A következő elérhető mérkőzésnap '
-            'meccsei láthatók.';
+        _isLoading = true;
+        _isSearchingNextDate = true;
+        _errorMessage = null;
+        _informationMessage = null;
+        _warningMessage = null;
       });
-    } on SportMonksException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _errorMessage = error.message;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _errorMessage =
-            'A mérkőzésnap megnyitása nem '
-            'sikerült: $error';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _runDiagnostic() async {
-    if (_isLoading) {
-      return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _isSearchingNextDate = true;
-      _errorMessage = null;
-      _informationMessage = null;
-    });
-
     try {
-      final SportMonksDiagnosticResult result =
-          await _sportMonksService.runDiagnostic(
+      final MatchAvailabilityResult availability =
+          await _matchRepository
+              .findNextAvailableMatches(
+        startDate: _requestedDate.add(
+          const Duration(days: 1),
+        ),
         daysToCheck: 30,
       );
 
@@ -866,29 +994,45 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       setState(() {
         _nextAvailableDate =
-            result.firstAvailableDate;
+            availability.date;
 
-        if (result.hasFixtures) {
+        if (availability.hasMatches &&
+            availability.date != null) {
           _informationMessage =
-              'Diagnosztika: ${result.leagueCount} '
-              'elérhető liga. Az első mérkőzésnap '
-              '${_formatDate(result.firstAvailableDate!)} '
-              '(${result.fixtureCount} meccs).';
+              'A kiválasztott napon nincs meccs. '
+              'A következő elérhető mérkőzésnap: '
+              '${_formatDate(availability.date!)}.';
+
+          _warningMessage =
+              availability.repositoryResult
+                  ?.warningMessage;
         } else {
           _informationMessage =
-              'Diagnosztika: ${result.leagueCount} '
-              'elérhető liga, de a következő '
-              '${result.checkedDays} napban nincs '
-              'meccs a csomagodban.';
+              'A SportMonks és a TheSportsDB '
+              'a következő '
+              '${availability.checkedDays} napban '
+              'sem talált elérhető mérkőzést.';
+
+          if (availability
+                  .diagnosticMessage !=
+              null) {
+            _warningMessage =
+                availability
+                    .diagnosticMessage;
+          }
         }
       });
-    } on SportMonksException catch (error) {
+    } on MatchRepositoryException catch (
+      error,
+    ) {
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _errorMessage = error.message;
+        _nextAvailableDate = null;
+        _errorMessage =
+            error.message;
       });
     } catch (error) {
       if (!mounted) {
@@ -896,12 +1040,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
       }
 
       setState(() {
+        _nextAvailableDate = null;
         _errorMessage =
-            'A SportMonks diagnosztika nem '
-            'sikerült: $error';
+            'A következő mérkőzésnap '
+            'keresése nem sikerült: $error';
       });
     } finally {
-      if (mounted) {
+      if (mounted && showLoading) {
         setState(() {
           _isLoading = false;
           _isSearchingNextDate = false;
@@ -910,74 +1055,110 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
-  List<AppMatch> _convertFixtures(
-    List<SportMonksFixture> fixtures,
-  ) {
-    return fixtures
-        .where(
-          (
-            SportMonksFixture fixture,
-          ) {
-            return !fixture.placeholder &&
-                fixture.homeTeam
-                    .trim()
-                    .isNotEmpty &&
-                fixture.awayTeam
-                    .trim()
-                    .isNotEmpty;
-          },
-        )
-        .map(
-          _fixtureToAppMatch,
-        )
-        .toList(growable: false);
+  Future<void> _openNextAvailableDate() async {
+    final DateTime? date =
+        _nextAvailableDate;
+
+    if (date == null ||
+        _isLoading) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _isSearchingNextDate = false;
+      _errorMessage = null;
+      _informationMessage = null;
+      _warningMessage = null;
+    });
+
+    try {
+      final MatchRepositoryResult result =
+          await _matchRepository
+              .fetchMatchesByDate(
+        date,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loadedMatches =
+            List<AppMatch>.from(
+          result.matches,
+        );
+
+        _displayedDate =
+            result.date;
+
+        _nextAvailableDate = null;
+
+        _lastRepositoryResult =
+            result;
+
+        _warningMessage =
+            result.warningMessage;
+
+        _informationMessage =
+            'A következő elérhető '
+            'mérkőzésnap meccsei láthatók. '
+            '${_buildSourceInformation(result)}';
+      });
+    } on MatchRepositoryException catch (
+      error,
+    ) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage =
+            error.message;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage =
+            'A mérkőzésnap megnyitása '
+            'nem sikerült: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  AppMatch _fixtureToAppMatch(
-    SportMonksFixture fixture,
+  String _buildSourceInformation(
+    MatchRepositoryResult result,
   ) {
-    final DateTime localStart =
-        fixture.startingAt.toLocal();
+    if (result.usedBothSources) {
+      return 'SportMonks: '
+          '${result.sportMonksCount} • '
+          'TheSportsDB: '
+          '${result.theSportsDbCount} • '
+          'Egyesített lista: '
+          '${result.totalCount}.';
+    }
 
-    return AppMatch(
-      id: fixture.id.toString(),
-      league: fixture.leagueName.trim().isEmpty
-          ? 'Ismeretlen bajnokság'
-          : fixture.leagueName.trim(),
-      homeTeam: fixture.homeTeam.trim(),
-      awayTeam: fixture.awayTeam.trim(),
-      matchDate: DateTime(
-        localStart.year,
-        localStart.month,
-        localStart.day,
-      ),
-      matchTime: fixture.matchTime,
-      aiScore: _createTemporaryAiScore(
-        fixture,
-      ),
-      isFavorite:
-          FavoritesService.isFavorite(
-        fixture.id.toString(),
-      ),
-      isLive: fixture.isLive,
-      homeTeamLogoUrl:
-          fixture.homeTeamImagePath.trim(),
-      awayTeamLogoUrl:
-          fixture.awayTeamImagePath.trim(),
-      leagueLogoUrl:
-          fixture.leagueImagePath.trim(),
-    );
-  }
+    if (result.usedSportMonks) {
+      return 'SportMonks adatforrás: '
+          '${result.sportMonksCount} mérkőzés.';
+    }
 
-  int _createTemporaryAiScore(
-    SportMonksFixture fixture,
-  ) {
-    final int seed =
-        fixture.id +
-            fixture.homeTeam.length * 3 +
-            fixture.awayTeam.length * 5;
+    if (result.usedTheSportsDb) {
+      return 'TheSportsDB adatforrás: '
+          '${result.theSportsDbCount} mérkőzés.';
+    }
 
-    return 65 + seed.abs() % 31;
+    return 'Egyik adatforrás sem adott '
+        'mérkőzést erre a napra.';
   }
 
   String _formatDate(
@@ -989,12 +1170,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final String month =
         date.month
             .toString()
-            .padLeft(2, '0');
+            .padLeft(
+              2,
+              '0',
+            );
 
     final String day =
         date.day
             .toString()
-            .padLeft(2, '0');
+            .padLeft(
+              2,
+              '0',
+            );
 
     return '$year.$month.$day.';
   }
