@@ -1,9 +1,10 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.11.0
+// Version: v0.11.1
 // File: lib/services/the_odds_api_service.dart
 // ===========================================
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -21,8 +22,77 @@ class TheOddsApiService {
     'THE_ODDS_API_KEY',
   );
 
+  static const Duration _connectionTimeout =
+      Duration(seconds: 20);
+
+  static const Duration _responseTimeout =
+      Duration(seconds: 30);
+
+  int? _requestsRemaining;
+  int? _requestsUsed;
+  int? _requestsLast;
+
   bool get hasApiKey {
     return _apiKey.trim().isNotEmpty;
+  }
+
+  int? get requestsRemaining {
+    return _requestsRemaining;
+  }
+
+  int? get requestsUsed {
+    return _requestsUsed;
+  }
+
+  int? get requestsLast {
+    return _requestsLast;
+  }
+
+  Future<OddsApiConnectionResult>
+      testConnection() async {
+    if (!hasApiKey) {
+      return const OddsApiConnectionResult(
+        success: false,
+        message:
+            'A THE_ODDS_API_KEY nincs beállítva az APK-ban.',
+      );
+    }
+
+    try {
+      final List<OddsSport> sports =
+          await fetchSports();
+
+      final int activeSportCount = sports
+          .where(
+            (OddsSport sport) => sport.active,
+          )
+          .length;
+
+      return OddsApiConnectionResult(
+        success: true,
+        message:
+            'A The Odds API kapcsolat működik. '
+            '$activeSportCount aktív sport érhető el.',
+        requestsRemaining: _requestsRemaining,
+        requestsUsed: _requestsUsed,
+      );
+    } on OddsApiException catch (error) {
+      return OddsApiConnectionResult(
+        success: false,
+        message: error.message,
+        statusCode: error.statusCode,
+        requestsRemaining: _requestsRemaining,
+        requestsUsed: _requestsUsed,
+      );
+    } catch (error) {
+      return OddsApiConnectionResult(
+        success: false,
+        message:
+            'Ismeretlen kapcsolati hiba: $error',
+        requestsRemaining: _requestsRemaining,
+        requestsUsed: _requestsUsed,
+      );
+    }
   }
 
   Future<List<OddsSport>> fetchSports() async {
@@ -40,7 +110,7 @@ class TheOddsApiService {
         await _get(uri);
 
     final dynamic decoded =
-        jsonDecode(response.body);
+        _decodeJson(response.body);
 
     if (decoded is! List<dynamic>) {
       throw const OddsApiException(
@@ -67,9 +137,18 @@ class TheOddsApiService {
   }) async {
     _ensureApiKey();
 
-    if (sportKey.trim().isEmpty) {
+    final String cleanSportKey =
+        sportKey.trim();
+
+    if (cleanSportKey.isEmpty) {
       throw const OddsApiException(
         'A sport azonosítója nem lehet üres.',
+      );
+    }
+
+    if (markets.isEmpty) {
+      throw const OddsApiException(
+        'Legalább egy odds piacot meg kell adni.',
       );
     }
 
@@ -98,7 +177,7 @@ class TheOddsApiService {
 
     final Uri uri = Uri.parse(
       '$_baseUrl/sports/'
-      '${Uri.encodeComponent(sportKey)}/odds',
+      '${Uri.encodeComponent(cleanSportKey)}/odds',
     ).replace(
       queryParameters: parameters,
     );
@@ -107,7 +186,7 @@ class TheOddsApiService {
         await _get(uri);
 
     final dynamic decoded =
-        jsonDecode(response.body);
+        _decodeJson(response.body);
 
     if (decoded is! List<dynamic>) {
       throw const OddsApiException(
@@ -172,21 +251,21 @@ class TheOddsApiService {
       int score = 0;
 
       if (eventHome == normalizedHome) {
-        score += 4;
+        score += 5;
       } else if (_namesSimilar(
         eventHome,
         normalizedHome,
       )) {
-        score += 2;
+        score += 3;
       }
 
       if (eventAway == normalizedAway) {
-        score += 4;
+        score += 5;
       } else if (_namesSimilar(
         eventAway,
         normalizedAway,
       )) {
-        score += 2;
+        score += 3;
       }
 
       final Duration difference =
@@ -194,9 +273,14 @@ class TheOddsApiService {
         matchDate.toUtc(),
       );
 
-      if (difference.inHours.abs() <= 3) {
+      final int hourDifference =
+          difference.inHours.abs();
+
+      if (hourDifference <= 3) {
+        score += 3;
+      } else if (hourDifference <= 12) {
         score += 2;
-      } else if (difference.inHours.abs() <= 12) {
+      } else if (hourDifference <= 24) {
         score += 1;
       }
 
@@ -206,7 +290,7 @@ class TheOddsApiService {
       }
     }
 
-    if (bestScore < 4) {
+    if (bestScore < 6) {
       return null;
     }
 
@@ -265,7 +349,9 @@ class TheOddsApiService {
       for (final OddsOutcome outcome
           in market.outcomes) {
         final bool sameSide =
-            outcome.name.trim().toLowerCase() ==
+            outcome.name
+                    .trim()
+                    .toLowerCase() ==
                 normalizedSide;
 
         final bool samePoint =
@@ -273,7 +359,9 @@ class TheOddsApiService {
                 (outcome.point! - point).abs() <
                     0.001;
 
-        if (!sameSide || !samePoint) {
+        if (!sameSide ||
+            !samePoint ||
+            outcome.price <= 0) {
           continue;
         }
 
@@ -300,7 +388,9 @@ class TheOddsApiService {
     for (final OddsBookmaker bookmaker
         in event.bookmakers) {
       final OddsMarket? market =
-          bookmaker.marketByKey(marketKey);
+          bookmaker.marketByKey(
+        marketKey,
+      );
 
       if (market == null) {
         continue;
@@ -311,7 +401,9 @@ class TheOddsApiService {
         final String normalizedName =
             _normalizeTeamName(outcome.name);
 
-        if (normalizedName != normalizedOutcome) {
+        if (normalizedName !=
+                normalizedOutcome ||
+            outcome.price <= 0) {
           continue;
         }
 
@@ -330,64 +422,98 @@ class TheOddsApiService {
   ) async {
     final HttpClient client = HttpClient();
 
+    client.connectionTimeout =
+        _connectionTimeout;
+
     try {
       final HttpClientRequest request =
-          await client.getUrl(uri);
+          await client
+              .getUrl(uri)
+              .timeout(
+                _connectionTimeout,
+              );
 
       request.headers.set(
         HttpHeaders.acceptHeader,
         'application/json',
       );
 
-      final HttpClientResponse response =
-          await request.close();
+      request.headers.set(
+        HttpHeaders.userAgentHeader,
+        'Zsolt-Pro-AI/0.11.1',
+      );
 
-      final String body =
-          await response.transform(
-        utf8.decoder,
-      ).join();
+      final HttpClientResponse response =
+          await request
+              .close()
+              .timeout(
+                _responseTimeout,
+              );
+
+      final String body = await response
+          .transform(
+            utf8.decoder,
+          )
+          .join()
+          .timeout(
+            _responseTimeout,
+          );
+
+      _updateQuotaData(response);
 
       if (response.statusCode < 200 ||
           response.statusCode >= 300) {
         throw OddsApiException(
           _buildErrorMessage(
-            statusCode: response.statusCode,
+            statusCode:
+                response.statusCode,
             body: body,
           ),
-          statusCode: response.statusCode,
+          statusCode:
+              response.statusCode,
         );
       }
 
       return _ApiResponse(
         body: body,
         requestsRemaining:
-            _readIntHeader(
-          response,
-          'x-requests-remaining',
-        ),
-        requestsUsed:
-            _readIntHeader(
-          response,
-          'x-requests-used',
-        ),
-        requestsLast:
-            _readIntHeader(
-          response,
-          'x-requests-last',
-        ),
+            _requestsRemaining,
+        requestsUsed: _requestsUsed,
+        requestsLast: _requestsLast,
       );
-    } on SocketException {
-      throw const OddsApiException(
-        'Nincs internetkapcsolat, vagy az odds '
-        'szolgáltatás nem érhető el.',
+    } on TimeoutException catch (error) {
+      throw OddsApiException(
+        'Időtúllépés történt a The Odds API '
+        'kapcsolódásakor. Részlet: '
+        '${error.message ?? 'nincs válasz'}',
       );
-    } on HttpException {
-      throw const OddsApiException(
-        'Hálózati hiba történt az oddsok lekérésekor.',
+    } on HandshakeException catch (error) {
+      throw OddsApiException(
+        'Biztonságos TLS-kapcsolati hiba történt. '
+        'Részlet: ${error.message}',
       );
-    } on FormatException {
-      throw const OddsApiException(
-        'Az odds szolgáltatás hibás adatot küldött.',
+    } on SocketException catch (error) {
+      throw OddsApiException(
+        _buildSocketErrorMessage(error),
+      );
+    } on HttpException catch (error) {
+      throw OddsApiException(
+        'HTTP hálózati hiba történt. '
+        'Részlet: ${error.message}',
+      );
+    } on FormatException catch (error) {
+      throw OddsApiException(
+        'Az odds szolgáltatás hibás szöveges '
+        'adatot küldött. Részlet: '
+        '${error.message}',
+      );
+    } on OddsApiException {
+      rethrow;
+    } catch (error) {
+      throw OddsApiException(
+        'Váratlan hálózati hiba történt. '
+        'Típus: ${error.runtimeType}. '
+        'Részlet: $error',
       );
     } finally {
       client.close(
@@ -396,10 +522,164 @@ class TheOddsApiService {
     }
   }
 
+  void _updateQuotaData(
+    HttpClientResponse response,
+  ) {
+    _requestsRemaining = _readIntHeader(
+      response,
+      'x-requests-remaining',
+    );
+
+    _requestsUsed = _readIntHeader(
+      response,
+      'x-requests-used',
+    );
+
+    _requestsLast = _readIntHeader(
+      response,
+      'x-requests-last',
+    );
+  }
+
+  String _buildSocketErrorMessage(
+    SocketException error,
+  ) {
+    final String socketMessage =
+        error.message.trim();
+
+    final String osMessage =
+        error.osError?.message.trim() ?? '';
+
+    final int? errorCode =
+        error.osError?.errorCode;
+
+    final String combined =
+        '$socketMessage $osMessage'
+            .toLowerCase();
+
+    if (combined.contains(
+          'failed host lookup',
+        ) ||
+        combined.contains(
+          'name or service not known',
+        ) ||
+        combined.contains(
+          'nodename nor servname',
+        ) ||
+        combined.contains('dns')) {
+      return 'DNS-hiba: a telefon nem tudta '
+          'feloldani az api.the-odds-api.com '
+          'címet. Ellenőrizd az internetet, '
+          'a privát DNS-t, a VPN-t vagy a '
+          'reklámblokkolót. Technikai részlet: '
+          '${_socketDetails(error, errorCode)}';
+    }
+
+    if (combined.contains(
+          'network is unreachable',
+        ) ||
+        combined.contains(
+          'no route to host',
+        )) {
+      return 'A hálózat nem érhető el. '
+          'Ellenőrizd a mobilinternetet vagy '
+          'a Wi-Fi-kapcsolatot. Technikai részlet: '
+          '${_socketDetails(error, errorCode)}';
+    }
+
+    if (combined.contains(
+          'connection refused',
+        )) {
+      return 'A The Odds API szervere '
+          'elutasította a kapcsolatot. '
+          'Technikai részlet: '
+          '${_socketDetails(error, errorCode)}';
+    }
+
+    if (combined.contains(
+          'connection reset',
+        ) ||
+        combined.contains(
+          'broken pipe',
+        )) {
+      return 'A hálózati kapcsolat megszakadt '
+          'az adatátvitel közben. '
+          'Technikai részlet: '
+          '${_socketDetails(error, errorCode)}';
+    }
+
+    if (combined.contains(
+          'timed out',
+        )) {
+      return 'A The Odds API nem válaszolt '
+          'időben. Technikai részlet: '
+          '${_socketDetails(error, errorCode)}';
+    }
+
+    return 'Socket hálózati hiba történt. '
+        'Technikai részlet: '
+        '${_socketDetails(error, errorCode)}';
+  }
+
+  String _socketDetails(
+    SocketException error,
+    int? errorCode,
+  ) {
+    final List<String> details =
+        <String>[];
+
+    if (error.message.trim().isNotEmpty) {
+      details.add(error.message.trim());
+    }
+
+    final String? osMessage =
+        error.osError?.message.trim();
+
+    if (osMessage != null &&
+        osMessage.isNotEmpty &&
+        osMessage != error.message.trim()) {
+      details.add(osMessage);
+    }
+
+    if (errorCode != null) {
+      details.add('hibakód: $errorCode');
+    }
+
+    if (error.address != null) {
+      details.add(
+        'cím: ${error.address!.address}',
+      );
+    }
+
+    if (error.port != null) {
+      details.add(
+        'port: ${error.port}',
+      );
+    }
+
+    if (details.isEmpty) {
+      return 'ismeretlen SocketException';
+    }
+
+    return details.join(', ');
+  }
+
+  dynamic _decodeJson(String body) {
+    try {
+      return jsonDecode(body);
+    } on FormatException catch (error) {
+      throw OddsApiException(
+        'Az API válasza nem érvényes JSON. '
+        'Részlet: ${error.message}',
+      );
+    }
+  }
+
   void _ensureApiKey() {
     if (!hasApiKey) {
       throw const OddsApiException(
-        'A THE_ODDS_API_KEY nincs beállítva.',
+        'A THE_ODDS_API_KEY nincs beállítva '
+        'az alkalmazás buildjében.',
       );
     }
   }
@@ -415,13 +695,18 @@ class TheOddsApiService {
       return null;
     }
 
-    return int.tryParse(value);
+    return int.tryParse(
+      value.trim(),
+    );
   }
 
   String _buildErrorMessage({
     required int statusCode,
     required String body,
   }) {
+    String? apiMessage;
+    String? apiErrorCode;
+
     try {
       final dynamic decoded =
           jsonDecode(body);
@@ -433,21 +718,60 @@ class TheOddsApiService {
         final dynamic errorCode =
             decoded['error_code'];
 
-        if (message is String &&
-            message.trim().isNotEmpty) {
-          if (errorCode is String &&
-              errorCode.trim().isNotEmpty) {
-            return '$message ($errorCode)';
-          }
+        if (message != null) {
+          apiMessage =
+              message.toString().trim();
+        }
 
-          return message;
+        if (errorCode != null) {
+          apiErrorCode =
+              errorCode.toString().trim();
         }
       }
     } catch (_) {
-      // A nyers választ használjuk.
+      // Ha nem JSON, az alap HTTP-hibaüzenet marad.
     }
 
-    return 'The Odds API hiba: HTTP $statusCode.';
+    final String suffix =
+        apiErrorCode != null &&
+                apiErrorCode.isNotEmpty
+            ? ' ($apiErrorCode)'
+            : '';
+
+    if (apiMessage != null &&
+        apiMessage.isNotEmpty) {
+      return 'The Odds API hiba '
+          '(HTTP $statusCode): '
+          '$apiMessage$suffix';
+    }
+
+    switch (statusCode) {
+      case 400:
+        return 'The Odds API hiba (HTTP 400): '
+            'hibás kérési paraméter.';
+      case 401:
+        return 'The Odds API hiba (HTTP 401): '
+            'érvénytelen vagy hiányzó API-kulcs.';
+      case 404:
+        return 'The Odds API hiba (HTTP 404): '
+            'a sportkulcs vagy a végpont nem található.';
+      case 422:
+        return 'The Odds API hiba (HTTP 422): '
+            'nem támogatott piac vagy paraméter.';
+      case 429:
+        return 'The Odds API hiba (HTTP 429): '
+            'elfogyott vagy túllépésre került '
+            'az API-kvóta.';
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return 'The Odds API szerverhiba '
+            '(HTTP $statusCode). Próbáld újra később.';
+      default:
+        return 'The Odds API hiba: '
+            'HTTP $statusCode.';
+    }
   }
 
   String _normalizeTeamName(
@@ -478,9 +802,54 @@ class TheOddsApiService {
       return false;
     }
 
-    return first.contains(second) ||
-        second.contains(first);
+    if (first == second) {
+      return true;
+    }
+
+    if (first.contains(second) ||
+        second.contains(first)) {
+      return true;
+    }
+
+    final int shortestLength =
+        first.length < second.length
+            ? first.length
+            : second.length;
+
+    if (shortestLength < 5) {
+      return false;
+    }
+
+    final String firstPrefix =
+        first.substring(
+      0,
+      shortestLength >= 7 ? 7 : 5,
+    );
+
+    final String secondPrefix =
+        second.substring(
+      0,
+      shortestLength >= 7 ? 7 : 5,
+    );
+
+    return firstPrefix == secondPrefix;
   }
+}
+
+class OddsApiConnectionResult {
+  final bool success;
+  final String message;
+  final int? statusCode;
+  final int? requestsRemaining;
+  final int? requestsUsed;
+
+  const OddsApiConnectionResult({
+    required this.success,
+    required this.message,
+    this.statusCode,
+    this.requestsRemaining,
+    this.requestsUsed,
+  });
 }
 
 class OddsSport {
@@ -505,10 +874,13 @@ class OddsSport {
   ) {
     return OddsSport(
       key: json['key']?.toString() ?? '',
-      group: json['group']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
+      group:
+          json['group']?.toString() ?? '',
+      title:
+          json['title']?.toString() ?? '',
       description:
-          json['description']?.toString() ?? '',
+          json['description']?.toString() ??
+              '',
       active: json['active'] == true,
       hasOutrights:
           json['has_outrights'] == true,
@@ -540,7 +912,8 @@ class OddsEvent {
   ) {
     final DateTime? parsedDate =
         DateTime.tryParse(
-      json['commence_time']?.toString() ?? '',
+      json['commence_time']?.toString() ??
+          '',
     );
 
     final dynamic bookmakerData =
@@ -560,15 +933,22 @@ class OddsEvent {
     return OddsEvent(
       id: json['id']?.toString() ?? '',
       sportKey:
-          json['sport_key']?.toString() ?? '',
+          json['sport_key']?.toString() ??
+              '',
       sportTitle:
-          json['sport_title']?.toString() ?? '',
-      commenceTime:
-          parsedDate ?? DateTime.fromMillisecondsSinceEpoch(0),
+          json['sport_title']?.toString() ??
+              '',
+      commenceTime: parsedDate ??
+          DateTime.fromMillisecondsSinceEpoch(
+            0,
+            isUtc: true,
+          ),
       homeTeam:
-          json['home_team']?.toString() ?? '',
+          json['home_team']?.toString() ??
+              '',
       awayTeam:
-          json['away_team']?.toString() ?? '',
+          json['away_team']?.toString() ??
+              '',
       bookmakers: bookmakers,
     );
   }
@@ -606,9 +986,11 @@ class OddsBookmaker {
 
     return OddsBookmaker(
       key: json['key']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
+      title:
+          json['title']?.toString() ?? '',
       lastUpdate: DateTime.tryParse(
-        json['last_update']?.toString() ?? '',
+        json['last_update']?.toString() ??
+            '',
       ),
       markets: markets,
     );
@@ -659,7 +1041,8 @@ class OddsMarket {
     return OddsMarket(
       key: json['key']?.toString() ?? '',
       lastUpdate: DateTime.tryParse(
-        json['last_update']?.toString() ?? '',
+        json['last_update']?.toString() ??
+            '',
       ),
       outcomes: outcomes,
     );
@@ -682,11 +1065,15 @@ class OddsOutcome {
   factory OddsOutcome.fromJson(
     Map<String, dynamic> json,
   ) {
-    final dynamic rawPrice = json['price'];
-    final dynamic rawPoint = json['point'];
+    final dynamic rawPrice =
+        json['price'];
+
+    final dynamic rawPoint =
+        json['point'];
 
     return OddsOutcome(
-      name: json['name']?.toString() ?? '',
+      name:
+          json['name']?.toString() ?? '',
       price: rawPrice is num
           ? rawPrice.toDouble()
           : double.tryParse(
