@@ -37,6 +37,52 @@ jobs:
             --org=hu.zsoltproai \
             .
 
+      - name: Internetengedély hozzáadása
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          manifest_path = Path(
+              "android/app/src/main/AndroidManifest.xml"
+          )
+
+          content = manifest_path.read_text(
+              encoding="utf-8"
+          )
+
+          permission = (
+              '<uses-permission '
+              'android:name="android.permission.INTERNET" />'
+          )
+
+          if permission not in content:
+              content = content.replace(
+                  "<manifest",
+                  "<manifest",
+                  1,
+              )
+
+              manifest_end = content.find(">")
+
+              content = (
+                  content[:manifest_end + 1]
+                  + "\n    "
+                  + permission
+                  + content[manifest_end + 1:]
+              )
+
+              manifest_path.write_text(
+                  content,
+                  encoding="utf-8",
+              )
+
+          print(
+              manifest_path.read_text(
+                  encoding="utf-8"
+              )
+          )
+          PY
+
       - name: Automatikus tesztfájl törlése
         run: rm -f test/widget_test.dart
 
