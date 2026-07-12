@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.18.2
+// Version: v0.18.6
 // File: lib/screens/betslip_scanner_screen.dart
 // ===========================================
 
@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models/recognized_betslip.dart';
+import '../services/betslip_parser_service.dart';
 import '../services/ocr_service.dart';
 
 class BetslipScannerScreen extends StatefulWidget {
@@ -31,10 +33,14 @@ class _BetslipScannerScreenState
   final OcrService _ocrService =
       OcrService.instance;
 
+  final BetslipParserService _parserService =
+      BetslipParserService.instance;
+
   XFile? _selectedImage;
   _ScannerSource? _selectedSource;
 
   OcrRecognitionResult? _ocrResult;
+  RecognizedBetslip? _parsedBetslip;
 
   String? _recognitionError;
 
@@ -48,6 +54,10 @@ class _BetslipScannerScreenState
 
   bool get _hasOcrResult {
     return _ocrResult != null;
+  }
+
+  bool get _hasParsedBetslip {
+    return _parsedBetslip != null;
   }
 
   @override
@@ -64,7 +74,8 @@ class _BetslipScannerScreenState
         actions: [
           if (_hasSelectedImage)
             IconButton(
-              tooltip: 'Kép és eredmény törlése',
+              tooltip:
+                  'Kép és eredmény törlése',
               onPressed:
                   _isAnalyzing ||
                           _isSelectingImage
@@ -78,11 +89,13 @@ class _BetslipScannerScreenState
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _refreshRecognition,
+          onRefresh:
+              _refreshRecognition,
           child: ListView(
             physics:
                 const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
+            padding:
+                const EdgeInsets.fromLTRB(
               16,
               12,
               16,
@@ -97,16 +110,40 @@ class _BetslipScannerScreenState
               const SizedBox(height: 18),
               _buildAnalyzeButton(),
               const SizedBox(height: 18),
-              _buildResultCard(),
+              _buildOcrResultCard(),
+
+              if (_hasParsedBetslip) ...[
+                const SizedBox(height: 18),
+                _buildParsedSummaryCard(),
+              ],
+
+              if (_hasParsedBetslip &&
+                  _parsedBetslip!
+                      .matches
+                      .isNotEmpty) ...[
+                const SizedBox(height: 18),
+                _buildRecognizedMatchesSection(),
+              ],
+
               if (_hasOcrResult) ...[
                 const SizedBox(height: 18),
                 _buildRecognizedTextCard(),
               ],
-              if (_hasOcrResult &&
-                  _ocrResult!.hasWarnings) ...[
+
+              if (_hasParsedBetslip &&
+                  _parsedBetslip!
+                      .hasWarnings) ...[
                 const SizedBox(height: 18),
-                _buildWarningsCard(),
+                _buildParserWarningsCard(),
               ],
+
+              if (_hasOcrResult &&
+                  _ocrResult!
+                      .hasWarnings) ...[
+                const SizedBox(height: 18),
+                _buildOcrWarningsCard(),
+              ],
+
               const SizedBox(height: 18),
               _buildInformationCard(),
             ],
@@ -139,7 +176,8 @@ class _BetslipScannerScreenState
                 ),
               ),
               child: Icon(
-                Icons.document_scanner_outlined,
+                Icons
+                    .document_scanner_outlined,
                 size: 40,
                 color:
                     colors.onPrimaryContainer,
@@ -147,19 +185,23 @@ class _BetslipScannerScreenState
             ),
             const SizedBox(height: 16),
             const Text(
-              'AI Szelvény Felismerő',
-              textAlign: TextAlign.center,
+              'AI Szelvény Felismerő PRO',
+              textAlign:
+                  TextAlign.center,
               style: TextStyle(
                 fontSize: 23,
-                fontWeight: FontWeight.bold,
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
             const SizedBox(height: 10),
             Text(
               'Fotózd le vagy válaszd ki a '
-              'Tippmix szelvényedet. A Zsolt Pro AI '
-              'kiolvassa a képen szereplő szöveget.',
-              textAlign: TextAlign.center,
+              'Tippmix szelvényedet. '
+              'A Zsolt Pro AI kiolvassa és '
+              'értelmezi a szelvény adatait.',
+              textAlign:
+                  TextAlign.center,
               style: TextStyle(
                 color:
                     colors.onSurfaceVariant,
@@ -181,7 +223,8 @@ class _BetslipScannerScreenState
         const _SectionTitle(
           icon:
               Icons.add_a_photo_outlined,
-          title: 'Szelvény hozzáadása',
+          title:
+              'Szelvény hozzáadása',
         ),
         const SizedBox(height: 12),
         Row(
@@ -190,7 +233,8 @@ class _BetslipScannerScreenState
               child: _SourceCard(
                 icon:
                     Icons.camera_alt_outlined,
-                title: 'Fotó készítése',
+                title:
+                    'Fotó készítése',
                 subtitle:
                     'Kamera használata',
                 selected:
@@ -214,7 +258,8 @@ class _BetslipScannerScreenState
               child: _SourceCard(
                 icon:
                     Icons.photo_library_outlined,
-                title: 'Galéria',
+                title:
+                    'Galéria',
                 subtitle:
                     'Kép kiválasztása',
                 selected:
@@ -248,41 +293,53 @@ class _BetslipScannerScreenState
           CrossAxisAlignment.start,
       children: [
         const _SectionTitle(
-          icon: Icons.image_outlined,
-          title: 'Kiválasztott kép',
+          icon:
+              Icons.image_outlined,
+          title:
+              'Kiválasztott kép',
         ),
         const SizedBox(height: 12),
         AnimatedContainer(
-          duration: const Duration(
+          duration:
+              const Duration(
             milliseconds: 200,
           ),
-          width: double.infinity,
-          constraints: const BoxConstraints(
+          width:
+              double.infinity,
+          constraints:
+              const BoxConstraints(
             minHeight: 230,
           ),
-          decoration: BoxDecoration(
+          decoration:
+              BoxDecoration(
             color:
-                colors.surfaceContainerHighest,
+                colors
+                    .surfaceContainerHighest,
             borderRadius:
                 BorderRadius.circular(
               20,
             ),
-            border: Border.all(
-              color: _hasSelectedImage
-                  ? colors.primary
-                  : colors.outlineVariant,
+            border:
+                Border.all(
+              color:
+                  _hasSelectedImage
+                      ? colors.primary
+                      : colors
+                          .outlineVariant,
               width:
                   _hasSelectedImage
                       ? 1.5
                       : 1,
             ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: _isSelectingImage
-              ? _buildLoadingPlaceholder()
-              : _hasSelectedImage
-                  ? _buildSelectedImage()
-                  : _buildEmptyPlaceholder(),
+          clipBehavior:
+              Clip.antiAlias,
+          child:
+              _isSelectingImage
+                  ? _buildLoadingPlaceholder()
+                  : _hasSelectedImage
+                      ? _buildSelectedImage()
+                      : _buildEmptyPlaceholder(),
         ),
       ],
     );
@@ -290,7 +347,8 @@ class _BetslipScannerScreenState
 
   Widget _buildLoadingPlaceholder() {
     return const Padding(
-      padding: EdgeInsets.all(
+      padding:
+          EdgeInsets.all(
         28,
       ),
       child: Column(
@@ -303,7 +361,8 @@ class _BetslipScannerScreenState
             'Kép betöltése...',
             style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
         ],
@@ -316,7 +375,8 @@ class _BetslipScannerScreenState
         Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.all(
+      padding:
+          const EdgeInsets.all(
         28,
       ),
       child: Column(
@@ -324,7 +384,8 @@ class _BetslipScannerScreenState
             MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.add_photo_alternate_outlined,
+            Icons
+                .add_photo_alternate_outlined,
             size: 62,
             color:
                 colors.onSurfaceVariant,
@@ -332,17 +393,20 @@ class _BetslipScannerScreenState
           const SizedBox(height: 14),
           const Text(
             'Még nincs kiválasztott szelvény',
-            textAlign: TextAlign.center,
+            textAlign:
+                TextAlign.center,
             style: TextStyle(
               fontSize: 17,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
           const SizedBox(height: 7),
           Text(
             'Készíts fotót vagy válassz ki '
             'egy képet a galériából.',
-            textAlign: TextAlign.center,
+            textAlign:
+                TextAlign.center,
             style: TextStyle(
               color:
                   colors.onSurfaceVariant,
@@ -366,8 +430,10 @@ class _BetslipScannerScreenState
             File(
               image.path,
             ),
-            width: double.infinity,
-            fit: BoxFit.contain,
+            width:
+                double.infinity,
+            fit:
+                BoxFit.contain,
             errorBuilder: (
               BuildContext context,
               Object error,
@@ -418,19 +484,22 @@ class _BetslipScannerScreenState
                   maxLines: 1,
                   overflow:
                       TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style:
+                      const TextStyle(
                     fontWeight:
                         FontWeight.w600,
                   ),
                 ),
               ),
               IconButton(
-                tooltip: 'Kép törlése',
+                tooltip:
+                    'Kép törlése',
                 onPressed:
                     _isAnalyzing
                         ? null
                         : _clearSelectedImage,
-                icon: const Icon(
+                icon:
+                    const Icon(
                   Icons.delete_outline,
                   color:
                       Colors.redAccent,
@@ -451,46 +520,52 @@ class _BetslipScannerScreenState
                   _isSelectingImage
               ? null
               : _startAnalysis,
-      icon: _isAnalyzing
-          ? const SizedBox(
-              width: 21,
-              height: 21,
-              child:
-                  CircularProgressIndicator(
-                strokeWidth: 2.5,
-              ),
-            )
-          : const Icon(
-              Icons
-                  .document_scanner_outlined,
-            ),
-      label: Text(
+      icon:
+          _isAnalyzing
+              ? const SizedBox(
+                  width: 21,
+                  height: 21,
+                  child:
+                      CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : const Icon(
+                  Icons
+                      .psychology_outlined,
+                ),
+      label:
+          Text(
         _isAnalyzing
-            ? 'Szöveg felismerése...'
+            ? 'Szelvény feldolgozása...'
             : _hasOcrResult
-                ? 'OCR újrafuttatása'
-                : 'Szelvény szövegének felismerése',
+                ? 'Felismerés újrafuttatása'
+                : 'AI felismerés indítása',
       ),
-      style: FilledButton.styleFrom(
+      style:
+          FilledButton.styleFrom(
         minimumSize:
             const Size.fromHeight(
           58,
         ),
-        shape: RoundedRectangleBorder(
+        shape:
+            RoundedRectangleBorder(
           borderRadius:
               BorderRadius.circular(
             17,
           ),
         ),
-        textStyle: const TextStyle(
+        textStyle:
+            const TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.bold,
+          fontWeight:
+              FontWeight.bold,
         ),
       ),
     );
   }
 
-  Widget _buildResultCard() {
+  Widget _buildOcrResultCard() {
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
@@ -501,18 +576,22 @@ class _BetslipScannerScreenState
 
     if (_isAnalyzing) {
       title =
-          'OCR felismerés folyamatban';
+          'Felismerés folyamatban';
       subtitle =
-          'A kép szövegét dolgozzuk fel.';
-      icon = Icons.hourglass_top;
+          'Az OCR és a szelvényértelmező '
+          'dolgozik.';
+      icon =
+          Icons.hourglass_top;
       statusColor =
           colors.primary;
-    } else if (_recognitionError != null) {
+    } else if (_recognitionError !=
+        null) {
       title =
           'A felismerés nem sikerült';
       subtitle =
           _recognitionError!;
-      icon = Icons.error_outline;
+      icon =
+          Icons.error_outline;
       statusColor =
           Colors.redAccent;
     } else if (_hasOcrResult &&
@@ -539,7 +618,7 @@ class _BetslipScannerScreenState
       title =
           'Kép készen áll';
       subtitle =
-          'Indítsd el az OCR felismerést.';
+          'Indítsd el az AI felismerést.';
       icon =
           Icons.receipt_long_outlined;
       statusColor =
@@ -548,7 +627,7 @@ class _BetslipScannerScreenState
       title =
           'Elemzésre vár';
       subtitle =
-          'A felismert szöveg itt jelenik meg.';
+          'A felismert adatok itt jelennek meg.';
       icon =
           Icons.receipt_long_outlined;
       statusColor =
@@ -560,9 +639,10 @@ class _BetslipScannerScreenState
           CrossAxisAlignment.start,
       children: [
         const _SectionTitle(
-          icon: Icons.analytics_outlined,
+          icon:
+              Icons.analytics_outlined,
           title:
-              'Felismerési eredmény',
+              'OCR felismerési eredmény',
         ),
         const SizedBox(height: 12),
         Card(
@@ -582,13 +662,13 @@ class _BetslipScannerScreenState
                       height: 48,
                       decoration:
                           BoxDecoration(
-                        color: statusColor
-                            .withValues(
+                        color:
+                            statusColor
+                                .withValues(
                           alpha: 0.14,
                         ),
                         borderRadius:
-                            BorderRadius
-                                .circular(
+                            BorderRadius.circular(
                           14,
                         ),
                       ),
@@ -598,14 +678,11 @@ class _BetslipScannerScreenState
                             statusColor,
                       ),
                     ),
-                    const SizedBox(
-                      width: 13,
-                    ),
+                    const SizedBox(width: 13),
                     Expanded(
                       child: Column(
                         crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+                            CrossAxisAlignment.start,
                         children: [
                           Text(
                             title,
@@ -613,19 +690,17 @@ class _BetslipScannerScreenState
                                 const TextStyle(
                               fontSize: 17,
                               fontWeight:
-                                  FontWeight
-                                      .bold,
+                                  FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(
-                            height: 4,
-                          ),
+                          const SizedBox(height: 4),
                           Text(
                             subtitle,
                             style:
                                 TextStyle(
-                              color: colors
-                                  .onSurfaceVariant,
+                              color:
+                                  colors
+                                      .onSurfaceVariant,
                               height: 1.35,
                             ),
                           ),
@@ -641,7 +716,7 @@ class _BetslipScannerScreenState
                   height: 1,
                 ),
                 const SizedBox(height: 15),
-                _ResultPlaceholderRow(
+                _ResultRow(
                   icon:
                       Icons.text_fields,
                   title:
@@ -652,7 +727,7 @@ class _BetslipScannerScreenState
                           : '—',
                 ),
                 const SizedBox(height: 12),
-                _ResultPlaceholderRow(
+                _ResultRow(
                   icon:
                       Icons.format_list_numbered,
                   title:
@@ -663,7 +738,7 @@ class _BetslipScannerScreenState
                           : '—',
                 ),
                 const SizedBox(height: 12),
-                _ResultPlaceholderRow(
+                _ResultRow(
                   icon:
                       Icons.view_agenda_outlined,
                   title:
@@ -674,7 +749,7 @@ class _BetslipScannerScreenState
                           : '—',
                 ),
                 const SizedBox(height: 12),
-                _ResultPlaceholderRow(
+                _ResultRow(
                   icon:
                       Icons.fact_check_outlined,
                   title:
@@ -685,25 +760,335 @@ class _BetslipScannerScreenState
                           : '—',
                 ),
                 const SizedBox(height: 12),
-                _ResultPlaceholderRow(
+                _ResultRow(
                   icon:
                       Icons.sports_soccer,
                   title:
-                      'Szelvény felismerés',
+                      'Tippmix szelvény',
                   value:
                       _hasOcrResult
-                          ? _ocrService
-                                  .looksLikeBetslip(
+                          ? _parserService
+                                  .looksLikeTippmixBetslip(
                                 _ocrResult!
                                     .normalizedText,
                               )
-                              ? 'Valószínű'
+                              ? 'Felismerve'
                               : 'Bizonytalan'
                           : '—',
                 ),
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildParsedSummaryCard() {
+    final RecognizedBetslip betslip =
+        _parsedBetslip!;
+
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    final Color confidenceColor =
+        betslip.confidence >= 70
+            ? Colors.green
+            : betslip.confidence >= 50
+                ? Colors.orange
+                : Colors.redAccent;
+
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle(
+          icon:
+              Icons.receipt_long_outlined,
+          title:
+              'Felismert szelvényadatok',
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding:
+                const EdgeInsets.all(
+              18,
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            confidenceColor
+                                .withValues(
+                          alpha: 0.14,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(
+                          15,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons
+                            .document_scanner,
+                        color:
+                            confidenceColor,
+                        size: 29,
+                      ),
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Tippmix szelvény',
+                            style:
+                                TextStyle(
+                              fontSize: 18,
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            betslip
+                                .confidenceLabel,
+                            style:
+                                TextStyle(
+                              color:
+                                  confidenceColor,
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            confidenceColor
+                                .withValues(
+                          alpha: 0.14,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(
+                          20,
+                        ),
+                      ),
+                      child: Text(
+                        '${betslip.confidence}%',
+                        style:
+                            TextStyle(
+                          color:
+                              confidenceColor,
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Divider(
+                  color:
+                      colors.outlineVariant,
+                  height: 1,
+                ),
+                const SizedBox(height: 15),
+
+                _SummaryRow(
+                  icon:
+                      Icons.confirmation_number_outlined,
+                  title:
+                      'Szelvényszám',
+                  value:
+                      betslip.hasBetslipNumber
+                          ? betslip.betslipNumber!
+                          : 'Nem felismerhető',
+                ),
+                const SizedBox(height: 12),
+
+                _SummaryRow(
+                  icon:
+                      Icons.schedule_outlined,
+                  title:
+                      'Játékba küldve',
+                  value:
+                      betslip.hasSubmittedAt
+                          ? _formatDateTime(
+                              betslip.submittedAt!,
+                            )
+                          : 'Nem felismerhető',
+                ),
+                const SizedBox(height: 12),
+
+                _SummaryRow(
+                  icon:
+                      Icons.payments_outlined,
+                  title:
+                      'Tét',
+                  value:
+                      betslip.hasStake
+                          ? '${_formatMoney(betslip.stake!)} Ft'
+                          : 'Nem felismerhető',
+                ),
+                const SizedBox(height: 12),
+
+                _SummaryRow(
+                  icon:
+                      Icons.percent_outlined,
+                  title:
+                      'Eredő odds',
+                  value:
+                      betslip.hasOdds
+                          ? _formatOdds(
+                              betslip.totalOdds!,
+                            )
+                          : 'Nem felismerhető',
+                ),
+                const SizedBox(height: 12),
+
+                _SummaryRow(
+                  icon:
+                      Icons.emoji_events_outlined,
+                  title:
+                      'Maximális nyeremény',
+                  value:
+                      betslip.hasPossibleWin
+                          ? '${_formatMoney(betslip.possibleWin!)} Ft'
+                          : 'Nem felismerhető',
+                ),
+                const SizedBox(height: 12),
+
+                _SummaryRow(
+                  icon:
+                      Icons.format_list_numbered,
+                  title:
+                      'Fogadások száma',
+                  value:
+                      betslip.matchCount != null
+                          ? '${betslip.matchCount}'
+                          : betslip.matches.isNotEmpty
+                              ? '${betslip.matches.length}'
+                              : 'Nem felismerhető',
+                ),
+
+                if (betslip.calculatedPossibleWin !=
+                    null) ...[
+                  const SizedBox(height: 12),
+                  _SummaryRow(
+                    icon:
+                        Icons.calculate_outlined,
+                    title:
+                        'Számított nyeremény',
+                    value:
+                        '${_formatMoney(betslip.calculatedPossibleWin!)} Ft',
+                  ),
+                ],
+
+                const SizedBox(height: 18),
+
+                Container(
+                  width:
+                      double.infinity,
+                  padding:
+                      const EdgeInsets.all(
+                    14,
+                  ),
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        confidenceColor
+                            .withValues(
+                      alpha: 0.10,
+                    ),
+                    borderRadius:
+                        BorderRadius.circular(
+                      14,
+                    ),
+                    border:
+                        Border.all(
+                      color:
+                          confidenceColor
+                              .withValues(
+                        alpha: 0.32,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    betslip.isReliable
+                        ? 'A szelvény alapadatai '
+                            'jó megbízhatósággal '
+                            'felismerhetők.'
+                        : 'A felismert adatokat érdemes '
+                            'kézzel is ellenőrizni.',
+                    style:
+                        TextStyle(
+                      color:
+                          confidenceColor,
+                      fontWeight:
+                          FontWeight.bold,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecognizedMatchesSection() {
+    final List<RecognizedMatch> matches =
+        _parsedBetslip!.matches;
+
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(
+          icon:
+              Icons.sports_soccer,
+          title:
+              'Felismert mérkőzések (${matches.length})',
+        ),
+        const SizedBox(height: 12),
+        ...matches.asMap().entries.map(
+          (
+            MapEntry<int, RecognizedMatch>
+                entry,
+          ) {
+            return Padding(
+              padding:
+                  const EdgeInsets.only(
+                bottom: 12,
+              ),
+              child:
+                  _RecognizedMatchCard(
+                position:
+                    entry.key + 1,
+                match:
+                    entry.value,
+              ),
+            );
+          },
         ),
       ],
     );
@@ -728,7 +1113,8 @@ class _BetslipScannerScreenState
         const _SectionTitle(
           icon:
               Icons.description_outlined,
-          title: 'Felismert szöveg',
+          title:
+              'Felismert szöveg',
         ),
         const SizedBox(height: 12),
         Card(
@@ -764,7 +1150,8 @@ class _BetslipScannerScreenState
                                   .isEmpty
                               ? null
                               : _copyRecognizedText,
-                      icon: const Icon(
+                      icon:
+                          const Icon(
                         Icons.copy_outlined,
                       ),
                     ),
@@ -774,30 +1161,34 @@ class _BetslipScannerScreenState
                 SegmentedButton<bool>(
                   segments:
                       const <
-                          ButtonSegment<
-                              bool>>[
+                          ButtonSegment<bool>>[
                     ButtonSegment<bool>(
                       value: false,
-                      label: Text(
+                      label:
+                          Text(
                         'Tisztított',
                       ),
-                      icon: Icon(
+                      icon:
+                          Icon(
                         Icons
                             .auto_fix_high_outlined,
                       ),
                     ),
                     ButtonSegment<bool>(
                       value: true,
-                      label: Text(
+                      label:
+                          Text(
                         'Eredeti',
                       ),
-                      icon: Icon(
+                      icon:
+                          Icon(
                         Icons
                             .text_snippet_outlined,
                       ),
                     ),
                   ],
-                  selected: <bool>{
+                  selected:
+                      <bool>{
                     _showRawText,
                   },
                   onSelectionChanged:
@@ -816,7 +1207,8 @@ class _BetslipScannerScreenState
                 ),
                 const SizedBox(height: 14),
                 Container(
-                  width: double.infinity,
+                  width:
+                      double.infinity,
                   constraints:
                       const BoxConstraints(
                     minHeight: 150,
@@ -828,33 +1220,40 @@ class _BetslipScannerScreenState
                   ),
                   decoration:
                       BoxDecoration(
-                    color: colors
-                        .surfaceContainerHighest,
+                    color:
+                        colors
+                            .surfaceContainerHighest,
                     borderRadius:
-                        BorderRadius
-                            .circular(
+                        BorderRadius.circular(
                       14,
                     ),
-                    border: Border.all(
-                      color: colors
-                          .outlineVariant,
+                    border:
+                        Border.all(
+                      color:
+                          colors
+                              .outlineVariant,
                     ),
                   ),
-                  child: SingleChildScrollView(
-                    child: SelectableText(
+                  child:
+                      SingleChildScrollView(
+                    child:
+                        SelectableText(
                       displayedText
                               .trim()
                               .isEmpty
                           ? 'A képen nem sikerült '
                               'szöveget felismerni.'
                           : displayedText,
-                      style: TextStyle(
-                        color: displayedText
-                                .trim()
-                                .isEmpty
-                            ? colors
-                                .onSurfaceVariant
-                            : colors.onSurface,
+                      style:
+                          TextStyle(
+                        color:
+                            displayedText
+                                    .trim()
+                                    .isEmpty
+                                ? colors
+                                    .onSurfaceVariant
+                                : colors
+                                    .onSurface,
                         fontSize: 14,
                         height: 1.45,
                       ),
@@ -862,9 +1261,7 @@ class _BetslipScannerScreenState
                   ),
                 ),
                 if (result.hasText) ...[
-                  const SizedBox(
-                    height: 14,
-                  ),
+                  const SizedBox(height: 14),
                   SizedBox(
                     width:
                         double.infinity,
@@ -891,100 +1288,31 @@ class _BetslipScannerScreenState
     );
   }
 
-  Widget _buildWarningsCard() {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
+  Widget _buildParserWarningsCard() {
+    final List<String> warnings =
+        _parsedBetslip!.warnings;
 
+    return _WarningCard(
+      title:
+          'Szelvényadatok ellenőrzése',
+      warnings:
+          warnings,
+      color:
+          Colors.orangeAccent,
+    );
+  }
+
+  Widget _buildOcrWarningsCard() {
     final List<String> warnings =
         _ocrResult!.warnings;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(
-        16,
-      ),
-      decoration: BoxDecoration(
-        color:
-            Colors.orange.withValues(
-          alpha: 0.10,
-        ),
-        borderRadius:
-            BorderRadius.circular(
-          18,
-        ),
-        border: Border.all(
-          color:
-              Colors.orangeAccent.withValues(
-            alpha: 0.50,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(
-                Icons
-                    .warning_amber_rounded,
-                color:
-                    Colors.orangeAccent,
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Ellenőrzendő információk',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...warnings.map(
-            (String warning) {
-              return Padding(
-                padding:
-                    const EdgeInsets.only(
-                  bottom: 8,
-                ),
-                child: Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '•',
-                      style: TextStyle(
-                        color:
-                            colors.onSurfaceVariant,
-                        fontWeight:
-                            FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(
-                      width: 8,
-                    ),
-                    Expanded(
-                      child: Text(
-                        warning,
-                        style: TextStyle(
-                          color: colors
-                              .onSurfaceVariant,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+    return _WarningCard(
+      title:
+          'OCR ellenőrzendő információk',
+      warnings:
+          warnings,
+      color:
+          Colors.amber,
     );
   }
 
@@ -992,22 +1320,43 @@ class _BetslipScannerScreenState
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
+    String message;
+
+    if (_hasParsedBetslip) {
+      message =
+          'Az OCR és a Tippmix-szelvény '
+          'értelmezése működik. A következő '
+          'fejlesztésben vonalkódolvasást, '
+          'meccspárosítást és automatikus '
+          'AI-elemzést kapcsolunk hozzá.';
+    } else {
+      message =
+          'A jó eredményhez a teljes szelvény '
+          'legyen éles, jól megvilágított és '
+          'egyenesen lefotózva.';
+    }
+
     return Container(
-      padding: const EdgeInsets.all(
+      padding:
+          const EdgeInsets.all(
         16,
       ),
-      decoration: BoxDecoration(
-        color: colors.primaryContainer
-            .withValues(
+      decoration:
+          BoxDecoration(
+        color:
+            colors.primaryContainer
+                .withValues(
           alpha: 0.24,
         ),
         borderRadius:
             BorderRadius.circular(
           18,
         ),
-        border: Border.all(
+        border:
+            Border.all(
           color:
-              colors.primary.withValues(
+              colors.primary
+                  .withValues(
             alpha: 0.20,
           ),
         ),
@@ -1018,23 +1367,18 @@ class _BetslipScannerScreenState
         children: [
           Icon(
             Icons.info_outline,
-            color: colors.primary,
+            color:
+                colors.primary,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _hasOcrResult
-                  ? 'Az OCR már működik. A következő '
-                      'fejlesztésben a felismert szövegből '
-                      'automatikusan kiolvassuk a '
-                      'mérkőzéseket, piacokat, oddsokat, '
-                      'tétet és várható nyereményt.'
-                  : 'A jó eredményhez a teljes szelvény '
-                      'legyen éles, jól megvilágított és '
-                      'egyenesen lefotózva.',
-              style: TextStyle(
+              message,
+              style:
+                  TextStyle(
                 color:
-                    colors.onSurfaceVariant,
+                    colors
+                        .onSurfaceVariant,
                 height: 1.4,
               ),
             ),
@@ -1054,16 +1398,21 @@ class _BetslipScannerScreenState
     }
 
     setState(() {
-      _isSelectingImage = true;
-      _recognitionError = null;
+      _isSelectingImage =
+          true;
+      _recognitionError =
+          null;
     });
 
     try {
       final XFile? image =
           await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 92,
-        maxWidth: 2400,
+        source:
+            source,
+        imageQuality:
+            92,
+        maxWidth:
+            2400,
       );
 
       if (!mounted) {
@@ -1075,7 +1424,8 @@ class _BetslipScannerScreenState
           ..hideCurrentSnackBar()
           ..showSnackBar(
             const SnackBar(
-              content: Text(
+              content:
+                  Text(
                 'Nem választottál ki képet.',
               ),
             ),
@@ -1085,19 +1435,26 @@ class _BetslipScannerScreenState
       }
 
       setState(() {
-        _selectedImage = image;
+        _selectedImage =
+            image;
         _selectedSource =
             scannerSource;
-        _ocrResult = null;
-        _recognitionError = null;
-        _showRawText = false;
+        _ocrResult =
+            null;
+        _parsedBetslip =
+            null;
+        _recognitionError =
+            null;
+        _showRawText =
+            false;
       });
 
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(
+            content:
+                Text(
               scannerSource ==
                       _ScannerSource.camera
                   ? 'A fénykép sikeresen elkészült.'
@@ -1112,14 +1469,16 @@ class _BetslipScannerScreenState
 
       setState(() {
         _recognitionError =
-            'A kép kiválasztása nem sikerült.';
+            'A kép kiválasztása '
+            'nem sikerült.';
       });
 
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(
-            content: Text(
+            content:
+                Text(
               'A kép kiválasztása nem sikerült. '
               'Ellenőrizd az alkalmazás '
               'engedélyeit.',
@@ -1129,7 +1488,8 @@ class _BetslipScannerScreenState
     } finally {
       if (mounted) {
         setState(() {
-          _isSelectingImage = false;
+          _isSelectingImage =
+              false;
         });
       }
     }
@@ -1145,37 +1505,60 @@ class _BetslipScannerScreenState
     }
 
     setState(() {
-      _isAnalyzing = true;
-      _ocrResult = null;
-      _recognitionError = null;
-      _showRawText = false;
+      _isAnalyzing =
+          true;
+      _ocrResult =
+          null;
+      _parsedBetslip =
+          null;
+      _recognitionError =
+          null;
+      _showRawText =
+          false;
     });
 
     try {
-      final OcrRecognitionResult result =
+      final OcrRecognitionResult
+          ocrResult =
           await _ocrService
               .recognizeImage(
         selectedImage.path,
       );
+
+      final RecognizedBetslip?
+          parsedResult =
+          ocrResult.hasText
+              ? _parserService.parse(
+                  ocrResult.normalizedText,
+                )
+              : null;
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _ocrResult = result;
+        _ocrResult =
+            ocrResult;
+        _parsedBetslip =
+            parsedResult;
       });
 
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(
-              result.hasText
-                  ? 'A szövegfelismerés sikerült: '
-                      '${result.lineCount} sor.'
-                  : 'Nem sikerült olvasható szöveget '
-                      'találni a képen.',
+            content:
+                Text(
+              ocrResult.hasText
+                  ? parsedResult != null
+                      ? 'A szelvény feldolgozása '
+                          'sikerült: '
+                          '${parsedResult.matches.length} '
+                          'mérkőzés felismerve.'
+                      : 'A szövegfelismerés sikerült.'
+                  : 'Nem sikerült olvasható '
+                      'szöveget találni.',
             ),
           ),
         );
@@ -1193,7 +1576,8 @@ class _BetslipScannerScreenState
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(
+            content:
+                Text(
               error.message,
             ),
           ),
@@ -1205,15 +1589,17 @@ class _BetslipScannerScreenState
 
       setState(() {
         _recognitionError =
-            'Váratlan OCR-hiba történt: $error';
+            'Váratlan felismerési hiba: '
+            '$error';
       });
 
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(
-            content: Text(
-              'A szövegfelismerés váratlan '
+            content:
+                Text(
+              'A szelvény felismerése váratlan '
               'hiba miatt nem sikerült.',
             ),
           ),
@@ -1221,7 +1607,8 @@ class _BetslipScannerScreenState
     } finally {
       if (mounted) {
         setState(() {
-          _isAnalyzing = false;
+          _isAnalyzing =
+              false;
         });
       }
     }
@@ -1256,7 +1643,8 @@ class _BetslipScannerScreenState
 
     await Clipboard.setData(
       ClipboardData(
-        text: text,
+        text:
+            text,
       ),
     );
 
@@ -1268,8 +1656,10 @@ class _BetslipScannerScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(
-          content: Text(
-            'A felismert szöveg a vágólapra került.',
+          content:
+              Text(
+            'A felismert szöveg a '
+            'vágólapra került.',
           ),
         ),
       );
@@ -1282,27 +1672,124 @@ class _BetslipScannerScreenState
     }
 
     setState(() {
-      _selectedImage = null;
-      _selectedSource = null;
-      _ocrResult = null;
-      _recognitionError = null;
-      _isAnalyzing = false;
-      _showRawText = false;
+      _selectedImage =
+          null;
+      _selectedSource =
+          null;
+      _ocrResult =
+          null;
+      _parsedBetslip =
+          null;
+      _recognitionError =
+          null;
+      _isAnalyzing =
+          false;
+      _showRawText =
+          false;
     });
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(
-          content: Text(
-            'A kiválasztott kép és az OCR-eredmény törölve.',
+          content:
+              Text(
+            'A kiválasztott kép és az '
+            'eredmények törölve.',
           ),
         ),
       );
   }
+
+  String _formatMoney(
+    double value,
+  ) {
+    final int rounded =
+        value.round();
+
+    final String digits =
+        rounded.toString();
+
+    final StringBuffer buffer =
+        StringBuffer();
+
+    for (
+      int index = 0;
+      index < digits.length;
+      index++
+    ) {
+      final int remaining =
+          digits.length - index;
+
+      buffer.write(
+        digits[index],
+      );
+
+      if (remaining > 1 &&
+          remaining % 3 == 1) {
+        buffer.write(' ');
+      }
+    }
+
+    return buffer.toString();
+  }
+
+  String _formatOdds(
+    double value,
+  ) {
+    return value
+        .toStringAsFixed(2)
+        .replaceAll(
+          '.',
+          ',',
+        );
+  }
+
+  String _formatDateTime(
+    DateTime value,
+  ) {
+    final String year =
+        value.year.toString();
+
+    final String month =
+        value.month
+            .toString()
+            .padLeft(
+              2,
+              '0',
+            );
+
+    final String day =
+        value.day
+            .toString()
+            .padLeft(
+              2,
+              '0',
+            );
+
+    final String hour =
+        value.hour
+            .toString()
+            .padLeft(
+              2,
+              '0',
+            );
+
+    final String minute =
+        value.minute
+            .toString()
+            .padLeft(
+              2,
+              '0',
+            );
+
+    return '$year.$month.$day. '
+        '$hour:$minute';
+  }
 }
 
-class _SectionTitle extends StatelessWidget {
+class _SectionTitle
+    extends StatelessWidget {
   final IconData icon;
   final String title;
 
@@ -1321,7 +1808,8 @@ class _SectionTitle extends StatelessWidget {
         Container(
           width: 38,
           height: 38,
-          decoration: BoxDecoration(
+          decoration:
+              BoxDecoration(
             color:
                 colors.primaryContainer,
             borderRadius:
@@ -1340,9 +1828,11 @@ class _SectionTitle extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
+            style:
+                const TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
         ),
@@ -1351,7 +1841,8 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _SourceCard extends StatelessWidget {
+class _SourceCard
+    extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
@@ -1374,13 +1865,15 @@ class _SourceCard extends StatelessWidget {
         Theme.of(context).colorScheme;
 
     return Material(
-      color: selected
-          ? colors.primaryContainer
-              .withValues(
-              alpha: 0.45,
-            )
-          : colors
-              .surfaceContainerHighest,
+      color:
+          selected
+              ? colors
+                  .primaryContainer
+                  .withValues(
+                    alpha: 0.45,
+                  )
+              : colors
+                  .surfaceContainerHighest,
       borderRadius:
           BorderRadius.circular(
         18,
@@ -1394,8 +1887,10 @@ class _SourceCard extends StatelessWidget {
             BorderRadius.circular(
           18,
         ),
-        child: AnimatedOpacity(
-          duration: const Duration(
+        child:
+            AnimatedOpacity(
+          duration:
+              const Duration(
             milliseconds: 150,
           ),
           opacity:
@@ -1403,19 +1898,23 @@ class _SourceCard extends StatelessWidget {
                   ? 0.55
                   : 1,
           child: Container(
-            padding: const EdgeInsets.all(
+            padding:
+                const EdgeInsets.all(
               16,
             ),
-            decoration: BoxDecoration(
+            decoration:
+                BoxDecoration(
               borderRadius:
                   BorderRadius.circular(
                 18,
               ),
-              border: Border.all(
-                color: selected
-                    ? colors.primary
-                    : colors
-                        .outlineVariant,
+              border:
+                  Border.all(
+                color:
+                    selected
+                        ? colors.primary
+                        : colors
+                            .outlineVariant,
                 width:
                     selected
                         ? 1.5
@@ -1429,24 +1928,23 @@ class _SourceCard extends StatelessWidget {
                   height: 50,
                   decoration:
                       BoxDecoration(
-                    color: colors
-                        .primaryContainer,
+                    color:
+                        colors
+                            .primaryContainer,
                     borderRadius:
-                        BorderRadius
-                            .circular(
+                        BorderRadius.circular(
                       14,
                     ),
                   ),
                   child: Icon(
                     icon,
-                    color: colors
-                        .onPrimaryContainer,
+                    color:
+                        colors
+                            .onPrimaryContainer,
                     size: 27,
                   ),
                 ),
-                const SizedBox(
-                  height: 12,
-                ),
+                const SizedBox(height: 12),
                 Text(
                   title,
                   textAlign:
@@ -1457,31 +1955,30 @@ class _SourceCard extends StatelessWidget {
                         FontWeight.bold,
                   ),
                 ),
-                const SizedBox(
-                  height: 5,
-                ),
+                const SizedBox(height: 5),
                 Text(
                   subtitle,
                   textAlign:
                       TextAlign.center,
-                  style: TextStyle(
-                    color: colors
-                        .onSurfaceVariant,
+                  style:
+                      TextStyle(
+                    color:
+                        colors
+                            .onSurfaceVariant,
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(
-                  height: 10,
-                ),
+                const SizedBox(height: 10),
                 Icon(
                   selected
                       ? Icons.check_circle
                       : Icons
                           .radio_button_unchecked,
-                  color: selected
-                      ? colors.primary
-                      : colors
-                          .onSurfaceVariant,
+                  color:
+                      selected
+                          ? colors.primary
+                          : colors
+                              .onSurfaceVariant,
                 ),
               ],
             ),
@@ -1492,13 +1989,13 @@ class _SourceCard extends StatelessWidget {
   }
 }
 
-class _ResultPlaceholderRow
+class _ResultRow
     extends StatelessWidget {
   final IconData icon;
   final String title;
   final String value;
 
-  const _ResultPlaceholderRow({
+  const _ResultRow({
     required this.icon,
     required this.title,
     required this.value,
@@ -1514,13 +2011,15 @@ class _ResultPlaceholderRow
         Icon(
           icon,
           size: 20,
-          color: colors.primary,
+          color:
+              colors.primary,
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
+            style:
+                const TextStyle(
               fontWeight:
                   FontWeight.w500,
             ),
@@ -1530,16 +2029,382 @@ class _ResultPlaceholderRow
         Flexible(
           child: Text(
             value,
-            textAlign: TextAlign.end,
-            style: TextStyle(
+            textAlign:
+                TextAlign.end,
+            style:
+                TextStyle(
               color:
-                  colors.onSurfaceVariant,
+                  colors
+                      .onSurfaceVariant,
               fontWeight:
                   FontWeight.bold,
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SummaryRow
+    extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+
+  const _SummaryRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration:
+              BoxDecoration(
+            color:
+                colors.primaryContainer,
+            borderRadius:
+                BorderRadius.circular(
+              10,
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: 19,
+            color:
+                colors.onPrimaryContainer,
+          ),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Text(
+            title,
+            style:
+                TextStyle(
+              color:
+                  colors
+                      .onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign:
+                TextAlign.end,
+            style:
+                const TextStyle(
+              fontWeight:
+                  FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecognizedMatchCard
+    extends StatelessWidget {
+  final int position;
+  final RecognizedMatch match;
+
+  const _RecognizedMatchCard({
+    required this.position,
+    required this.match,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    final Color confidenceColor =
+        match.confidence >= 75
+            ? Colors.green
+            : match.confidence >= 50
+                ? Colors.orange
+                : Colors.redAccent;
+
+    return Card(
+      child: Padding(
+        padding:
+            const EdgeInsets.all(
+          16,
+        ),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor:
+                      colors
+                          .primaryContainer,
+                  child: Text(
+                    '$position',
+                    style:
+                        TextStyle(
+                      color:
+                          colors
+                              .onPrimaryContainer,
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Text(
+                    match.matchTitle,
+                    style:
+                        const TextStyle(
+                      fontSize: 17,
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _MatchInformationLine(
+              label:
+                  'Piac',
+              value:
+                  match.market.isEmpty
+                      ? 'Nem felismerhető'
+                      : match.market,
+            ),
+            const SizedBox(height: 8),
+            _MatchInformationLine(
+              label:
+                  'Tipp',
+              value:
+                  match.tip,
+            ),
+            const SizedBox(height: 8),
+            _MatchInformationLine(
+              label:
+                  'Odds',
+              value:
+                  match.hasOdds
+                      ? match.odds!
+                          .toStringAsFixed(2)
+                          .replaceAll(
+                            '.',
+                            ',',
+                          )
+                      : '—',
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value:
+                  match.confidence
+                          .clamp(
+                            0,
+                            100,
+                          ) /
+                      100,
+              minHeight: 8,
+              borderRadius:
+                  BorderRadius.circular(
+                20,
+              ),
+              color:
+                  confidenceColor,
+            ),
+            const SizedBox(height: 7),
+            Text(
+              'Felismerési megbízhatóság: '
+              '${match.confidence}%',
+              style:
+                  TextStyle(
+                color:
+                    confidenceColor,
+                fontSize: 12,
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MatchInformationLine
+    extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _MatchInformationLine({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 62,
+          child: Text(
+            label,
+            style:
+                TextStyle(
+              color:
+                  colors
+                      .onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style:
+                const TextStyle(
+              fontWeight:
+                  FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WarningCard
+    extends StatelessWidget {
+  final String title;
+  final List<String> warnings;
+  final Color color;
+
+  const _WarningCard({
+    required this.title,
+    required this.warnings,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Container(
+      width:
+          double.infinity,
+      padding:
+          const EdgeInsets.all(
+        16,
+      ),
+      decoration:
+          BoxDecoration(
+        color:
+            color.withValues(
+          alpha: 0.10,
+        ),
+        borderRadius:
+            BorderRadius.circular(
+          18,
+        ),
+        border:
+            Border.all(
+          color:
+              color.withValues(
+            alpha: 0.50,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons
+                    .warning_amber_rounded,
+                color:
+                    color,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style:
+                      const TextStyle(
+                    fontSize: 16,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...warnings.map(
+            (String warning) {
+              return Padding(
+                padding:
+                    const EdgeInsets.only(
+                  bottom: 8,
+                ),
+                child: Row(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '•',
+                      style:
+                          TextStyle(
+                        color:
+                            color,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        warning,
+                        style:
+                            TextStyle(
+                          color:
+                              colors
+                                  .onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
