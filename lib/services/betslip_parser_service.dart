@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.18.9
+// Version: v0.18.10
 // File: lib/services/betslip_parser_service.dart
 // ===========================================
 
@@ -745,11 +745,10 @@ class BetslipParserService {
 
       for (final _MoneyCandidate candidate
           in moneyCandidates) {
-        if (possibleWin != null &&
-            (candidate.value -
-                        possibleWin)
-                    .abs() <
-                0.01) {
+        if ((candidate.value -
+                    possibleWin)
+                .abs() <
+            0.01) {
           continue;
         }
 
