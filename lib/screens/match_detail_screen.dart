@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.17.2
+// Version: v0.17.3
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
@@ -30,8 +30,7 @@ class MatchDetailScreen extends StatefulWidget {
   }
 }
 
-class _MatchDetailScreenState
-    extends State<MatchDetailScreen> {
+class _MatchDetailScreenState extends State<MatchDetailScreen> {
   static const BetSelection _defaultSingleSelection =
       BetSelection(
     market: 'AI ajánlott piac',
@@ -54,7 +53,6 @@ class _MatchDetailScreenState
       <BetBuilderSelection>[];
 
   OddsEvent? _oddsEvent;
-
   MatchAnalysisResult? _analysisResult;
 
   String? _oddsError;
@@ -79,6 +77,11 @@ class _MatchDetailScreenState
     return _builderSelections.isNotEmpty;
   }
 
+  int get _displayedAiScore {
+    return _analysisResult?.analysis.aiScore ??
+        match.aiScore;
+  }
+
   int get _recommendedProbability {
     final double? probability =
         _analysisResult
@@ -86,8 +89,12 @@ class _MatchDetailScreenState
             .recommendation
             .probability;
 
-    if (probability == null) {
-      return match.aiScore;
+    if (probability == null ||
+        probability <= 0) {
+      return _displayedAiScore.clamp(
+        0,
+        100,
+      );
     }
 
     return probability
@@ -96,6 +103,41 @@ class _MatchDetailScreenState
           0,
           100,
         );
+  }
+
+  int get _selectedBetProbability {
+    final BetSelection? selected =
+        _selectedSingleBet;
+
+    if (selected == null) {
+      return _displayedAiScore.clamp(
+        0,
+        100,
+      );
+    }
+
+    final String normalizedSelected =
+        _normalizeText(
+      selected.selection,
+    );
+
+    final String normalizedRecommendation =
+        _normalizeText(
+      _analysisResult
+              ?.recommendation ??
+          '',
+    );
+
+    if (normalizedRecommendation.isNotEmpty &&
+        normalizedSelected ==
+            normalizedRecommendation) {
+      return _recommendedProbability;
+    }
+
+    return _displayedAiScore.clamp(
+      0,
+      100,
+    );
   }
 
   @override
@@ -120,7 +162,6 @@ class _MatchDetailScreenState
     if (savedItem == null) {
       _selectedSingleBet =
           _defaultSingleSelection;
-
       return;
     }
 
@@ -132,12 +173,10 @@ class _MatchDetailScreenState
 
       _selectedSingleBet =
           _defaultSingleSelection;
-
       return;
     }
 
-    _selectedSingleBet =
-        BetSelection(
+    _selectedSingleBet = BetSelection(
       market: savedItem.market,
       selection: savedItem.selection,
       icon: _iconForMarket(
@@ -198,15 +237,18 @@ class _MatchDetailScreenState
               match: match,
             ),
             const SizedBox(height: 16),
-
             _AiRecommendationCard(
-              aiScore: match.aiScore,
+              aiScore: _displayedAiScore,
               recommendation:
                   _analysisResult
                       ?.recommendation,
               recommendationMarket:
                   _analysisResult
                       ?.recommendationMarket,
+              recommendationProbability:
+                  _analysisResult == null
+                      ? null
+                      : _recommendedProbability,
               dataReliability:
                   _analysisResult
                       ?.dataReliability,
@@ -214,7 +256,6 @@ class _MatchDetailScreenState
                   _isLoadingAnalysis,
             ),
             const SizedBox(height: 14),
-
             _AnalysisStatusCard(
               match: match,
               result: _analysisResult,
@@ -229,14 +270,12 @@ class _MatchDetailScreenState
               },
             ),
             const SizedBox(height: 22),
-
             const _SectionTitle(
               icon:
                   Icons.currency_exchange,
               title: 'Valódi oddsok',
             ),
             const SizedBox(height: 10),
-
             _RealOddsCard(
               event: _oddsEvent,
               isLoading:
@@ -259,7 +298,6 @@ class _MatchDetailScreenState
                   _loadOdds,
             ),
             const SizedBox(height: 18),
-
             if (!_isBuilderMode &&
                 _selectedSingleBet != null)
               _ValueBetPanel(
@@ -267,7 +305,7 @@ class _MatchDetailScreenState
                     _selectedSingleBet!
                         .selection,
                 aiProbability:
-                    _recommendedProbability,
+                    _selectedBetProbability,
                 quote:
                     _selectedBetQuote,
                 isLoading:
@@ -276,21 +314,17 @@ class _MatchDetailScreenState
                 errorMessage:
                     _valueBetMessage,
               ),
-
             if (!_isBuilderMode &&
                 _selectedSingleBet != null)
               const SizedBox(height: 22),
-
             const _SectionTitle(
               icon: Icons.auto_graph,
               title:
                   'Forma – utolsó mérkőzések',
             ),
             const SizedBox(height: 10),
-
             _buildFormSection(),
             const SizedBox(height: 22),
-
             const _SectionTitle(
               icon:
                   Icons.compare_arrows,
@@ -298,20 +332,16 @@ class _MatchDetailScreenState
                   'Egymás elleni mérleg',
             ),
             const SizedBox(height: 10),
-
             _buildHeadToHeadSection(),
             const SizedBox(height: 22),
-
             const _SectionTitle(
               icon:
                   Icons.sports_soccer,
               title: 'Gólstatisztikák',
             ),
             const SizedBox(height: 10),
-
             _buildGoalStatisticsSection(),
             const SizedBox(height: 22),
-
             const _SectionTitle(
               icon:
                   Icons.query_stats,
@@ -319,10 +349,8 @@ class _MatchDetailScreenState
                   'Részletes csapatstatisztikák',
             ),
             const SizedBox(height: 10),
-
             _buildAdvancedStatisticsSection(),
             const SizedBox(height: 28),
-
             _ModeInformationCard(
               singleBetSelected:
                   _selectedSingleBet !=
@@ -331,14 +359,12 @@ class _MatchDetailScreenState
                   _builderSelections.length,
             ),
             const SizedBox(height: 22),
-
             const _SectionTitle(
               icon:
                   Icons.touch_app_outlined,
               title: 'Egyedi tipp',
             ),
             const SizedBox(height: 8),
-
             Text(
               'Válassz egyetlen fogadási piacot, '
               'ha nem Fogadáskészítőt szeretnél '
@@ -350,7 +376,6 @@ class _MatchDetailScreenState
               ),
             ),
             const SizedBox(height: 14),
-
             BetMarketSelector(
               selectedBet:
                   _selectedSingleBet,
@@ -360,28 +385,24 @@ class _MatchDetailScreenState
                 setState(() {
                   _selectedSingleBet =
                       selection;
-
                   _builderSelections =
                       <BetBuilderSelection>[];
                 });
               },
             ),
             const SizedBox(height: 10),
-
             if (_selectedSingleBet != null &&
                 !_isBuilderMode)
               _SelectedSingleBetCard(
                 selectedBet:
                     _selectedSingleBet!,
                 aiScore:
-                    _recommendedProbability,
+                    _selectedBetProbability,
                 realOdds:
                     _selectedBetQuote
                         ?.price,
               ),
-
             const SizedBox(height: 26),
-
             const _SectionTitle(
               icon:
                   Icons.construction_outlined,
@@ -389,7 +410,6 @@ class _MatchDetailScreenState
                   'Fogadáskészítő PRO',
             ),
             const SizedBox(height: 8),
-
             Text(
               'Jelölj ki több piacot ugyanahhoz a '
               'mérkőzéshez. A kiválasztások '
@@ -402,7 +422,6 @@ class _MatchDetailScreenState
               ),
             ),
             const SizedBox(height: 14),
-
             BetBuilderSelector(
               selectedSelections:
                   _builderSelections,
@@ -420,7 +439,6 @@ class _MatchDetailScreenState
               },
             ),
             const SizedBox(height: 18),
-
             AnimatedBuilder(
               animation:
                   _betslipService,
@@ -539,7 +557,6 @@ class _MatchDetailScreenState
                           ),
                         ),
                       ),
-
                     if (hasSavedItem) ...[
                       const SizedBox(
                         height: 10,
@@ -685,6 +702,14 @@ class _MatchDetailScreenState
         statistics.h2hHomeWins +
             statistics.h2hDraws +
             statistics.h2hAwayWins;
+
+    if (total <= 0) {
+      return const _StatisticsUnavailableCard(
+        message:
+            'Nincs elegendő egymás elleni adat '
+            'ehhez a mérkőzéshez.',
+      );
+    }
 
     return _StatisticsCard(
       rows: [
@@ -1021,10 +1046,12 @@ class _MatchDetailScreenState
           if (selection.isNotEmpty) {
             _selectedSingleBet =
                 BetSelection(
-              market: market.isEmpty
-                  ? 'AI ajánlott piac'
-                  : market,
-              selection: selection,
+              market:
+                  market.isEmpty
+                      ? 'AI ajánlott piac'
+                      : market,
+              selection:
+                  selection,
               icon:
                   _iconForMarket(
                 market.isEmpty
@@ -1075,7 +1102,7 @@ class _MatchDetailScreenState
         _oddsEvent = null;
         _oddsError =
             'Ehhez a bajnoksághoz még nincs '
-            'beállítva Odds API sportkulcs.';
+            'elérhető Odds API sportkulcs.';
       });
 
       return;
@@ -1084,10 +1111,8 @@ class _MatchDetailScreenState
     setState(() {
       _sportKey =
           resolvedSportKey;
-
       _isLoadingOdds =
           true;
-
       _oddsError =
           null;
     });
@@ -1134,7 +1159,6 @@ class _MatchDetailScreenState
       setState(() {
         _oddsEvent =
             null;
-
         _oddsError =
             error.message;
       });
@@ -1146,7 +1170,6 @@ class _MatchDetailScreenState
       setState(() {
         _oddsEvent =
             null;
-
         _oddsError =
             'Ismeretlen hiba történt: $error';
       });
@@ -1234,9 +1257,12 @@ class _MatchDetailScreenState
 
     if (normalized.contains(
           'bundesliga',
-        ) ||
-        normalized.contains(
-          'nemet',
+        ) &&
+        !normalized.contains(
+          'austria',
+        ) &&
+        !normalized.contains(
+          'osztrak',
         )) {
       return 'soccer_germany_bundesliga';
     }
@@ -1293,6 +1319,167 @@ class _MatchDetailScreenState
           'konferencialiga',
         )) {
       return 'soccer_uefa_europa_conference_league';
+    }
+
+    if (normalized.contains(
+          'allsvenskan',
+        ) ||
+        normalized.contains(
+          'swedishallsvenskan',
+        ) ||
+        normalized.contains(
+          'svedallsvenskan',
+        )) {
+      return 'soccer_sweden_allsvenskan';
+    }
+
+    if (normalized.contains(
+      'superettan',
+    )) {
+      return 'soccer_sweden_superettan';
+    }
+
+    if (normalized.contains(
+          'eliteserien',
+        ) ||
+        normalized.contains(
+          'norwayeliteserien',
+        )) {
+      return 'soccer_norway_eliteserien';
+    }
+
+    if (normalized.contains(
+          'obos',
+        ) ||
+        normalized.contains(
+          '1stdivisionnorway',
+        )) {
+      return 'soccer_norway_1st_div';
+    }
+
+    if (normalized.contains(
+          'veikkausliiga',
+        ) ||
+        normalized.contains(
+          'finlandveikkausliiga',
+        )) {
+      return 'soccer_finland_veikkausliiga';
+    }
+
+    if (normalized.contains(
+          'denmarksuperliga',
+        ) ||
+        normalized.contains(
+          'danishsuperliga',
+        ) ||
+        normalized.contains(
+          'danksuperliga',
+        )) {
+      return 'soccer_denmark_superliga';
+    }
+
+    if (normalized.contains(
+          'jupiler',
+        ) ||
+        normalized.contains(
+          'belgiumfirstdivisiona',
+        ) ||
+        normalized.contains(
+          'proleaguebelgium',
+        )) {
+      return 'soccer_belgium_first_div';
+    }
+
+    if (normalized.contains(
+          'austriabundesliga',
+        ) ||
+        normalized.contains(
+          'osztrakbundesliga',
+        )) {
+      return 'soccer_austria_bundesliga';
+    }
+
+    if (normalized.contains(
+          'switzerlandSuperLeague'
+              .toLowerCase(),
+        ) ||
+        normalized.contains(
+          'swisssuperleague',
+        ) ||
+        normalized.contains(
+          'svajcisuperleague',
+        )) {
+      return 'soccer_switzerland_superleague';
+    }
+
+    if (normalized.contains(
+      'ekstraklasa',
+    )) {
+      return 'soccer_poland_ekstraklasa';
+    }
+
+    if (normalized.contains(
+          'czechfirstleague',
+        ) ||
+        normalized.contains(
+          'chanceliga',
+        ) ||
+        normalized.contains(
+          'fortunaliga',
+        )) {
+      return 'soccer_czech_republic_first_league';
+    }
+
+    if (normalized.contains(
+          'romanialiga1',
+        ) ||
+        normalized.contains(
+          'romansuperliga',
+        ) ||
+        normalized.contains(
+          'ligairomania',
+        )) {
+      return 'soccer_romania_liga1';
+    }
+
+    if (normalized.contains(
+          'croatiahnl',
+        ) ||
+        normalized.contains(
+          'supersporthnl',
+        ) ||
+        normalized == 'hnl') {
+      return 'soccer_croatia_hnl';
+    }
+
+    if (normalized.contains(
+          'slovakiasuperliga',
+        ) ||
+        normalized.contains(
+          'nikeliga',
+        )) {
+      return 'soccer_slovakia_super_liga';
+    }
+
+    if (normalized.contains(
+          'sloveniaprvaliga',
+        ) ||
+        normalized.contains(
+          'prvaligatelemach',
+        )) {
+      return 'soccer_slovenia_prvaliga';
+    }
+
+    if (normalized.contains(
+          'otpbankliga',
+        ) ||
+        normalized.contains(
+          'hungarynbi',
+        ) ||
+        normalized.contains(
+          'magyarno1',
+        )) {
+      return 'soccer_hungary_nb_i';
     }
 
     if (normalized.contains(
@@ -1358,10 +1545,8 @@ class _MatchDetailScreenState
         switch (result) {
           case AiMatchResult.win:
             return 'G';
-
           case AiMatchResult.draw:
             return 'D';
-
           case AiMatchResult.loss:
             return 'V';
         }
@@ -1386,11 +1571,9 @@ class _MatchDetailScreenState
         case AiMatchResult.win:
           points += 3;
           break;
-
         case AiMatchResult.draw:
           points += 1;
           break;
-
         case AiMatchResult.loss:
           break;
       }
@@ -1416,11 +1599,7 @@ class _MatchDetailScreenState
   String _formatPercent(
     double value,
   ) {
-    if (value <= 0) {
-      return '0%';
-    }
-
-    return '${value.round()}%';
+    return '${value.clamp(0, 100).round()}%';
   }
 
   String _formatDecimal(
@@ -1445,10 +1624,8 @@ class _MatchDetailScreenState
     }
 
     return _findOutcomeQuote(
-      event:
-          event,
-      marketKey:
-          'h2h',
+      event: event,
+      marketKey: 'h2h',
       outcomeName:
           event.homeTeam,
     );
@@ -1463,12 +1640,9 @@ class _MatchDetailScreenState
     }
 
     return _findOutcomeQuote(
-      event:
-          event,
-      marketKey:
-          'h2h',
-      outcomeName:
-          'Draw',
+      event: event,
+      marketKey: 'h2h',
+      outcomeName: 'Draw',
     );
   }
 
@@ -1481,10 +1655,8 @@ class _MatchDetailScreenState
     }
 
     return _findOutcomeQuote(
-      event:
-          event,
-      marketKey:
-          'h2h',
+      event: event,
+      marketKey: 'h2h',
       outcomeName:
           event.awayTeam,
     );
@@ -1499,12 +1671,9 @@ class _MatchDetailScreenState
     }
 
     return _findTotalQuote(
-      event:
-          event,
-      side:
-          'Over',
-      point:
-          2.5,
+      event: event,
+      side: 'Over',
+      point: 2.5,
     );
   }
 
@@ -1517,12 +1686,9 @@ class _MatchDetailScreenState
     }
 
     return _findTotalQuote(
-      event:
-          event,
-      side:
-          'Under',
-      point:
-          2.5,
+      event: event,
+      side: 'Under',
+      point: 2.5,
     );
   }
 
@@ -1549,7 +1715,9 @@ class _MatchDetailScreenState
       return _homeWinQuote;
     }
 
-    if (selection == 'dontetlen') {
+    if (selection ==
+            'dontetlen' ||
+        selection == 'x') {
       return _drawQuote;
     }
 
@@ -1577,14 +1745,12 @@ class _MatchDetailScreenState
     if ((isOver || isUnder) &&
         point != null) {
       return _findTotalQuote(
-        event:
-            event,
+        event: event,
         side:
             isOver
                 ? 'Over'
                 : 'Under',
-        point:
-            point,
+        point: point,
       );
     }
 
@@ -1675,8 +1841,7 @@ class _MatchDetailScreenState
         if (bestQuote == null ||
             outcome.price >
                 bestQuote.price) {
-          bestQuote =
-              _OddsQuote(
+          bestQuote = _OddsQuote(
             price:
                 outcome.price,
             bookmaker:
@@ -1730,8 +1895,7 @@ class _MatchDetailScreenState
         if (bestQuote == null ||
             outcome.price >
                 bestQuote.price) {
-          bestQuote =
-              _OddsQuote(
+          bestQuote = _OddsQuote(
             price:
                 outcome.price,
             bookmaker:
@@ -1826,8 +1990,7 @@ class _MatchDetailScreenState
                 0.0;
 
         return selection.copyWith(
-          odds:
-              odds,
+          odds: odds,
         );
       },
     ).toList(
@@ -1906,12 +2069,9 @@ class _MatchDetailScreenState
           'tobbmint',
         )) {
       return _findTotalQuote(
-        event:
-            event,
-        side:
-            'Over',
-        point:
-            point,
+        event: event,
+        side: 'Over',
+        point: point,
       )?.price;
     }
 
@@ -1920,12 +2080,9 @@ class _MatchDetailScreenState
           'kevesebbmint',
         )) {
       return _findTotalQuote(
-        event:
-            event,
-        side:
-            'Under',
-        point:
-            point,
+        event: event,
+        side: 'Under',
+        point: point,
       )?.price;
     }
 
@@ -2447,7 +2604,6 @@ class _RealOddsCard
               ],
             ),
             const SizedBox(height: 15),
-
             if (isLoading)
               const Center(
                 child: Padding(
@@ -2596,7 +2752,6 @@ class _RealOddsCard
                   ),
                 ),
               ),
-
             if (!isLoading &&
                 event == null) ...[
               const SizedBox(height: 12),
@@ -3307,6 +3462,7 @@ class _AiRecommendationCard
   final int aiScore;
   final String? recommendation;
   final String? recommendationMarket;
+  final int? recommendationProbability;
   final int? dataReliability;
   final bool isLoading;
 
@@ -3314,6 +3470,7 @@ class _AiRecommendationCard
     required this.aiScore,
     required this.recommendation,
     required this.recommendationMarket,
+    required this.recommendationProbability,
     required this.dataReliability,
     required this.isLoading,
   });
@@ -3408,9 +3565,27 @@ class _AiRecommendationCard
                   ),
                 ),
               ),
-              if (dataReliability !=
+              if (recommendationProbability !=
                   null) ...[
                 const SizedBox(height: 8),
+                Align(
+                  alignment:
+                      Alignment.centerLeft,
+                  child: Text(
+                    'Tipp valószínűsége: '
+                    '$recommendationProbability%',
+                    style: TextStyle(
+                      color:
+                          colors
+                              .onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+              if (dataReliability !=
+                  null) ...[
+                const SizedBox(height: 5),
                 Align(
                   alignment:
                       Alignment.centerLeft,
@@ -3510,8 +3685,7 @@ class _FormCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _FormCircles(
-              form:
-                  form,
+              form: form,
             ),
             const SizedBox(height: 12),
             Text(
@@ -3594,17 +3768,14 @@ class _FormCircles
               backgroundColor =
                   Colors.green;
               break;
-
             case 'D':
               backgroundColor =
                   Colors.orange;
               break;
-
             case 'V':
               backgroundColor =
                   Colors.redAccent;
               break;
-
             default:
               backgroundColor =
                   Colors.grey;
