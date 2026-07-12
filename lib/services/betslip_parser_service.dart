@@ -1,79 +1,61 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.18.4
+// Version: v0.18.5
 // File: lib/services/betslip_parser_service.dart
 // ===========================================
 
+import 'dart:math' as math;
+
 import '../models/recognized_betslip.dart';
 
-/// A Zsolt Pro AI Tippmix-szelvény feldolgozó szolgáltatása.
+/// A Zsolt Pro AI Tippmix-szelvény
+/// OCR-szövegének feldolgozó szolgáltatása.
 ///
 /// Feladatai:
-/// - az OCR által felismert szöveg megtisztítása;
-/// - a szelvényszám felismerése;
-/// - a tét felismerése;
-/// - az eredő odds felismerése;
-/// - a maximális nyeremény felismerése;
-/// - a fogadások számának felismerése;
-/// - a mérkőzések és tippek előzetes elkülönítése;
-/// - a felismerés minőségének értékelése.
-///
-/// Ez a szolgáltatás kizárólag a már felismert OCR-szöveget
-/// dolgozza fel. A képbeolvasást az OcrService végzi.
+/// - OCR-szöveg tisztítása;
+/// - szelvényszám felismerése;
+/// - játékba küldés időpontjának felismerése;
+/// - tét felismerése;
+/// - eredő odds felismerése;
+/// - maximális nyeremény felismerése;
+/// - fogadások számának felismerése;
+/// - mérkőzések és tippek előzetes felismerése;
+/// - adatminőség és megbízhatóság értékelése.
 class BetslipParserService {
   BetslipParserService._();
 
   static final BetslipParserService instance =
       BetslipParserService._();
 
-  /// Egy teljes OCR-szöveg feldolgozása.
   RecognizedBetslip parse(
     String rawText,
   ) {
     final String cleanedText =
-        cleanText(
-      rawText,
-    );
+        cleanText(rawText);
 
     final List<String> lines =
-        _extractLines(
-      cleanedText,
-    );
+        _extractLines(cleanedText);
 
     final double? totalOdds =
-        _extractTotalOdds(
-      lines,
-    );
+        _extractTotalOdds(lines);
 
     final double? stake =
-        _extractStake(
-      lines,
-    );
+        _extractStake(lines);
 
     final double? possibleWin =
-        _extractPossibleWin(
-      lines,
-    );
+        _extractPossibleWin(lines);
 
     final int? matchCount =
-        _extractMatchCount(
-      lines,
-    );
+        _extractMatchCount(lines);
 
     final String? betslipNumber =
-        _extractBetslipNumber(
-      lines,
-    );
+        _extractBetslipNumber(lines);
 
     final DateTime? submittedAt =
-        _extractSubmittedAt(
-      lines,
-    );
+        _extractSubmittedAt(lines);
 
     final List<RecognizedMatch> matches =
-        _extractMatches(
-      lines,
-    );
+        _extractMatches(lines);
 
     final int confidence =
         _calculateConfidence(
@@ -104,15 +86,14 @@ class BetslipParserService {
       stake: stake,
       possibleWin: possibleWin,
       matchCount: matchCount,
-      matches: matches,
       betslipNumber: betslipNumber,
       submittedAt: submittedAt,
       confidence: confidence,
       warnings: warnings,
+      matches: matches,
     );
   }
 
-  /// Egységesíti az OCR-szöveget.
   String cleanText(
     String value,
   ) {
@@ -120,29 +101,28 @@ class BetslipParserService {
       return '';
     }
 
-    String result =
-        value
-            .replaceAll('\r\n', '\n')
-            .replaceAll('\r', '\n')
-            .replaceAll('–', '-')
-            .replaceAll('—', '-')
-            .replaceAll('−', '-')
-            .replaceAll('„', '"')
-            .replaceAll('”', '"')
-            .replaceAll('’', '\'')
-            .replaceAll(
-              RegExp(r'[ \t]+'),
-              ' ',
-            )
-            .replaceAll(
-              RegExp(r' *\n *'),
-              '\n',
-            )
-            .replaceAll(
-              RegExp(r'\n{3,}'),
-              '\n\n',
-            )
-            .trim();
+    String result = value
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .replaceAll('–', '-')
+        .replaceAll('—', '-')
+        .replaceAll('−', '-')
+        .replaceAll('„', '"')
+        .replaceAll('”', '"')
+        .replaceAll('’', '\'')
+        .replaceAll(
+          RegExp(r'[ \t]+'),
+          ' ',
+        )
+        .replaceAll(
+          RegExp(r' *\n *'),
+          '\n',
+        )
+        .replaceAll(
+          RegExp(r'\n{3,}'),
+          '\n\n',
+        )
+        .trim();
 
     result = _fixCommonOcrErrors(
       result,
@@ -151,21 +131,17 @@ class BetslipParserService {
     return result;
   }
 
-  /// Megvizsgálja, hogy a szöveg valószínűleg
-  /// Tippmix-szelvényből származik-e.
   bool looksLikeTippmixBetslip(
     String text,
   ) {
     final String normalized =
-        _normalizeForSearch(
-      text,
-    );
+        _normalizeForSearch(text);
 
     if (normalized.isEmpty) {
       return false;
     }
 
-    final List<String> keywords =
+    const List<String> keywords =
         <String>[
       'tippmix',
       'szelveny',
@@ -184,9 +160,7 @@ class BetslipParserService {
 
     for (final String keyword
         in keywords) {
-      if (normalized.contains(
-        keyword,
-      )) {
+      if (normalized.contains(keyword)) {
         found++;
       }
     }
@@ -204,24 +178,18 @@ class BetslipParserService {
     return text
         .split('\n')
         .map(
-          (String line) {
-            return line.trim();
-          },
+          (String line) => line.trim(),
         )
         .where(
-          (String line) {
-            return line.isNotEmpty;
-          },
+          (String line) => line.isNotEmpty,
         )
-        .toList(
-          growable: false,
-        );
+        .toList(growable: false);
   }
 
   double? _extractTotalOdds(
     List<String> lines,
   ) {
-    final List<String> labels =
+    const List<String> labels =
         <String>[
       'eredo odds',
       'eredő odds',
@@ -235,48 +203,45 @@ class BetslipParserService {
     return _extractNumberAfterLabels(
       lines: lines,
       labels: labels,
-      allowThousandsSeparator: false,
-      minimumValue: 1.0,
-      maximumValue: 1000000.0,
+      minimumValue: 1.01,
+      maximumValue: 1000000,
     );
   }
 
   double? _extractStake(
     List<String> lines,
   ) {
-    final List<String> labels =
+    const List<String> labels =
         <String>[
       'a jatek ara',
       'a játék ára',
       'alaptet',
       'alaptét',
-      'tet',
-      'tét',
       'fogadasi tet',
       'fogadási tét',
       'ossz tet',
       'össz tét',
+      'tet',
+      'tét',
     ];
 
-    final double? result =
+    final double? labeledValue =
         _extractMoneyAfterLabels(
       lines: lines,
       labels: labels,
     );
 
-    if (result != null) {
-      return result;
+    if (labeledValue != null) {
+      return labeledValue;
     }
 
-    return _findLikelyStake(
-      lines,
-    );
+    return _findLikelyStake(lines);
   }
 
   double? _extractPossibleWin(
     List<String> lines,
   ) {
-    final List<String> labels =
+    const List<String> labels =
         <String>[
       'max nyeremeny',
       'max nyeremény',
@@ -299,7 +264,7 @@ class BetslipParserService {
   int? _extractMatchCount(
     List<String> lines,
   ) {
-    final List<String> labels =
+    const List<String> labels =
         <String>[
       'fogadasszam',
       'fogadásszám',
@@ -311,17 +276,16 @@ class BetslipParserService {
       'kiválasztások száma',
     ];
 
-    final double? value =
+    final double? labeledValue =
         _extractNumberAfterLabels(
       lines: lines,
       labels: labels,
-      allowThousandsSeparator: false,
       minimumValue: 1,
       maximumValue: 100,
     );
 
-    if (value != null) {
-      return value.round();
+    if (labeledValue != null) {
+      return labeledValue.round();
     }
 
     for (int index = 0;
@@ -334,8 +298,7 @@ class BetslipParserService {
 
       if (normalized == 'ossz' ||
           normalized == 'osszes' ||
-          normalized ==
-              'fogadasszam') {
+          normalized == 'fogadasszam') {
         final int? following =
             _findFollowingInteger(
           lines,
@@ -357,7 +320,7 @@ class BetslipParserService {
   String? _extractBetslipNumber(
     List<String> lines,
   ) {
-    final List<String> labels =
+    const List<String> labels =
         <String>[
       'szelveny szama',
       'szelvény száma',
@@ -373,32 +336,31 @@ class BetslipParserService {
         lines[index],
       );
 
-      final bool hasLabel =
+      final bool containsLabel =
           labels.any(
         (String label) {
           return normalized.contains(
-            _normalizeForSearch(
-              label,
-            ),
+            _normalizeForSearch(label),
           );
         },
       );
 
-      if (!hasLabel) {
+      if (!containsLabel) {
         continue;
       }
 
-      final String sameLineNumber =
+      final String sameLine =
           _extractLongestDigitSequence(
         lines[index],
       );
 
-      if (sameLineNumber.length >= 5) {
-        return sameLineNumber;
+      if (sameLine.length >= 5 &&
+          sameLine.length <= 30) {
+        return sameLine;
       }
 
       for (int distance = 1;
-          distance <= 3;
+          distance <= 4;
           distance++) {
         final int target =
             index + distance;
@@ -425,7 +387,7 @@ class BetslipParserService {
   DateTime? _extractSubmittedAt(
     List<String> lines,
   ) {
-    final List<String> labels =
+    const List<String> labels =
         <String>[
       'jatekba kuldve',
       'játékba küldve',
@@ -441,18 +403,16 @@ class BetslipParserService {
         lines[index],
       );
 
-      final bool hasLabel =
+      final bool containsLabel =
           labels.any(
         (String label) {
           return normalized.contains(
-            _normalizeForSearch(
-              label,
-            ),
+            _normalizeForSearch(label),
           );
         },
       );
 
-      if (!hasLabel) {
+      if (!containsLabel) {
         continue;
       }
 
@@ -486,42 +446,27 @@ class BetslipParserService {
       }
     }
 
-    for (final String line in lines) {
-      final DateTime? parsed =
-          _parseDateTimeFromText(
-        line,
-      );
-
-      if (parsed != null) {
-        return parsed;
-      }
-    }
-
     return null;
   }
 
   List<RecognizedMatch> _extractMatches(
     List<String> lines,
   ) {
-    final List<RecognizedMatch> matches =
+    final List<RecognizedMatch> result =
         <RecognizedMatch>[];
 
     for (int index = 0;
         index < lines.length;
         index++) {
       final String line =
-          lines[index].trim();
+          lines[index];
 
-      if (!_looksLikeMatchLine(
-        line,
-      )) {
+      if (!_looksLikeMatchLine(line)) {
         continue;
       }
 
       final List<String>? teams =
-          _splitTeams(
-        line,
-      );
+          _splitTeams(line);
 
       if (teams == null ||
           teams.length != 2) {
@@ -529,7 +474,7 @@ class BetslipParserService {
       }
 
       final String homeTeam =
-          teams[0].trim();
+          teams.first.trim();
 
       final String awayTeam =
           teams[1].trim();
@@ -538,6 +483,13 @@ class BetslipParserService {
           awayTeam.length < 2) {
         continue;
       }
+
+      final List<String> nearbyLines =
+          _collectNearbyLines(
+        lines: lines,
+        startIndex: index,
+        count: 6,
+      );
 
       final String tip =
           _findNearbyTip(
@@ -551,8 +503,21 @@ class BetslipParserService {
         matchLineIndex: index,
       );
 
-      final bool alreadyExists =
-          matches.any(
+      final String market =
+          _detectMarket(tip);
+
+      int confidence = 45;
+
+      if (tip != 'Ismeretlen tipp') {
+        confidence += 30;
+      }
+
+      if (odds != null) {
+        confidence += 25;
+      }
+
+      final bool duplicate =
+          result.any(
         (RecognizedMatch match) {
           return _normalizeForSearch(
                     match.homeTeam,
@@ -569,60 +534,72 @@ class BetslipParserService {
         },
       );
 
-      if (alreadyExists) {
+      if (duplicate) {
         continue;
       }
 
-      matches.add(
+      result.add(
         RecognizedMatch(
           homeTeam: homeTeam,
           awayTeam: awayTeam,
           tip: tip,
+          market: market,
           odds: odds,
+          confidence:
+              confidence.clamp(0, 100),
+          sourceLines: nearbyLines,
         ),
       );
     }
 
-    return matches;
+    return result;
+  }
+
+  List<String> _collectNearbyLines({
+    required List<String> lines,
+    required int startIndex,
+    required int count,
+  }) {
+    final int endIndex =
+        math.min(
+      startIndex + count,
+      lines.length,
+    );
+
+    return lines
+        .sublist(startIndex, endIndex)
+        .toList(growable: false);
   }
 
   bool _looksLikeMatchLine(
     String line,
   ) {
     final String normalized =
-        _normalizeForSearch(
-      line,
-    );
+        _normalizeForSearch(line);
 
     if (normalized.length < 5 ||
-        normalized.length > 100) {
+        normalized.length > 120) {
       return false;
     }
 
-    if (_isMetadataLine(
-      normalized,
-    )) {
+    if (_isMetadataLine(normalized)) {
       return false;
     }
 
-    final bool hasSeparator =
+    final RegExp separator =
         RegExp(
-          r'\s(?:-|–|—|vs\.?|v)\s',
-          caseSensitive: false,
-        ).hasMatch(
-      line,
+      r'\s+(?:-|vs\.?|v)\s+',
+      caseSensitive: false,
     );
 
-    if (!hasSeparator) {
+    if (!separator.hasMatch(line)) {
       return false;
     }
 
     final int letterCount =
         RegExp(
-          r'[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű]',
-        ).allMatches(
-          line,
-        ).length;
+      r'[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű]',
+    ).allMatches(line).length;
 
     return letterCount >= 5;
   }
@@ -632,14 +609,12 @@ class BetslipParserService {
   ) {
     final RegExp separator =
         RegExp(
-      r'\s+(?:-|–|—|vs\.?|v)\s+',
+      r'\s+(?:-|vs\.?|v)\s+',
       caseSensitive: false,
     );
 
     final List<String> parts =
-        line.split(
-      separator,
-    );
+        line.split(separator);
 
     if (parts.length < 2) {
       return null;
@@ -654,8 +629,7 @@ class BetslipParserService {
             .join(' - ')
             .trim();
 
-    if (home.isEmpty ||
-        away.isEmpty) {
+    if (home.isEmpty || away.isEmpty) {
       return null;
     }
 
@@ -670,8 +644,8 @@ class BetslipParserService {
     required int matchLineIndex,
   }) {
     final int endIndex =
-        (matchLineIndex + 5).clamp(
-      0,
+        math.min(
+      matchLineIndex + 6,
       lines.length,
     );
 
@@ -682,15 +656,11 @@ class BetslipParserService {
       final String line =
           lines[index].trim();
 
-      if (_looksLikeTip(
-        line,
-      )) {
+      if (_looksLikeTip(line)) {
         return line;
       }
 
-      if (_looksLikeMatchLine(
-        line,
-      )) {
+      if (_looksLikeMatchLine(line)) {
         break;
       }
     }
@@ -703,8 +673,8 @@ class BetslipParserService {
     required int matchLineIndex,
   }) {
     final int endIndex =
-        (matchLineIndex + 6).clamp(
-      0,
+        math.min(
+      matchLineIndex + 7,
       lines.length,
     );
 
@@ -715,16 +685,12 @@ class BetslipParserService {
       final String line =
           lines[index];
 
-      if (_looksLikeMatchLine(
-        line,
-      )) {
+      if (_looksLikeMatchLine(line)) {
         break;
       }
 
       final List<double> numbers =
-          _extractDecimalNumbers(
-        line,
-      );
+          _extractDecimalNumbers(line);
 
       for (final double value
           in numbers) {
@@ -742,11 +708,9 @@ class BetslipParserService {
     String line,
   ) {
     final String normalized =
-        _normalizeForSearch(
-      line,
-    );
+        _normalizeForSearch(line);
 
-    final List<String> tipKeywords =
+    const List<String> keywords =
         <String>[
       'hazai',
       'vendeg',
@@ -770,19 +734,69 @@ class BetslipParserService {
       '12',
     ];
 
-    return tipKeywords.any(
-      (String keyword) {
-        return normalized.contains(
-          keyword,
-        );
-      },
+    return keywords.any(
+      normalized.contains,
     );
+  }
+
+  String _detectMarket(
+    String tip,
+  ) {
+    final String normalized =
+        _normalizeForSearch(tip);
+
+    if (normalized.contains('szoglet')) {
+      return 'Szögletek';
+    }
+
+    if (normalized.contains('lap')) {
+      return 'Büntetőlapok';
+    }
+
+    if (normalized.contains('les')) {
+      return 'Lesek';
+    }
+
+    if (normalized.contains(
+      'szabalytalansag',
+    )) {
+      return 'Szabálytalanságok';
+    }
+
+    if (normalized.contains(
+          'mindket csapat',
+        ) ||
+        normalized.contains('btts')) {
+      return 'Mindkét csapat szerez gólt';
+    }
+
+    if (normalized.contains('gol') ||
+        normalized.contains('tobb mint') ||
+        normalized.contains(
+          'kevesebb mint',
+        )) {
+      return 'Gólok';
+    }
+
+    if (normalized.contains(
+      'dupla esely',
+    )) {
+      return 'Dupla esély';
+    }
+
+    if (normalized.contains('hazai') ||
+        normalized.contains('vendeg') ||
+        normalized.contains('dontetlen')) {
+      return '1X2';
+    }
+
+    return '';
   }
 
   bool _isMetadataLine(
     String normalized,
   ) {
-    final List<String> metadata =
+    const List<String> metadata =
         <String>[
       'szelveny',
       'jatekba kuldve',
@@ -799,11 +813,7 @@ class BetslipParserService {
     ];
 
     return metadata.any(
-      (String value) {
-        return normalized.contains(
-          value,
-        );
-      },
+      normalized.contains,
     );
   }
 
@@ -814,23 +824,21 @@ class BetslipParserService {
     for (int index = 0;
         index < lines.length;
         index++) {
-      final String normalizedLine =
+      final String normalized =
           _normalizeForSearch(
         lines[index],
       );
 
-      final bool matchesLabel =
+      final bool containsLabel =
           labels.any(
         (String label) {
-          return normalizedLine.contains(
-            _normalizeForSearch(
-              label,
-            ),
+          return normalized.contains(
+            _normalizeForSearch(label),
           );
         },
       );
 
-      if (!matchesLabel) {
+      if (!containsLabel) {
         continue;
       }
 
@@ -870,38 +878,33 @@ class BetslipParserService {
   double? _extractNumberAfterLabels({
     required List<String> lines,
     required List<String> labels,
-    required bool allowThousandsSeparator,
     required double minimumValue,
     required double maximumValue,
   }) {
     for (int index = 0;
         index < lines.length;
         index++) {
-      final String normalizedLine =
+      final String normalized =
           _normalizeForSearch(
         lines[index],
       );
 
-      final bool matchesLabel =
+      final bool containsLabel =
           labels.any(
         (String label) {
-          return normalizedLine.contains(
-            _normalizeForSearch(
-              label,
-            ),
+          return normalized.contains(
+            _normalizeForSearch(label),
           );
         },
       );
 
-      if (!matchesLabel) {
+      if (!containsLabel) {
         continue;
       }
 
       final List<double> sameLineNumbers =
           _extractDecimalNumbers(
         lines[index],
-        allowThousandsSeparator:
-            allowThousandsSeparator,
       );
 
       for (final double value
@@ -925,8 +928,6 @@ class BetslipParserService {
         final List<double> values =
             _extractDecimalNumbers(
           lines[target],
-          allowThousandsSeparator:
-              allowThousandsSeparator,
         );
 
         for (final double value
@@ -947,18 +948,14 @@ class BetslipParserService {
   ) {
     for (final String line in lines) {
       final String normalized =
-          _normalizeForSearch(
-        line,
-      );
+          _normalizeForSearch(line);
 
       if (!normalized.contains('ft')) {
         continue;
       }
 
       final double? value =
-          _extractMoneyValue(
-        line,
-      );
+          _extractMoneyValue(line);
 
       if (value != null &&
           value >= 10 &&
@@ -973,11 +970,12 @@ class BetslipParserService {
   double? _extractMoneyValue(
     String text,
   ) {
-    String candidate =
+    final String candidate =
         text
             .replaceAll(
               RegExp(
-                r'(?i)\bft\b',
+                r'\bft\b',
+                caseSensitive: false,
               ),
               '',
             )
@@ -986,19 +984,17 @@ class BetslipParserService {
 
     final RegExp expression =
         RegExp(
-      r'(\d{1,3}(?:[ .]\d{3})+|\d+)(?:[,.](\d{1,2}))?',
-    );
-
-    final Iterable<RegExpMatch> matches =
-        expression.allMatches(
-      candidate,
+      r'(\d{1,3}(?:[ .]\d{3})+|\d+)'
+      r'(?:[,.](\d{1,2}))?',
     );
 
     final List<double> values =
         <double>[];
 
     for (final RegExpMatch match
-        in matches) {
+        in expression.allMatches(
+      candidate,
+    )) {
       String whole =
           match.group(1) ?? '';
 
@@ -1033,57 +1029,31 @@ class BetslipParserService {
       return null;
     }
 
-    return values.reduce(
-      (
-        double first,
-        double second,
-      ) {
-        return first > second
-            ? first
-            : second;
-      },
-    );
+    return values.reduce(math.max);
   }
 
   List<double> _extractDecimalNumbers(
-    String text, {
-    bool allowThousandsSeparator = false,
-  }) {
+    String text,
+  ) {
     final List<double> results =
         <double>[];
 
     final RegExp expression =
         RegExp(
-      r'(?<!\d)(\d{1,7}(?:[,.]\d{1,3})?)(?!\d)',
+      r'(^|[^\d])'
+      r'(\d{1,7}(?:[,.]\d{1,3})?)'
+      r'(?=$|[^\d])',
     );
 
     for (final RegExpMatch match
-        in expression.allMatches(
-      text,
-    )) {
+        in expression.allMatches(text)) {
       String value =
-          match.group(1) ?? '';
+          match.group(2) ?? '';
 
-      if (value.isEmpty) {
-        continue;
-      }
-
-      if (allowThousandsSeparator) {
-        value = value.replaceAll(
-          RegExp(r'(?<=\d)[. ](?=\d{3}\b)'),
-          '',
-        );
-      }
-
-      value = value.replaceAll(
-        ',',
-        '.',
-      );
+      value = value.replaceAll(',', '.');
 
       final double? parsed =
-          double.tryParse(
-        value,
-      );
+          double.tryParse(value);
 
       if (parsed != null) {
         results.add(parsed);
@@ -1110,20 +1080,20 @@ class BetslipParserService {
         break;
       }
 
-      final RegExpMatch? result =
+      final RegExpMatch? match =
           RegExp(
-        r'(?<!\d)(\d{1,3})(?!\d)',
+        r'(^|[^\d])(\d{1,3})(?=$|[^\d])',
       ).firstMatch(
         lines[target],
       );
 
-      if (result == null) {
+      if (match == null) {
         continue;
       }
 
       final int? value =
           int.tryParse(
-        result.group(1) ?? '',
+        match.group(2) ?? '',
       );
 
       if (value != null &&
@@ -1139,17 +1109,10 @@ class BetslipParserService {
   String _extractLongestDigitSequence(
     String text,
   ) {
-    final Iterable<RegExpMatch> matches =
-        RegExp(
-      r'\d+',
-    ).allMatches(
-      text,
-    );
-
     String longest = '';
 
     for (final RegExpMatch match
-        in matches) {
+        in RegExp(r'\d+').allMatches(text)) {
       final String candidate =
           match.group(0) ?? '';
 
@@ -1176,9 +1139,7 @@ class BetslipParserService {
     );
 
     final RegExpMatch? match =
-        expression.firstMatch(
-      text,
-    );
+        expression.firstMatch(text);
 
     if (match == null) {
       return null;
@@ -1228,17 +1189,22 @@ class BetslipParserService {
       return null;
     }
 
-    try {
-      return DateTime(
-        year,
-        month,
-        day,
-        hour,
-        minute,
-      );
-    } catch (_) {
+    final DateTime parsed =
+        DateTime(
+      year,
+      month,
+      day,
+      hour,
+      minute,
+    );
+
+    if (parsed.year != year ||
+        parsed.month != month ||
+        parsed.day != day) {
       return null;
     }
+
+    return parsed;
   }
 
   int _calculateConfidence({
@@ -1295,7 +1261,10 @@ class BetslipParserService {
               .abs();
 
       final double tolerance =
-          possibleWin * 0.08;
+          math.max(
+        possibleWin * 0.08,
+        10,
+      );
 
       if (difference <= tolerance) {
         score += 10;
@@ -1304,10 +1273,7 @@ class BetslipParserService {
       }
     }
 
-    return score.clamp(
-      0,
-      100,
-    );
+    return score.clamp(0, 100);
   }
 
   List<String> _buildWarnings({
@@ -1370,12 +1336,16 @@ class BetslipParserService {
               .abs();
 
       final double tolerance =
-          possibleWin * 0.08;
+          math.max(
+        possibleWin * 0.08,
+        10,
+      );
 
       if (difference > tolerance) {
         warnings.add(
-          'A felismert tét, odds és nyeremény nem teljesen '
-          'egyezik egymással. Kézi ellenőrzés szükséges.',
+          'A felismert tét, odds és nyeremény '
+          'nem teljesen egyezik egymással. '
+          'Kézi ellenőrzés szükséges.',
         );
       }
     }
@@ -1395,31 +1365,33 @@ class BetslipParserService {
     return value
         .replaceAll(
           RegExp(
-            r'(?<=\d)[oO](?=\d)',
+            r'(\d)[oO](\d)',
           ),
-          '0',
+          r'$10$2',
         )
         .replaceAll(
           RegExp(
-            r'(?<=\d)[lI](?=\d)',
+            r'(\d)[lI](\d)',
           ),
-          '1',
+          r'$11$2',
         )
         .replaceAll(
           RegExp(
-            r'(?<=\d)\s*[,.]\s*(?=\d)',
+            r'(\d)\s*[,.]\s*(\d)',
           ),
-          ',',
+          r'$1,$2',
         )
         .replaceAll(
           RegExp(
-            r'(?i)\bered[oó]\s+odds\b',
+            r'\bered[oó]\s+odds\b',
+            caseSensitive: false,
           ),
           'Eredő odds',
         )
         .replaceAll(
           RegExp(
-            r'(?i)\bmax\s+nyerem[eé]ny\b',
+            r'\bmax\s+nyerem[eé]ny\b',
+            caseSensitive: false,
           ),
           'Max nyeremény',
         );
@@ -1440,7 +1412,9 @@ class BetslipParserService {
         .replaceAll('ü', 'u')
         .replaceAll('ű', 'u')
         .replaceAll(
-          RegExp(r'[^a-z0-9,.%+\-\s]'),
+          RegExp(
+            r'[^a-z0-9,.%+\-\s]',
+          ),
           ' ',
         )
         .replaceAll(
