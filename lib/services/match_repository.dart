@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.15.3
+// Version: v0.15.4
 // File: lib/services/match_repository.dart
 // ===========================================
 
@@ -683,7 +683,9 @@ class MatchRepository {
       externalMatchId:
           externalMatchId,
       externalLeagueId:
-          fixture.leagueId.toString(),
+          fixture.leagueId > 0
+              ? fixture.leagueId.toString()
+              : '',
       homeTeamId:
           fixture.homeTeamId > 0
               ? fixture.homeTeamId.toString()
@@ -844,40 +846,6 @@ class MatchRepository {
     AppMatch match,
   ) {
     return match.uniqueComparisonKey;
-  }
-
-  String _normalizeText(
-    String value,
-  ) {
-    return value
-        .toLowerCase()
-        .replaceAll('á', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('í', 'i')
-        .replaceAll('ó', 'o')
-        .replaceAll('ö', 'o')
-        .replaceAll('ő', 'o')
-        .replaceAll('ú', 'u')
-        .replaceAll('ü', 'u')
-        .replaceAll('ű', 'u')
-        .replaceAll('æ', 'ae')
-        .replaceAll('ø', 'o')
-        .replaceAll('å', 'a')
-        .replaceAll('ä', 'a')
-        .replaceAll('ë', 'e')
-        .replaceAll('ï', 'i')
-        .replaceAll(
-          RegExp(
-            r'\b(fc|cf|sc|afc|fk|bk)\b',
-          ),
-          '',
-        )
-        .replaceAll(
-          RegExp(
-            r'[^a-z0-9]',
-          ),
-          '',
-        );
   }
 
   DateTime _normalizeDate(
