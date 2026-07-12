@@ -1,12 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.13.9
+// Version: v0.18.3
 // File: lib/screens/home_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import 'ai_top5_screen.dart';
+import 'betslip_scanner_screen.dart';
 import 'betslip_screen.dart';
 import 'matches_screen.dart';
 import 'settings_screen.dart';
@@ -117,6 +118,22 @@ class HomeScreen extends StatelessWidget {
             ),
 
             _MenuCard(
+              icon:
+                  Icons.document_scanner_outlined,
+              title:
+                  'AI Szelvény Felismerő',
+              subtitle:
+                  'Tippmix szelvény beolvasása OCR-rel',
+              onTap: () {
+                _openScreen(
+                  context: context,
+                  screen:
+                      const BetslipScannerScreen(),
+                );
+              },
+            ),
+
+            _MenuCard(
               icon: Icons.receipt_long,
               title: 'Szelvény',
               subtitle: 'Fogadásaid kezelése',
@@ -203,7 +220,8 @@ class _MenuCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: colors.primaryContainer,
+                color:
+                    colors.primaryContainer,
                 borderRadius:
                     BorderRadius.circular(15),
               ),
@@ -226,7 +244,8 @@ class _MenuCard extends StatelessWidget {
             trailing: Icon(
               Icons.arrow_forward_ios,
               size: 18,
-              color: colors.onSurfaceVariant,
+              color:
+                  colors.onSurfaceVariant,
             ),
           ),
         ),
