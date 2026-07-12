@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.17.0
+// Version: v0.17.1
 // File: lib/services/match_analysis_service.dart
 // ===========================================
 
@@ -209,18 +209,12 @@ class MatchAnalysisService {
     final List<MatchAnalysisResult> results =
         await analyzeMatches(
       matches: matches,
-      oddsProvider:
-          oddsProvider,
-      forceRefresh:
-          forceRefresh,
-      allowFallback:
-          allowFallback,
-      formMatchCount:
-          formMatchCount,
-      h2hMatchCount:
-          h2hMatchCount,
-      batchSize:
-          batchSize,
+      oddsProvider: oddsProvider,
+      forceRefresh: forceRefresh,
+      allowFallback: allowFallback,
+      formMatchCount: formMatchCount,
+      h2hMatchCount: h2hMatchCount,
+      batchSize: batchSize,
     );
 
     final List<MatchAnalysisResult> filtered =
@@ -446,9 +440,7 @@ class MatchAnalysisService {
           result;
 
       return result;
-    } on MatchStatisticsRepositoryException catch (
-      error,
-    ) {
+    } on MatchStatisticsRepositoryException catch (error) {
       if (!allowFallback) {
         return _createFailureResult(
           match: match,
