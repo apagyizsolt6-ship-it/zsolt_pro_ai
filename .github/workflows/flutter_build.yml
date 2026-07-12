@@ -37,7 +37,7 @@ jobs:
             --org=hu.zsoltproai \
             .
 
-      - name: Android internetengedélyek hozzáadása
+      - name: Android engedélyek hozzáadása
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -53,9 +53,15 @@ jobs:
           permissions = [
               '<uses-permission android:name="android.permission.INTERNET" />',
               '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
+              '<uses-permission android:name="android.permission.CAMERA" />',
           ]
 
           manifest_end = content.find(">")
+
+          if manifest_end == -1:
+              raise RuntimeError(
+                  "Az AndroidManifest.xml hibás formátumú."
+              )
 
           for permission in permissions:
               if permission not in content:
@@ -76,6 +82,149 @@ jobs:
                   encoding="utf-8"
               )
           )
+          PY
+
+      - name: ML Kit R8 szabályok létrehozása
+        run: |
+          cat > android/app/proguard-rules.pro <<'EOF'
+          # ===========================================
+          # Zsolt Pro AI
+          # Google ML Kit OCR - R8 szabályok
+          # ===========================================
+
+          # A Zsolt Pro AI jelenleg latin betűs
+          # szövegfelismerést használ.
+          #
+          # A Google ML Kit plugin opcionálisan hivatkozik
+          # a kínai, japán, koreai és dévanágari
+          # szövegfelismerő modulokra is.
+          #
+          # Ezek nincsenek telepítve, ezért az R8 számára
+          # jelezzük, hogy a hiányuk szándékos.
+
+          -dontwarn com.google.mlkit.vision.text.chinese.**
+          -dontwarn com.google.mlkit.vision.text.devanagari.**
+          -dontwarn com.google.mlkit.vision.text.japanese.**
+          -dontwarn com.google.mlkit.vision.text.korean.**
+
+          # ML Kit és Google Play Services osztályok
+          # megőrzése a release buildben.
+
+          -keep class com.google.mlkit.** { *; }
+          -keep interface com.google.mlkit.** { *; }
+
+          -keep class com.google.android.gms.internal.mlkit_vision_text_common.** { *; }
+          -dontwarn com.google.android.gms.internal.mlkit_vision_text_common.**
+
+          -keepattributes *Annotation*
+          -keepattributes Signature
+          -keepattributes InnerClasses
+          -keepattributes EnclosingMethod
+          EOF
+
+          echo "A proguard-rules.pro elkészült:"
+          cat android/app/proguard-rules.pro
+
+      - name: ProGuard bekötése az Android release buildbe
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          gradle_kts_path = Path(
+              "android/app/build.gradle.kts"
+          )
+
+          gradle_path = Path(
+              "android/app/build.gradle"
+          )
+
+          if gradle_kts_path.exists():
+              path = gradle_kts_path
+
+              content = path.read_text(
+                  encoding="utf-8"
+              )
+
+              if '"proguard-rules.pro"' not in content:
+                  release_marker = """release {
+          """
+
+                  replacement = """release {
+                      proguardFiles(
+                          getDefaultProguardFile(
+                              "proguard-android-optimize.txt"
+                          ),
+                          "proguard-rules.pro"
+                      )
+          """
+
+                  if release_marker not in content:
+                      raise RuntimeError(
+                          "A release buildType nem található "
+                          "az android/app/build.gradle.kts fájlban."
+                      )
+
+                  content = content.replace(
+                      release_marker,
+                      replacement,
+                      1,
+                  )
+
+                  path.write_text(
+                      content,
+                      encoding="utf-8",
+                  )
+
+              print(
+                  path.read_text(
+                      encoding="utf-8"
+                  )
+              )
+
+          elif gradle_path.exists():
+              path = gradle_path
+
+              content = path.read_text(
+                  encoding="utf-8"
+              )
+
+              if "proguard-rules.pro" not in content:
+                  release_marker = """release {
+          """
+
+                  replacement = """release {
+                      proguardFiles getDefaultProguardFile(
+                          'proguard-android-optimize.txt'
+                      ), 'proguard-rules.pro'
+          """
+
+                  if release_marker not in content:
+                      raise RuntimeError(
+                          "A release buildType nem található "
+                          "az android/app/build.gradle fájlban."
+                      )
+
+                  content = content.replace(
+                      release_marker,
+                      replacement,
+                      1,
+                  )
+
+                  path.write_text(
+                      content,
+                      encoding="utf-8",
+                  )
+
+              print(
+                  path.read_text(
+                      encoding="utf-8"
+                  )
+              )
+
+          else:
+              raise FileNotFoundError(
+                  "Nem található Android app Gradle fájl."
+              )
           PY
 
       - name: Automatikus tesztfájl törlése
@@ -102,7 +251,7 @@ jobs:
             exit 1
           fi
 
-          echo "Mindkét API-kulcs be van állítva."
+          echo "Mindkét kötelező API-kulcs be van állítva."
 
       - name: Release APK elkészítése
         env:
