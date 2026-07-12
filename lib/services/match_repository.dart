@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.15.1
+// Version: v0.15.3
 // File: lib/services/match_repository.dart
 // ===========================================
 
@@ -18,12 +18,10 @@ import 'the_sports_db_service.dart';
 /// - a két adatforrás eredményeinek egyesítése;
 /// - azonos mérkőzések kiszűrése;
 /// - egységes AppMatch objektumok létrehozása;
+/// - az eredeti API-azonosítók eltárolása;
 /// - AI Engine 2.0 pontszám hozzárendelése;
 /// - következő elérhető mérkőzésnap megkeresése;
 /// - AI Top lista előállítása.
-///
-/// A képernyőknek nem kell közvetlenül tudniuk,
-/// hogy a mérkőzés melyik API-ból érkezett.
 class MatchRepository {
   MatchRepository._();
 
@@ -39,10 +37,7 @@ class MatchRepository {
   final AiEngineV2Service _aiEngine =
       AiEngineV2Service.instance;
 
-  /// A TheSportsDB használatának központi kapcsolója.
   static const bool _theSportsDbEnabled = true;
-
-  /// SportMonks használata elsődleges adatforrásként.
   static const bool _sportMonksEnabled = true;
 
   bool get isSportMonksEnabled {
@@ -53,10 +48,6 @@ class MatchRepository {
     return _theSportsDbEnabled;
   }
 
-  /// Egy kiválasztott nap összes elérhető mérkőzését lekéri.
-  ///
-  /// Mindkét API-t megpróbálja használni. Ha az egyik hibázik,
-  /// de a másik működik, a használható eredményt visszaadja.
   Future<MatchRepositoryResult> fetchMatchesByDate(
     DateTime date,
   ) async {
@@ -75,14 +66,21 @@ class MatchRepository {
     if (_sportMonksEnabled) {
       try {
         final List<SportMonksFixture> fixtures =
-            await _sportMonksService.fetchFixturesByDate(
+            await _sportMonksService
+                .fetchFixturesByDate(
           normalizedDate,
         );
 
         sportMonksMatches = fixtures
-            .where(_isValidSportMonksFixture)
-            .map(_sportMonksFixtureToAppMatch)
-            .toList(growable: false);
+            .where(
+              _isValidSportMonksFixture,
+            )
+            .map(
+              _sportMonksFixtureToAppMatch,
+            )
+            .toList(
+              growable: false,
+            );
       } on SportMonksException catch (error) {
         sportMonksError = error.message;
       } catch (error) {
@@ -94,14 +92,21 @@ class MatchRepository {
     if (_theSportsDbEnabled) {
       try {
         final List<TheSportsDbEvent> events =
-            await _theSportsDbService.fetchEventsByDate(
+            await _theSportsDbService
+                .fetchEventsByDate(
           normalizedDate,
         );
 
         theSportsDbMatches = events
-            .where(_isValidTheSportsDbEvent)
-            .map(_theSportsDbEventToAppMatch)
-            .toList(growable: false);
+            .where(
+              _isValidTheSportsDbEvent,
+            )
+            .map(
+              _theSportsDbEventToAppMatch,
+            )
+            .toList(
+              growable: false,
+            );
       } on TheSportsDbException catch (error) {
         theSportsDbError = error.message;
       } catch (error) {
@@ -112,8 +117,10 @@ class MatchRepository {
 
     final List<AppMatch> mergedMatches =
         _mergeMatches(
-      sportMonksMatches: sportMonksMatches,
-      theSportsDbMatches: theSportsDbMatches,
+      sportMonksMatches:
+          sportMonksMatches,
+      theSportsDbMatches:
+          theSportsDbMatches,
     );
 
     if (mergedMatches.isEmpty &&
@@ -129,12 +136,18 @@ class MatchRepository {
     return MatchRepositoryResult(
       date: normalizedDate,
       matches: mergedMatches,
-      sportMonksCount: sportMonksMatches.length,
-      theSportsDbCount: theSportsDbMatches.length,
-      sportMonksError: sportMonksError,
-      theSportsDbError: theSportsDbError,
-      usedSportMonks: sportMonksMatches.isNotEmpty,
-      usedTheSportsDb: theSportsDbMatches.isNotEmpty,
+      sportMonksCount:
+          sportMonksMatches.length,
+      theSportsDbCount:
+          theSportsDbMatches.length,
+      sportMonksError:
+          sportMonksError,
+      theSportsDbError:
+          theSportsDbError,
+      usedSportMonks:
+          sportMonksMatches.isNotEmpty,
+      usedTheSportsDb:
+          theSportsDbMatches.isNotEmpty,
     );
   }
 
@@ -166,10 +179,15 @@ class MatchRepository {
     }
 
     final int safeDays =
-        daysToCheck.clamp(1, 60);
+        daysToCheck.clamp(
+      1,
+      60,
+    );
 
     final DateTime normalizedStart =
-        _normalizeDate(startDate);
+        _normalizeDate(
+      startDate,
+    );
 
     final List<String> collectedErrors =
         <String>[];
@@ -181,7 +199,9 @@ class MatchRepository {
     ) {
       final DateTime checkedDate =
           normalizedStart.add(
-        Duration(days: offset),
+        Duration(
+          days: offset,
+        ),
       );
 
       try {
@@ -239,10 +259,14 @@ class MatchRepository {
     required DateTime endDate,
   }) async {
     final DateTime normalizedStart =
-        _normalizeDate(startDate);
+        _normalizeDate(
+      startDate,
+    );
 
     final DateTime normalizedEnd =
-        _normalizeDate(endDate);
+        _normalizeDate(
+      endDate,
+    );
 
     if (normalizedEnd.isBefore(
       normalizedStart,
@@ -272,7 +296,9 @@ class MatchRepository {
       );
 
       currentDate = currentDate.add(
-        const Duration(days: 1),
+        const Duration(
+          days: 1,
+        ),
       );
     }
 
@@ -281,15 +307,16 @@ class MatchRepository {
     );
   }
 
-  /// A következő elérhető mérkőzésnap legjobb
-  /// AI Engine 2.0 pontszámú meccseit adja vissza.
   Future<MatchTopResult> fetchTopMatches({
     DateTime? startDate,
     int limit = 5,
     int daysToCheck = 30,
   }) async {
     final int safeLimit =
-        limit.clamp(1, 20);
+        limit.clamp(
+      1,
+      20,
+    );
 
     final DateTime normalizedStart =
         _normalizeDate(
@@ -299,7 +326,8 @@ class MatchRepository {
     MatchRepositoryResult firstResult;
 
     try {
-      firstResult = await fetchMatchesByDate(
+      firstResult =
+          await fetchMatchesByDate(
         normalizedStart,
       );
     } on MatchRepositoryException {
@@ -328,7 +356,9 @@ class MatchRepository {
       final MatchAvailabilityResult availability =
           await findNextAvailableMatches(
         startDate: normalizedStart.add(
-          const Duration(days: 1),
+          const Duration(
+            days: 1,
+          ),
         ),
         daysToCheck: daysToCheck,
       );
@@ -338,12 +368,14 @@ class MatchRepository {
         return MatchTopResult(
           date: null,
           matches: const <AppMatch>[],
-          checkedDays: availability.checkedDays,
+          checkedDays:
+              availability.checkedDays,
           repositoryResult: null,
         );
       }
 
-      selectedDate = availability.date!;
+      selectedDate =
+          availability.date!;
 
       availableMatches =
           List<AppMatch>.from(
@@ -388,25 +420,22 @@ class MatchRepository {
     return MatchTopResult(
       date: selectedDate,
       matches: availableMatches
-          .take(safeLimit)
-          .toList(growable: false),
+          .take(
+            safeLimit,
+          )
+          .toList(
+            growable: false,
+          ),
       checkedDays: _daysBetween(
             normalizedStart,
             selectedDate,
           ) +
           1,
-      repositoryResult: sourceResult,
+      repositoryResult:
+          sourceResult,
     );
   }
 
-  /// SportMonks és TheSportsDB listák egyesítése.
-  ///
-  /// Ha ugyanaz a mérkőzés mindkét API-ban megtalálható,
-  /// a SportMonks-adat az elsődleges, de a hiányzó logókat
-  /// a TheSportsDB adataiból kiegészítjük.
-  ///
-  /// Az egyesítés után az AI Engine 2.0 újraelemzi
-  /// a végleges mérkőzésobjektumot.
   List<AppMatch> _mergeMatches({
     required List<AppMatch>
         sportMonksMatches,
@@ -439,31 +468,10 @@ class MatchRepository {
       }
 
       final AppMatch combined =
-          existing.copyWith(
-        homeTeamLogoUrl:
-            existing.homeTeamLogoUrl
-                    .trim()
-                    .isNotEmpty
-                ? existing.homeTeamLogoUrl
-                : theSportsDbMatch
-                    .homeTeamLogoUrl,
-        awayTeamLogoUrl:
-            existing.awayTeamLogoUrl
-                    .trim()
-                    .isNotEmpty
-                ? existing.awayTeamLogoUrl
-                : theSportsDbMatch
-                    .awayTeamLogoUrl,
-        leagueLogoUrl:
-            existing.leagueLogoUrl
-                    .trim()
-                    .isNotEmpty
-                ? existing.leagueLogoUrl
-                : theSportsDbMatch
-                    .leagueLogoUrl,
-        isLive:
-            existing.isLive ||
-                theSportsDbMatch.isLive,
+          _mergeTwoMatches(
+        primary: existing,
+        secondary:
+            theSportsDbMatch,
       );
 
       merged[key] =
@@ -474,49 +482,13 @@ class MatchRepository {
 
     final List<AppMatch> result =
         merged.values
-            .map(_applyAiEngineScore)
+            .map(
+              _applyAiEngineScore,
+            )
             .toList();
 
     result.sort(
-      (
-        AppMatch first,
-        AppMatch second,
-      ) {
-        final int dateComparison =
-            first.matchDate.compareTo(
-          second.matchDate,
-        );
-
-        if (dateComparison != 0) {
-          return dateComparison;
-        }
-
-        final int timeComparison =
-            first.matchTime.compareTo(
-          second.matchTime,
-        );
-
-        if (timeComparison != 0) {
-          return timeComparison;
-        }
-
-        final int leagueComparison =
-            first.league
-                .toLowerCase()
-                .compareTo(
-                  second.league.toLowerCase(),
-                );
-
-        if (leagueComparison != 0) {
-          return leagueComparison;
-        }
-
-        return first.homeTeam
-            .toLowerCase()
-            .compareTo(
-              second.homeTeam.toLowerCase(),
-            );
-      },
+      _compareMatches,
     );
 
     return result;
@@ -547,28 +519,9 @@ class MatchRepository {
       }
 
       final AppMatch combined =
-          existing.copyWith(
-        homeTeamLogoUrl:
-            existing.homeTeamLogoUrl
-                    .trim()
-                    .isNotEmpty
-                ? existing.homeTeamLogoUrl
-                : match.homeTeamLogoUrl,
-        awayTeamLogoUrl:
-            existing.awayTeamLogoUrl
-                    .trim()
-                    .isNotEmpty
-                ? existing.awayTeamLogoUrl
-                : match.awayTeamLogoUrl,
-        leagueLogoUrl:
-            existing.leagueLogoUrl
-                    .trim()
-                    .isNotEmpty
-                ? existing.leagueLogoUrl
-                : match.leagueLogoUrl,
-        isLive:
-            existing.isLive ||
-                match.isLive,
+          _mergeTwoMatches(
+        primary: existing,
+        secondary: match,
       );
 
       unique[key] =
@@ -581,26 +534,82 @@ class MatchRepository {
         unique.values.toList();
 
     result.sort(
-      (
-        AppMatch first,
-        AppMatch second,
-      ) {
-        final int dateComparison =
-            first.matchDate.compareTo(
-          second.matchDate,
-        );
-
-        if (dateComparison != 0) {
-          return dateComparison;
-        }
-
-        return first.matchTime.compareTo(
-          second.matchTime,
-        );
-      },
+      _compareMatches,
     );
 
     return result;
+  }
+
+  AppMatch _mergeTwoMatches({
+    required AppMatch primary,
+    required AppMatch secondary,
+  }) {
+    return primary.copyWith(
+      homeTeamLogoUrl:
+          _preferText(
+        primary.homeTeamLogoUrl,
+        secondary.homeTeamLogoUrl,
+      ),
+      awayTeamLogoUrl:
+          _preferText(
+        primary.awayTeamLogoUrl,
+        secondary.awayTeamLogoUrl,
+      ),
+      leagueLogoUrl:
+          _preferText(
+        primary.leagueLogoUrl,
+        secondary.leagueLogoUrl,
+      ),
+      externalMatchId:
+          _preferText(
+        primary.externalMatchId,
+        secondary.externalMatchId,
+      ),
+      externalLeagueId:
+          _preferText(
+        primary.externalLeagueId,
+        secondary.externalLeagueId,
+      ),
+      homeTeamId:
+          _preferText(
+        primary.homeTeamId,
+        secondary.homeTeamId,
+      ),
+      awayTeamId:
+          _preferText(
+        primary.awayTeamId,
+        secondary.awayTeamId,
+      ),
+      seasonId:
+          _preferText(
+        primary.seasonId,
+        secondary.seasonId,
+      ),
+      country:
+          _preferText(
+        primary.country,
+        secondary.country,
+      ),
+      venue:
+          _preferText(
+        primary.venue,
+        secondary.venue,
+      ),
+      status:
+          _preferText(
+        primary.status,
+        secondary.status,
+      ),
+      isLive:
+          primary.isLive ||
+              secondary.isLive,
+      hasStatistics:
+          primary.hasStatistics ||
+              secondary.hasStatistics,
+      hasOdds:
+          primary.hasOdds ||
+              secondary.hasOdds,
+    );
   }
 
   bool _isValidSportMonksFixture(
@@ -627,8 +636,16 @@ class MatchRepository {
     final DateTime localStart =
         fixture.startingAt.toLocal();
 
+    final String externalMatchId =
+        fixture.id.toString();
+
     final String id =
-        'sportmonks_${fixture.id}';
+        'sportmonks_$externalMatchId';
+
+    final String status =
+        fixture.stateShortName.trim().isNotEmpty
+            ? fixture.stateShortName.trim()
+            : fixture.stateName.trim();
 
     final AppMatch baseMatch =
         AppMatch(
@@ -646,19 +663,45 @@ class MatchRepository {
         localStart.month,
         localStart.day,
       ),
-      matchTime: fixture.matchTime,
+      matchTime:
+          fixture.matchTime,
       aiScore: 0,
       isFavorite:
           FavoritesService.isFavorite(
         id,
       ),
-      isLive: fixture.isLive,
+      isLive:
+          fixture.isLive,
       homeTeamLogoUrl:
           fixture.homeTeamImagePath.trim(),
       awayTeamLogoUrl:
           fixture.awayTeamImagePath.trim(),
       leagueLogoUrl:
           fixture.leagueImagePath.trim(),
+      dataSource:
+          MatchDataSource.sportMonks,
+      externalMatchId:
+          externalMatchId,
+      externalLeagueId:
+          fixture.leagueId.toString(),
+      homeTeamId:
+          fixture.homeTeamId > 0
+              ? fixture.homeTeamId.toString()
+              : '',
+      awayTeamId:
+          fixture.awayTeamId > 0
+              ? fixture.awayTeamId.toString()
+              : '',
+      seasonId:
+          fixture.seasonId > 0
+              ? fixture.seasonId.toString()
+              : '',
+      country: '',
+      venue: '',
+      status: status,
+      hasStatistics: false,
+      hasOdds:
+          fixture.hasOdds,
     );
 
     return _applyAiEngineScore(
@@ -688,20 +731,43 @@ class MatchRepository {
           event.homeTeam.trim(),
       awayTeam:
           event.awayTeam.trim(),
-      matchDate: event.matchDate,
-      matchTime: event.matchTime,
+      matchDate:
+          event.matchDate,
+      matchTime:
+          event.matchTime,
       aiScore: 0,
       isFavorite:
           FavoritesService.isFavorite(
         id,
       ),
-      isLive: event.isLive,
+      isLive:
+          event.isLive,
       homeTeamLogoUrl:
           event.homeTeamBadgeUrl.trim(),
       awayTeamLogoUrl:
           event.awayTeamBadgeUrl.trim(),
       leagueLogoUrl:
           event.leagueBadgeUrl.trim(),
+      dataSource:
+          MatchDataSource.theSportsDb,
+      externalMatchId:
+          event.id.trim(),
+      externalLeagueId:
+          event.leagueId.trim(),
+      homeTeamId:
+          event.homeTeamId.trim(),
+      awayTeamId:
+          event.awayTeamId.trim(),
+      seasonId:
+          event.season.trim(),
+      country:
+          event.country.trim(),
+      venue:
+          event.venue.trim(),
+      status:
+          event.status.trim(),
+      hasStatistics: false,
+      hasOdds: false,
     );
 
     return _applyAiEngineScore(
@@ -709,12 +775,6 @@ class MatchRepository {
     );
   }
 
-  /// AI Engine 2.0 elemzést készít a mérkőzéshez.
-  ///
-  /// Jelenleg a fallback statisztikákat használja.
-  /// Ez már nem fixture-ID-alapú vagy véletlenszerű érték.
-  /// A következő fejlesztési szakaszban a fallback adatokat
-  /// valódi forma-, H2H-, gól- és BTTS-adatok váltják fel.
   AppMatch _applyAiEngineScore(
     AppMatch match,
   ) {
@@ -724,29 +784,66 @@ class MatchRepository {
     );
 
     return match.copyWith(
-      aiScore: analysis.aiScore,
+      aiScore:
+          analysis.aiScore,
     );
+  }
+
+  String _preferText(
+    String primary,
+    String secondary,
+  ) {
+    if (primary.trim().isNotEmpty) {
+      return primary;
+    }
+
+    return secondary;
+  }
+
+  int _compareMatches(
+    AppMatch first,
+    AppMatch second,
+  ) {
+    final int dateComparison =
+        first.matchDate.compareTo(
+      second.matchDate,
+    );
+
+    if (dateComparison != 0) {
+      return dateComparison;
+    }
+
+    final int timeComparison =
+        first.matchTime.compareTo(
+      second.matchTime,
+    );
+
+    if (timeComparison != 0) {
+      return timeComparison;
+    }
+
+    final int leagueComparison =
+        first.league
+            .toLowerCase()
+            .compareTo(
+              second.league.toLowerCase(),
+            );
+
+    if (leagueComparison != 0) {
+      return leagueComparison;
+    }
+
+    return first.homeTeam
+        .toLowerCase()
+        .compareTo(
+          second.homeTeam.toLowerCase(),
+        );
   }
 
   String _createMatchKey(
     AppMatch match,
   ) {
-    final String home =
-        _normalizeText(
-      match.homeTeam,
-    );
-
-    final String away =
-        _normalizeText(
-      match.awayTeam,
-    );
-
-    final String date =
-        _formatDate(
-      match.matchDate,
-    );
-
-    return '$home|$away|$date';
+    return match.uniqueComparisonKey;
   }
 
   String _normalizeText(
@@ -770,11 +867,15 @@ class MatchRepository {
         .replaceAll('ë', 'e')
         .replaceAll('ï', 'i')
         .replaceAll(
-          RegExp(r'\b(fc|cf|sc|afc|fk|bk)\b'),
+          RegExp(
+            r'\b(fc|cf|sc|afc|fk|bk)\b',
+          ),
           '',
         )
         .replaceAll(
-          RegExp(r'[^a-z0-9]'),
+          RegExp(
+            r'[^a-z0-9]',
+          ),
           '',
         );
   }
@@ -794,10 +895,14 @@ class MatchRepository {
     DateTime second,
   ) {
     final DateTime normalizedFirst =
-        _normalizeDate(first);
+        _normalizeDate(
+      first,
+    );
 
     final DateTime normalizedSecond =
-        _normalizeDate(second);
+        _normalizeDate(
+      second,
+    );
 
     return normalizedSecond
         .difference(
@@ -911,7 +1016,10 @@ class MatchAvailabilityResult {
   final DateTime? date;
   final List<AppMatch> matches;
   final int checkedDays;
-  final MatchRepositoryResult? repositoryResult;
+
+  final MatchRepositoryResult?
+      repositoryResult;
+
   final String? diagnosticMessage;
 
   const MatchAvailabilityResult({
@@ -932,7 +1040,9 @@ class MatchTopResult {
   final DateTime? date;
   final List<AppMatch> matches;
   final int checkedDays;
-  final MatchRepositoryResult? repositoryResult;
+
+  final MatchRepositoryResult?
+      repositoryResult;
 
   const MatchTopResult({
     required this.date,
