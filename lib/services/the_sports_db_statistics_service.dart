@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.16.1
+// Version: v0.16.2
 // File: lib/services/the_sports_db_statistics_service.dart
 // ===========================================
 
@@ -25,8 +25,9 @@ import 'ai_engine_v2_service.dart';
 /// - H2H-becslés, amikor rendelkezésre áll megfelelő adat.
 ///
 /// Az ingyenes TheSportsDB-kulcs kevesebb múltbeli eseményt
-/// adhat vissza. Emiatt a szolgáltatás automatikusan alacsonyabb
-/// adatminőségi értéket ad, ha kevés mérkőzésből kell számolnia.
+/// adhat vissza. Emiatt a szolgáltatás automatikusan
+/// alacsonyabb adatminőségi értéket ad, ha kevés
+/// mérkőzésből kell számolnia.
 class TheSportsDbStatisticsService {
   TheSportsDbStatisticsService._();
 
@@ -363,9 +364,7 @@ class TheSportsDbStatisticsService {
         eventCount: events.length,
         usesFreeApiKey: usesFreeApiKey,
       );
-    } on TheSportsDbStatisticsException catch (
-      error,
-    ) {
+    } on TheSportsDbStatisticsException catch (error) {
       return TheSportsDbStatisticsConnectionResult(
         success: false,
         message: error.message,
@@ -1015,7 +1014,7 @@ class TheSportsDbStatisticsService {
 
       request.headers.set(
         HttpHeaders.userAgentHeader,
-        'Zsolt-Pro-AI/0.16.1',
+        'Zsolt-Pro-AI/0.16.2',
       );
 
       final HttpClientResponse response =
@@ -1052,9 +1051,7 @@ class TheSportsDbStatisticsService {
         return jsonDecode(
           body,
         );
-      } on FormatException catch (
-        error,
-      ) {
+      } on FormatException catch (error) {
         throw TheSportsDbStatisticsException(
           'A TheSportsDB statisztikai válasza '
           'nem érvényes JSON. '
@@ -1267,7 +1264,6 @@ class TheSportsDbStatisticsException
 
 class _SportsDbStatisticsEvent {
   final String id;
-
   final String sport;
 
   final String homeTeamId;
