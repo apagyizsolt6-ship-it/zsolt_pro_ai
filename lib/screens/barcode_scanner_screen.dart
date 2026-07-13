@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.20.1
+// Version: v0.20.2
 // File: lib/screens/barcode_scanner_screen.dart
 // ===========================================
 
@@ -14,9 +14,11 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 /// kamerás felismerésére szolgáló képernyő.
 ///
 /// Sikeres felismerés után a képernyő a vonalkód
-/// szöveges értékét adja vissza:
+/// szöveges értékét adja vissza.
 ///
-/// final String? barcode = await Navigator.push<String>(...);
+/// Példa:
+///
+/// `final String? barcode = await Navigator.push<String>(...);`
 class BarcodeScannerScreen extends StatefulWidget {
   const BarcodeScannerScreen({
     super.key,
@@ -63,7 +65,7 @@ class _BarcodeScannerScreenState
         BarcodeFormat.codabar,
         BarcodeFormat.ean13,
         BarcodeFormat.ean8,
-        BarcodeFormat.itf,
+        BarcodeFormat.itf14,
         BarcodeFormat.upcA,
         BarcodeFormat.upcE,
         BarcodeFormat.qrCode,
@@ -178,28 +180,23 @@ class _BarcodeScannerScreenState
                 );
               },
             ),
-
             _buildDarkOverlay(),
-
             Align(
               alignment: Alignment.center,
               child: _buildScannerFrame(
                 colors,
               ),
             ),
-
             Align(
               alignment: Alignment.topCenter,
               child: _buildInstructionCard(),
             ),
-
             Align(
               alignment: Alignment.bottomCenter,
               child: _buildBottomPanel(
                 colors,
               ),
             ),
-
             if (_isProcessing)
               Container(
                 color: Colors.black.withValues(
@@ -398,16 +395,13 @@ class _BarcodeScannerScreenState
         children: [
           if (_errorMessage != null)
             _buildErrorMessage(),
-
           if (_detectedValue == null)
             _buildWaitingState()
           else
             _buildDetectedState(
               colors,
             ),
-
           const SizedBox(height: 14),
-
           Row(
             children: [
               Expanded(
@@ -899,7 +893,9 @@ class _BarcodeScannerScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(
+            message,
+          ),
         ),
       );
   }
@@ -910,30 +906,43 @@ class _BarcodeScannerScreenState
     switch (format) {
       case BarcodeFormat.code128:
         return 'CODE 128';
+
       case BarcodeFormat.code39:
         return 'CODE 39';
+
       case BarcodeFormat.code93:
         return 'CODE 93';
+
       case BarcodeFormat.codabar:
         return 'Codabar';
+
       case BarcodeFormat.ean13:
         return 'EAN-13';
+
       case BarcodeFormat.ean8:
         return 'EAN-8';
-      case BarcodeFormat.itf:
-        return 'ITF';
+
+      case BarcodeFormat.itf14:
+        return 'ITF-14';
+
       case BarcodeFormat.upcA:
         return 'UPC-A';
+
       case BarcodeFormat.upcE:
         return 'UPC-E';
+
       case BarcodeFormat.qrCode:
         return 'QR-kód';
+
       case BarcodeFormat.dataMatrix:
         return 'Data Matrix';
+
       case BarcodeFormat.pdf417:
         return 'PDF417';
+
       case BarcodeFormat.aztec:
         return 'Aztec';
+
       default:
         return format.name;
     }
@@ -1043,7 +1052,9 @@ class _ScannerOverlayPainter
     final RRect roundedScanArea =
         RRect.fromRectAndRadius(
       scanArea,
-      const Radius.circular(22),
+      const Radius.circular(
+        22,
+      ),
     );
 
     final Path overlayPath = Path()
@@ -1053,10 +1064,12 @@ class _ScannerOverlayPainter
       ..addRRect(
         roundedScanArea,
       )
-      ..fillType = PathFillType.evenOdd;
+      ..fillType =
+          PathFillType.evenOdd;
 
     final Paint overlayPaint = Paint()
-      ..color = Colors.black.withValues(
+      ..color =
+          Colors.black.withValues(
         alpha: 0.56,
       );
 
