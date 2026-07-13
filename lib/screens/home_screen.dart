@@ -1,12 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.18.3
+// Version: v0.20.3
 // File: lib/screens/home_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import 'ai_top5_screen.dart';
+import 'barcode_scanner_screen.dart';
 import 'betslip_scanner_screen.dart';
 import 'betslip_screen.dart';
 import 'matches_screen.dart';
@@ -19,7 +20,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colorScheme =
+    final ColorScheme colors =
         Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -41,59 +42,23 @@ class HomeScreen extends StatelessWidget {
             28,
           ),
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: colorScheme.primary,
-                borderRadius:
-                    BorderRadius.circular(20),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.psychology,
-                    color: colorScheme.onPrimary,
-                    size: 56,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Üdv a Zsolt Pro AI alkalmazásban!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: colorScheme.onPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'AI alapú sportfogadási elemző rendszer',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: colorScheme.onPrimary
-                          .withValues(
-                        alpha: 0.9,
-                      ),
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
+            _buildHeaderCard(
+              colors,
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Gyorsmenü',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+
+            const _SectionHeader(
+              icon: Icons.dashboard_outlined,
+              title: 'Gyorsmenü',
             ),
+
             const SizedBox(height: 12),
 
             _MenuCard(
               icon: Icons.psychology,
               title: 'AI Top 5',
-              subtitle: 'A legjobb AI tippek',
+              subtitle:
+                  'A legjobb AI tippek',
               onTap: () {
                 _openScreen(
                   context: context,
@@ -118,12 +83,39 @@ class HomeScreen extends StatelessWidget {
             ),
 
             _MenuCard(
+              icon: Icons.receipt_long,
+              title: 'Szelvény',
+              subtitle:
+                  'Fogadásaid kezelése',
+              onTap: () {
+                _openScreen(
+                  context: context,
+                  screen:
+                      const BetslipScreen(),
+                );
+              },
+            ),
+
+            const SizedBox(height: 12),
+
+            const _SectionHeader(
+              icon: Icons.auto_awesome,
+              title: 'AI szelvényeszközök',
+            ),
+
+            const SizedBox(height: 12),
+
+            _MenuCard(
               icon:
                   Icons.document_scanner_outlined,
               title:
                   'AI Szelvény Felismerő',
               subtitle:
-                  'Tippmix szelvény beolvasása OCR-rel',
+                  'Teljes szelvény beolvasása OCR-rel és Parser V5-tel',
+              badgeText:
+                  'PRO',
+              badgeColor:
+                  colors.primary,
               onTap: () {
                 _openScreen(
                   context: context,
@@ -134,17 +126,33 @@ class HomeScreen extends StatelessWidget {
             ),
 
             _MenuCard(
-              icon: Icons.receipt_long,
-              title: 'Szelvény',
-              subtitle: 'Fogadásaid kezelése',
+              icon:
+                  Icons.qr_code_scanner,
+              title:
+                  'Vonalkód beolvasása',
+              subtitle:
+                  'Tippmix-szelvény vonalkódjának kamerás felismerése',
+              badgeText:
+                  'ÚJ',
+              badgeColor:
+                  Colors.green,
               onTap: () {
-                _openScreen(
-                  context: context,
-                  screen:
-                      const BetslipScreen(),
+                _openBarcodeScanner(
+                  context,
                 );
               },
             ),
+
+            const SizedBox(height: 12),
+
+            const _SectionHeader(
+              icon:
+                  Icons.settings_outlined,
+              title:
+                  'Alkalmazás',
+            ),
+
+            const SizedBox(height: 12),
 
             _MenuCard(
               icon: Icons.settings,
@@ -165,6 +173,123 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildHeaderCard(
+    ColorScheme colors,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(
+        20,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            colors.primary,
+            colors.tertiary,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(
+          22,
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: colors.primary.withValues(
+              alpha: 0.25,
+            ),
+            blurRadius: 18,
+            offset: const Offset(
+              0,
+              8,
+            ),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              color: colors.onPrimary.withValues(
+                alpha: 0.16,
+              ),
+              borderRadius: BorderRadius.circular(
+                22,
+              ),
+              border: Border.all(
+                color: colors.onPrimary.withValues(
+                  alpha: 0.30,
+                ),
+              ),
+            ),
+            child: Icon(
+              Icons.psychology,
+              color: colors.onPrimary,
+              size: 48,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Üdv a Zsolt Pro AI alkalmazásban!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.onPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Magyar nyelvű AI sportfogadási '
+            'elemző- és szelvényfelismerő rendszer',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.onPrimary.withValues(
+                alpha: 0.92,
+              ),
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 9,
+            ),
+            decoration: BoxDecoration(
+              color: colors.onPrimary.withValues(
+                alpha: 0.14,
+              ),
+              borderRadius: BorderRadius.circular(
+                18,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.verified_outlined,
+                  size: 19,
+                  color: colors.onPrimary,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  'OCR + Parser V5 + Vonalkód',
+                  style: TextStyle(
+                    color: colors.onPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _openScreen({
     required BuildContext context,
     required Widget screen,
@@ -179,12 +304,165 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _openBarcodeScanner(
+    BuildContext context,
+  ) async {
+    final String? barcode =
+        await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (
+          BuildContext context,
+        ) {
+          return const BarcodeScannerScreen();
+        },
+      ),
+    );
+
+    if (!context.mounted ||
+        barcode == null ||
+        barcode.trim().isEmpty) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (
+        BuildContext dialogContext,
+      ) {
+        return AlertDialog(
+          icon: const Icon(
+            Icons.verified_outlined,
+            color: Colors.green,
+            size: 42,
+          ),
+          title: const Text(
+            'Vonalkód sikeresen felismerve',
+            textAlign: TextAlign.center,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'A Tippmix-szelvény vonalkódjának értéke:',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(
+                  14,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(dialogContext)
+                      .colorScheme
+                      .surfaceContainerHighest,
+                  borderRadius:
+                      BorderRadius.circular(
+                    14,
+                  ),
+                ),
+                child: SelectableText(
+                  barcode,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'A következő fejlesztésben ezt '
+                'automatikusan összekapcsoljuk az '
+                'OCR-rel és a felismert szelvényadatokkal.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(dialogContext)
+                      .colorScheme
+                      .onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment:
+              MainAxisAlignment.center,
+          actions: [
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop();
+              },
+              icon: const Icon(
+                Icons.check,
+              ),
+              label: const Text(
+                'Rendben',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SectionHeader
+    extends StatelessWidget {
+  final IconData icon;
+  final String title;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors =
+        Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: colors.primaryContainer,
+            borderRadius: BorderRadius.circular(
+              11,
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: 21,
+            color: colors.onPrimaryContainer,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _MenuCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final String? badgeText;
+  final Color? badgeColor;
   final VoidCallback onTap;
 
   const _MenuCard({
@@ -192,6 +470,8 @@ class _MenuCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.badgeText,
+    this.badgeColor,
   });
 
   @override
@@ -209,7 +489,7 @@ class _MenuCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: 8,
-            vertical: 6,
+            vertical: 7,
           ),
           child: ListTile(
             contentPadding:
@@ -217,35 +497,86 @@ class _MenuCard extends StatelessWidget {
               horizontal: 8,
             ),
             leading: Container(
-              width: 48,
-              height: 48,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
-                color:
-                    colors.primaryContainer,
-                borderRadius:
-                    BorderRadius.circular(15),
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(
+                  15,
+                ),
               ),
               child: Icon(
                 icon,
-                color:
-                    colors.onPrimaryContainer,
-                size: 26,
+                color: colors.onPrimaryContainer,
+                size: 27,
               ),
             ),
-            title: Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (badgeText != null)
+                  Container(
+                    margin: const EdgeInsets.only(
+                      left: 8,
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (
+                        badgeColor ??
+                            colors.primary
+                      ).withValues(
+                        alpha: 0.15,
+                      ),
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+                      border: Border.all(
+                        color: (
+                          badgeColor ??
+                              colors.primary
+                        ).withValues(
+                          alpha: 0.45,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      badgeText!,
+                      style: TextStyle(
+                        color:
+                            badgeColor ??
+                                colors.primary,
+                        fontSize: 11,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            subtitle: Text(
-              subtitle,
+            subtitle: Padding(
+              padding: const EdgeInsets.only(
+                top: 4,
+              ),
+              child: Text(
+                subtitle,
+              ),
             ),
             trailing: Icon(
               Icons.arrow_forward_ios,
               size: 18,
-              color:
-                  colors.onSurfaceVariant,
+              color: colors.onSurfaceVariant,
             ),
           ),
         ),
