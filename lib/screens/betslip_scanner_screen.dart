@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.18.6
+// Version: v0.20.0
 // File: lib/screens/betslip_scanner_screen.dart
 // ===========================================
 
@@ -11,7 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/recognized_betslip.dart';
-import '../services/betslip_parser_service.dart';
+import '../services/betslip_parser_v5_service.dart';
 import '../services/ocr_service.dart';
 
 class BetslipScannerScreen extends StatefulWidget {
@@ -33,8 +33,8 @@ class _BetslipScannerScreenState
   final OcrService _ocrService =
       OcrService.instance;
 
-  final BetslipParserService _parserService =
-      BetslipParserService.instance;
+  final BetslipParserV5Service _parserService =
+      BetslipParserV5Service.instance;
 
   XFile? _selectedImage;
   _ScannerSource? _selectedSource;
@@ -198,8 +198,9 @@ class _BetslipScannerScreenState
             Text(
               'Fotózd le vagy válaszd ki a '
               'Tippmix szelvényedet. '
-              'A Zsolt Pro AI kiolvassa és '
-              'értelmezi a szelvény adatait.',
+              'A Zsolt Pro AI Parser V5 '
+              'kiolvassa és értelmezi '
+              'a szelvény adatait.',
               textAlign:
                   TextAlign.center,
               style: TextStyle(
@@ -537,7 +538,7 @@ class _BetslipScannerScreenState
       label:
           Text(
         _isAnalyzing
-            ? 'Szelvény feldolgozása...'
+            ? 'Parser V5 feldolgozás...'
             : _hasOcrResult
                 ? 'Felismerés újrafuttatása'
                 : 'AI felismerés indítása',
@@ -578,8 +579,7 @@ class _BetslipScannerScreenState
       title =
           'Felismerés folyamatban';
       subtitle =
-          'Az OCR és a szelvényértelmező '
-          'dolgozik.';
+          'Az OCR és a Parser V5 dolgozik.';
       icon =
           Icons.hourglass_top;
       statusColor =
@@ -775,6 +775,15 @@ class _BetslipScannerScreenState
                               ? 'Felismerve'
                               : 'Bizonytalan'
                           : '—',
+                ),
+                const SizedBox(height: 12),
+                const _ResultRow(
+                  icon:
+                      Icons.memory_outlined,
+                  title:
+                      'Feldolgozó motor',
+                  value:
+                      'Parser V5',
                 ),
               ],
             ),
@@ -1032,11 +1041,13 @@ class _BetslipScannerScreenState
                   ),
                   child: Text(
                     betslip.isReliable
-                        ? 'A szelvény alapadatai '
-                            'jó megbízhatósággal '
-                            'felismerhetők.'
-                        : 'A felismert adatokat érdemes '
-                            'kézzel is ellenőrizni.',
+                        ? 'A Parser V5 jó '
+                            'megbízhatósággal '
+                            'felismerte a szelvény '
+                            'alapadatait.'
+                        : 'A Parser V5 eredményeit '
+                            'érdemes kézzel is '
+                            'ellenőrizni.',
                     style:
                         TextStyle(
                       color:
@@ -1104,7 +1115,9 @@ class _BetslipScannerScreenState
     final String displayedText =
         _showRawText
             ? result.rawText
-            : result.normalizedText;
+            : _parsedBetslip
+                    ?.cleanedText ??
+                result.normalizedText;
 
     return Column(
       crossAxisAlignment:
@@ -1133,7 +1146,7 @@ class _BetslipScannerScreenState
                       child: Text(
                         _showRawText
                             ? 'Eredeti OCR szöveg'
-                            : 'Tisztított OCR szöveg',
+                            : 'Parser V5 tisztított szöveg',
                         style:
                             const TextStyle(
                           fontWeight:
@@ -1294,7 +1307,7 @@ class _BetslipScannerScreenState
 
     return _WarningCard(
       title:
-          'Szelvényadatok ellenőrzése',
+          'Parser V5 ellenőrzendő adatok',
       warnings:
           warnings,
       color:
@@ -1324,11 +1337,12 @@ class _BetslipScannerScreenState
 
     if (_hasParsedBetslip) {
       message =
-          'Az OCR és a Tippmix-szelvény '
-          'értelmezése működik. A következő '
-          'fejlesztésben vonalkódolvasást, '
-          'meccspárosítást és automatikus '
-          'AI-elemzést kapcsolunk hozzá.';
+          'A képernyő már a Parser V5 '
+          'felismerőmotort használja. '
+          'A következő fejlesztésben '
+          'vonalkódolvasást, meccspárosítást '
+          'és automatikus AI-elemzést '
+          'kapcsolunk hozzá.';
     } else {
       message =
           'A jó eredményhez a teljes szelvény '
@@ -1552,7 +1566,7 @@ class _BetslipScannerScreenState
                 Text(
               ocrResult.hasText
                   ? parsedResult != null
-                      ? 'A szelvény feldolgozása '
+                      ? 'A Parser V5 feldolgozása '
                           'sikerült: '
                           '${parsedResult.matches.length} '
                           'mérkőzés felismerve.'
@@ -1635,7 +1649,9 @@ class _BetslipScannerScreenState
     final String text =
         _showRawText
             ? result.rawText
-            : result.normalizedText;
+            : _parsedBetslip
+                    ?.cleanedText ??
+                result.normalizedText;
 
     if (text.trim().isEmpty) {
       return;
