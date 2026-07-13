@@ -1,17 +1,17 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.19.5
+// Version: v0.19.6
 // File: lib/services/betslip_parser_v5_service.dart
-// Parser: V5.2
+// Parser: V5.3
 // ===========================================
 
 import 'dart:math' as math;
 
 import '../models/recognized_betslip.dart';
 
-/// Zsolt Pro AI – Tippmix Parser V5.2.
+/// Zsolt Pro AI – Tippmix Parser V5.3.
 ///
-/// A V5.2 fő javításai:
+/// A V5.3 fő javításai:
 /// - mérkőzésenkénti oddsok keresése a mérkőzés előtt és után is;
 /// - a mérkőzésenkénti oddsok sorrendje nem csúszik el;
 /// - ugyanaz az odds nem rendelhető több mérkőzéshez;
@@ -19,6 +19,9 @@ import '../models/recognized_betslip.dart';
 /// - felismeri a 8,00 / 8.00 / 8 00 formátumokat;
 /// - felismeri az önálló OCR-sorba került oddsokat;
 /// - pontosabb „Játékba küldve” dátum- és időfelismerés;
+/// - felismeri a 2026,05,16,11:34 formátumot is;
+/// - felismeri a 2026,05,16,11,34 formátumot is;
+/// - megvédi a dátumokat a decimális normalizálástól;
 /// - a címke előtt szereplő dátumokat is megvizsgálja;
 /// - előnyben részesíti a pontos perccel rendelkező időpontot;
 /// - kizárja a mérkőzések kezdési időpontjait;
@@ -444,6 +447,31 @@ class BetslipParserV5Service {
   String _normalizeDecimalFormats(String value) {
     String result = value;
 
+    final Map<String, String> protectedDateTimes =
+        <String, String>{};
+
+    int protectedIndex = 0;
+
+    result = result.replaceAllMapped(
+      RegExp(
+        r'(20\d{2}[.,/\-]+'
+        r'\d{1,2}[.,/\-]+'
+        r'\d{1,2}[.,\s\-]+'
+        r'\d{1,2})\s*:\s*(\d{2})',
+      ),
+      (Match match) {
+        final String key =
+            'PROTECTEDDATETIME$protectedIndex';
+
+        protectedDateTimes[key] =
+            '${match.group(1)}:${match.group(2)}';
+
+        protectedIndex++;
+
+        return key;
+      },
+    );
+
     result = result.replaceAllMapped(
       RegExp(
         r'(?<!\d)(\d{1,2})\s*[,:;]\s*(\d{2,3})(?!\d)',
@@ -467,6 +495,14 @@ class BetslipParserV5Service {
         return '$whole,$decimal';
       },
     );
+
+    for (final MapEntry<String, String> entry
+        in protectedDateTimes.entries) {
+      result = result.replaceAll(
+        entry.key,
+        entry.value,
+      );
+    }
 
     return result;
   }
@@ -2217,8 +2253,8 @@ class BetslipParserV5Service {
       r'(20\d{2})[.,/\-]+'
       r'(\d{1,2})[.,/\-]+'
       r'(\d{1,2})'
-      r'(?:[.,\s]+'
-      r'(\d{1,2})[:.]'
+      r'(?:[.,\s\-]+'
+      r'(\d{1,2})[:.,]'
       r'(\d{2}))?',
     );
 
@@ -2235,7 +2271,15 @@ class BetslipParserV5Service {
         minuteText: match.group(5),
       );
 
-      if (value != null) {
+      if (value != null &&
+          !result.any(
+            (DateTime item) =>
+                item.year == value.year &&
+                item.month == value.month &&
+                item.day == value.day &&
+                item.hour == value.hour &&
+                item.minute == value.minute,
+          )) {
         result.add(value);
       }
     }
@@ -2244,7 +2288,7 @@ class BetslipParserV5Service {
       r'(20\d{2})\s+'
       r'(\d{1,2})\s+'
       r'(\d{1,2})\s+'
-      r'(\d{1,2})[:.]\s*'
+      r'(\d{1,2})[:.,]\s*'
       r'(\d{2})',
     );
 
@@ -2265,7 +2309,11 @@ class BetslipParserV5Service {
       if (value != null &&
           !result.any(
             (DateTime item) =>
-                _dateKey(item) == _dateKey(value),
+                item.year == value.year &&
+                item.month == value.month &&
+                item.day == value.day &&
+                item.hour == value.hour &&
+                item.minute == value.minute,
           )) {
         result.add(value);
       }
