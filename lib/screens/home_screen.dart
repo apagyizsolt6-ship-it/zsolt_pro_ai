@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.20.3
+// Version: v0.20.4
 // File: lib/screens/home_screen.dart
 // ===========================================
 
@@ -46,28 +46,22 @@ class HomeScreen extends StatelessWidget {
               colors,
             ),
             const SizedBox(height: 24),
-
             const _SectionHeader(
               icon: Icons.dashboard_outlined,
               title: 'Gyorsmenü',
             ),
-
             const SizedBox(height: 12),
-
             _MenuCard(
               icon: Icons.psychology,
               title: 'AI Top 5',
-              subtitle:
-                  'A legjobb AI tippek',
+              subtitle: 'A legjobb AI tippek',
               onTap: () {
                 _openScreen(
                   context: context,
-                  screen:
-                      const AITop5Screen(),
+                  screen: const AITop5Screen(),
                 );
               },
             ),
-
             _MenuCard(
               icon: Icons.sports_soccer,
               title: 'Meccsek',
@@ -76,46 +70,34 @@ class HomeScreen extends StatelessWidget {
               onTap: () {
                 _openScreen(
                   context: context,
-                  screen:
-                      const MatchesScreen(),
+                  screen: const MatchesScreen(),
                 );
               },
             ),
-
             _MenuCard(
               icon: Icons.receipt_long,
               title: 'Szelvény',
-              subtitle:
-                  'Fogadásaid kezelése',
+              subtitle: 'Fogadásaid kezelése',
               onTap: () {
                 _openScreen(
                   context: context,
-                  screen:
-                      const BetslipScreen(),
+                  screen: const BetslipScreen(),
                 );
               },
             ),
-
             const SizedBox(height: 12),
-
             const _SectionHeader(
               icon: Icons.auto_awesome,
               title: 'AI szelvényeszközök',
             ),
-
             const SizedBox(height: 12),
-
             _MenuCard(
-              icon:
-                  Icons.document_scanner_outlined,
-              title:
-                  'AI Szelvény Felismerő',
+              icon: Icons.document_scanner_outlined,
+              title: 'AI Szelvény Felismerő',
               subtitle:
-                  'Teljes szelvény beolvasása OCR-rel és Parser V5-tel',
-              badgeText:
-                  'PRO',
-              badgeColor:
-                  colors.primary,
+                  'Teljes szelvény beolvasása OCR-rel, Parser V5-tel és vonalkóddal',
+              badgeText: 'PRO',
+              badgeColor: colors.primary,
               onTap: () {
                 _openScreen(
                   context: context,
@@ -124,36 +106,25 @@ class HomeScreen extends StatelessWidget {
                 );
               },
             ),
-
             _MenuCard(
-              icon:
-                  Icons.qr_code_scanner,
-              title:
-                  'Vonalkód beolvasása',
+              icon: Icons.qr_code_scanner,
+              title: 'Vonalkód beolvasása',
               subtitle:
-                  'Tippmix-szelvény vonalkódjának kamerás felismerése',
-              badgeText:
-                  'ÚJ',
-              badgeColor:
-                  Colors.green,
+                  'Vonalkód beolvasása és továbbítás az AI felismerőnek',
+              badgeText: 'ÚJ',
+              badgeColor: Colors.green,
               onTap: () {
                 _openBarcodeScanner(
                   context,
                 );
               },
             ),
-
             const SizedBox(height: 12),
-
             const _SectionHeader(
-              icon:
-                  Icons.settings_outlined,
-              title:
-                  'Alkalmazás',
+              icon: Icons.settings_outlined,
+              title: 'Alkalmazás',
             ),
-
             const SizedBox(height: 12),
-
             _MenuCard(
               icon: Icons.settings,
               title: 'Beállítások',
@@ -162,8 +133,7 @@ class HomeScreen extends StatelessWidget {
               onTap: () {
                 _openScreen(
                   context: context,
-                  screen:
-                      const SettingsScreen(),
+                  screen: const SettingsScreen(),
                 );
               },
             ),
@@ -319,99 +289,32 @@ class HomeScreen extends StatelessWidget {
       ),
     );
 
-    if (!context.mounted ||
-        barcode == null ||
-        barcode.trim().isEmpty) {
+    if (!context.mounted) {
       return;
     }
 
-    await showDialog<void>(
-      context: context,
-      builder: (
-        BuildContext dialogContext,
-      ) {
-        return AlertDialog(
-          icon: const Icon(
-            Icons.verified_outlined,
-            color: Colors.green,
-            size: 42,
-          ),
-          title: const Text(
-            'Vonalkód sikeresen felismerve',
-            textAlign: TextAlign.center,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'A Tippmix-szelvény vonalkódjának értéke:',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(
-                  14,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(dialogContext)
-                      .colorScheme
-                      .surfaceContainerHighest,
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
-                ),
-                child: SelectableText(
-                  barcode,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.7,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'A következő fejlesztésben ezt '
-                'automatikusan összekapcsoljuk az '
-                'OCR-rel és a felismert szelvényadatokkal.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(dialogContext)
-                      .colorScheme
-                      .onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment:
-              MainAxisAlignment.center,
-          actions: [
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
-              },
-              icon: const Icon(
-                Icons.check,
-              ),
-              label: const Text(
-                'Rendben',
-              ),
-            ),
-          ],
-        );
-      },
+    final String barcodeValue =
+        barcode?.trim() ?? '';
+
+    if (barcodeValue.isEmpty) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (
+          BuildContext context,
+        ) {
+          return BetslipScannerScreen(
+            initialBarcode: barcodeValue,
+          );
+        },
+      ),
     );
   }
 }
 
-class _SectionHeader
-    extends StatelessWidget {
+class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
 
