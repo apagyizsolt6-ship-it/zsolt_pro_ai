@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.19.1
+// Version: v0.19.2
 // File: lib/services/betslip_parser_v5_service.dart
 // ===========================================
 
@@ -12,14 +12,15 @@ import '../models/recognized_betslip.dart';
 /// A Parser V5 jelenleg a működő Parser 4.0
 /// mellett készül, ezért biztonságosan fejleszthető.
 ///
-/// A v0.19.1 verzió feladata:
+/// A v0.19.2 verzió feladata:
 /// - OCR-szöveg tisztítása;
 /// - sorok egységesítése;
 /// - gyakori OCR-hibák javítása;
 /// - pénzértékek előkészítése;
 /// - oddsformátumok előkészítése;
 /// - dátumformátumok egységesítése;
-/// - felesleges és üres sorok eltávolítása.
+/// - felesleges és üres sorok eltávolítása;
+/// - Dart Match callback típushibák javítása.
 ///
 /// A következő verzióban erre épül majd:
 /// - Money Detector;
@@ -256,7 +257,7 @@ class BetslipParserV5Service {
           r'(\d)[oO](\d)',
         ),
         (
-          RegExpMatch match,
+          Match match,
         ) {
           return '${match.group(1)}0'
               '${match.group(2)}';
@@ -266,7 +267,7 @@ class BetslipParserV5Service {
           r'(\d)[lI|](\d)',
         ),
         (
-          RegExpMatch match,
+          Match match,
         ) {
           return '${match.group(1)}1'
               '${match.group(2)}';
@@ -280,7 +281,7 @@ class BetslipParserV5Service {
         r'(\d)[oO]\b',
       ),
       (
-        RegExpMatch match,
+        Match match,
       ) {
         return '${match.group(1)}0';
       },
@@ -289,7 +290,7 @@ class BetslipParserV5Service {
         r'\b[oO](\d)',
       ),
       (
-        RegExpMatch match,
+        Match match,
       ) {
         return '0${match.group(1)}';
       },
@@ -399,7 +400,7 @@ class BetslipParserV5Service {
         r'\b(\d{1,3}(?:[ .][0O]{3})+)\b',
       ),
       (
-        RegExpMatch match,
+        Match match,
       ) {
         final String raw =
             match.group(1) ?? '';
@@ -417,7 +418,7 @@ class BetslipParserV5Service {
         r'\b(\d{1,3}(?:[ .]\d{3})+)\b',
       ),
       (
-        RegExpMatch match,
+        Match match,
       ) {
         return (match.group(1) ?? '')
             .replaceAll(' ', '')
@@ -472,7 +473,7 @@ class BetslipParserV5Service {
         r'\b(\d{1,5})[.](\d{2,3})\b',
       ),
       (
-        RegExpMatch match,
+        Match match,
       ) {
         final String whole =
             match.group(1) ?? '';
@@ -505,7 +506,7 @@ class BetslipParserV5Service {
         r'\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b',
       ),
       (
-        RegExpMatch match,
+        Match match,
       ) {
         final String year =
             match.group(1) ?? '';
@@ -527,7 +528,7 @@ class BetslipParserV5Service {
         r'\b(\d{1,2})[.](\d{2})\b',
       ),
       (
-        RegExpMatch match,
+        Match match,
       ) {
         final int? hour =
             int.tryParse(
