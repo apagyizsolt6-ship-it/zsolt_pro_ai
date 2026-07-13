@@ -1,83 +1,75 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.19.3
+// Version: v0.19.4
 // File: lib/services/betslip_parser_v5_service.dart
+// Parser: V5.1
 // ===========================================
 
 import 'dart:math' as math;
 
 import '../models/recognized_betslip.dart';
 
-/// Zsolt Pro AI – Tippmix Parser V5.
+/// Zsolt Pro AI – Tippmix Parser V5.1.
 ///
-/// Ez a parser a korábbi Parser 4.0 mellett készül.
-/// A fő alkalmazás egyelőre továbbra is a régi parsert
-/// használja, így a V5 biztonságosan fejleszthető.
-///
-/// A v0.19.3 verzió már képes:
-/// - az OCR-szöveg tisztítására;
-/// - Tippmix-szelvény felismerésére;
-/// - szelvényszám felismerésére;
-/// - játékba küldés időpontjának felismerésére;
-/// - fogadások számának felismerésére;
-/// - mérkőzések felismerésére;
-/// - piac és tipp felismerésére;
-/// - meccsenkénti oddsok felismerésére;
-/// - eredő odds felismerésére;
-/// - tét felismerésére;
-/// - maximális nyeremény felismerésére;
-/// - matematikai keresztellenőrzésre.
+/// Javítások:
+/// - 1 000 Ft tét pontosabb felismerése;
+/// - 39 200 Ft maximális nyeremény felismerése;
+/// - szelvényszám felismerése;
+/// - játékba küldés időpontjának pontosítása;
+/// - mérkőzésenkénti oddsok megfelelő párosítása;
+/// - dátumok és OCR-zaj kizárása az oddsok közül;
+/// - matematikai keresztellenőrzés.
 class BetslipParserV5Service {
   BetslipParserV5Service._();
 
   static final BetslipParserV5Service instance =
       BetslipParserV5Service._();
 
-  RecognizedBetslip parse(
-    String rawText,
-  ) {
-    final String cleanedText =
-        cleanOcrText(rawText);
-
-    final List<String> lines =
-        extractCleanLines(cleanedText);
+  RecognizedBetslip parse(String rawText) {
+    final String cleanedText = cleanOcrText(rawText);
+    final List<String> lines = extractCleanLines(cleanedText);
 
     final List<_DetectedMatch> detectedMatches =
         _detectMatches(lines);
 
-    final List<_DecimalCandidate> decimals =
+    final List<_DecimalCandidate> decimalCandidates =
         _collectDecimalCandidates(lines);
 
-    final List<_MoneyCandidate> moneyValues =
+    final List<_MoneyCandidate> moneyCandidates =
         _collectMoneyCandidates(lines);
 
-    final List<double> matchOdds =
-        _detectMatchOdds(
-      decimals: decimals,
-      matchCount: detectedMatches.length,
+    final List<double> matchOdds = _detectMatchOdds(
+      lines: lines,
+      matches: detectedMatches,
+      decimals: decimalCandidates,
     );
 
-    final double? totalOdds =
-        _detectTotalOdds(
+    final double? totalOdds = _detectTotalOdds(
       lines: lines,
-      decimals: decimals,
+      decimals: decimalCandidates,
       matchOdds: matchOdds,
     );
 
-    final double? possibleWin =
-        _detectPossibleWin(
+    double? stake = _detectStake(
       lines: lines,
-      moneyValues: moneyValues,
-      totalOdds: totalOdds,
+      moneyCandidates: moneyCandidates,
     );
 
-    final double? stake =
-        _detectStake(
+    double? possibleWin = _detectPossibleWin(
       lines: lines,
-      moneyValues: moneyValues,
-      totalOdds: totalOdds,
-      possibleWin: possibleWin,
+      moneyCandidates: moneyCandidates,
     );
+
+    final _MoneyResolution moneyResolution =
+        _resolveMoneyValues(
+      stake: stake,
+      possibleWin: possibleWin,
+      totalOdds: totalOdds,
+      moneyCandidates: moneyCandidates,
+    );
+
+    stake = moneyResolution.stake;
+    possibleWin = moneyResolution.possibleWin;
 
     final String? betslipNumber =
         _detectBetslipNumber(lines);
@@ -85,7 +77,7 @@ class BetslipParserV5Service {
     final DateTime? submittedAt =
         _detectSubmittedAt(
       lines: lines,
-      matches: detectedMatches,
+      detectedMatches: detectedMatches,
     );
 
     final int? printedMatchCount =
@@ -97,16 +89,14 @@ class BetslipParserV5Service {
       matchOdds: matchOdds,
     );
 
-    final int? matchCount =
-        matches.isNotEmpty
-            ? math.max(
-                matches.length,
-                printedMatchCount ?? 0,
-              )
-            : printedMatchCount;
+    final int? matchCount = matches.isNotEmpty
+        ? math.max(
+            matches.length,
+            printedMatchCount ?? 0,
+          )
+        : printedMatchCount;
 
-    final int confidence =
-        _calculateConfidence(
+    final int confidence = _calculateConfidence(
       rawText: rawText,
       cleanedText: cleanedText,
       totalOdds: totalOdds,
@@ -118,8 +108,7 @@ class BetslipParserV5Service {
       matches: matches,
     );
 
-    final List<String> warnings =
-        _buildWarnings(
+    final List<String> warnings = _buildWarnings(
       totalOdds: totalOdds,
       stake: stake,
       possibleWin: possibleWin,
@@ -149,9 +138,7 @@ class BetslipParserV5Service {
   // OCR ELŐFELDOLGOZÁS
   // =========================================================
 
-  String cleanOcrText(
-    String value,
-  ) {
+  String cleanOcrText(String value) {
     if (value.trim().isEmpty) {
       return '';
     }
@@ -169,18 +156,9 @@ class BetslipParserV5Service {
         .replaceAll('’', '\'')
         .replaceAll('`', '\'')
         .replaceAll('…', '...')
-        .replaceAll(
-          RegExp(r'[ ]{2,}'),
-          ' ',
-        )
-        .replaceAll(
-          RegExp(r' *\n *'),
-          '\n',
-        )
-        .replaceAll(
-          RegExp(r'\n{3,}'),
-          '\n\n',
-        )
+        .replaceAll(RegExp(r'[ ]{2,}'), ' ')
+        .replaceAll(RegExp(r' *\n *'), '\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
 
     result = _fixDigitOcrErrors(result);
@@ -192,36 +170,26 @@ class BetslipParserV5Service {
     return result.trim();
   }
 
-  List<String> extractCleanLines(
-    String value,
-  ) {
+  List<String> extractCleanLines(String value) {
     if (value.trim().isEmpty) {
       return const <String>[];
     }
 
     return value
         .split('\n')
-        .map(
-          (String line) => line.trim(),
-        )
-        .where(
-          (String line) => line.isNotEmpty,
-        )
+        .map((String line) => line.trim())
+        .where((String line) => line.isNotEmpty)
         .toList(growable: false);
   }
 
-  bool looksLikeTippmixBetslip(
-    String value,
-  ) {
-    final String normalized =
-        normalizeForSearch(value);
+  bool looksLikeTippmixBetslip(String value) {
+    final String normalized = normalizeForSearch(value);
 
     if (normalized.isEmpty) {
       return false;
     }
 
-    const List<String> keywords =
-        <String>[
+    const List<String> keywords = <String>[
       'tippmix',
       'szelveny',
       'eredo odds',
@@ -246,9 +214,7 @@ class BetslipParserV5Service {
     return found >= 2;
   }
 
-  String normalizeForSearch(
-    String value,
-  ) {
+  String normalizeForSearch(String value) {
     return value
         .toLowerCase()
         .replaceAll('á', 'a')
@@ -261,21 +227,14 @@ class BetslipParserV5Service {
         .replaceAll('ü', 'u')
         .replaceAll('ű', 'u')
         .replaceAll(
-          RegExp(
-            r'[^a-z0-9,.%:+\-\s]',
-          ),
+          RegExp(r'[^a-z0-9,.%:+\-\s]'),
           ' ',
         )
-        .replaceAll(
-          RegExp(r'\s+'),
-          ' ',
-        )
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 
-  String _fixDigitOcrErrors(
-    String value,
-  ) {
+  String _fixDigitOcrErrors(String value) {
     String result = value;
 
     for (int index = 0; index < 4; index++) {
@@ -311,9 +270,7 @@ class BetslipParserV5Service {
     return result;
   }
 
-  String _fixCommonTippmixWords(
-    String value,
-  ) {
+  String _fixCommonTippmixWords(String value) {
     return value
         .replaceAll(
           RegExp(
@@ -332,6 +289,13 @@ class BetslipParserV5Service {
         .replaceAll(
           RegExp(
             r'\bmax\.?\s*nyerem[eé]ny\b',
+            caseSensitive: false,
+          ),
+          'Max nyeremény',
+        )
+        .replaceAll(
+          RegExp(
+            r'\bmaxim[aá]lis\s+nyerem[eé]ny\b',
             caseSensitive: false,
           ),
           'Max nyeremény',
@@ -394,68 +358,84 @@ class BetslipParserV5Service {
         );
   }
 
-  String _normalizeMoneyFormats(
-    String value,
-  ) {
-    String result = value;
+  String _normalizeMoneyFormats(String value) {
+    String result = value
+        .replaceAll('\$', '')
+        .replaceAll('§', '')
+        .replaceAll('¢', '');
 
     result = result.replaceAllMapped(
       RegExp(
-        r'\b(\d{1,3}(?:[ .][0O]{3})+)\b',
+        r'\b(\d{1,3})[ .,:](\d{3})\s*,?\s*-\s*(?:Ft)?\b',
+        caseSensitive: false,
       ),
       (Match match) {
-        return (match.group(1) ?? '')
-            .replaceAll(' ', '')
-            .replaceAll('.', '')
-            .replaceAll('O', '0')
-            .replaceAll('o', '0');
+        final String first = match.group(1) ?? '';
+        final String second = match.group(2) ?? '';
+
+        return '$first$second Ft';
       },
     );
 
     result = result.replaceAllMapped(
       RegExp(
-        r'\b(\d{1,3}(?:[ .]\d{3})+)\b',
+        r'\b(\d{1,3}(?:[ .]\d{3})+)\s*(Ft)?\b',
+        caseSensitive: false,
       ),
       (Match match) {
-        return (match.group(1) ?? '')
+        final String digits = (match.group(1) ?? '')
             .replaceAll(' ', '')
             .replaceAll('.', '');
+
+        final bool hasFt = match.group(2) != null;
+
+        return hasFt ? '$digits Ft' : digits;
+      },
+    );
+
+    result = result.replaceAllMapped(
+      RegExp(
+        r'\b(\d{1,3})[,.](\d{2})\s*(\d)\s*(?:Ft)?\b',
+        caseSensitive: false,
+      ),
+      (Match match) {
+        final String first = match.group(1) ?? '';
+        final String middle = match.group(2) ?? '';
+        final String last = match.group(3) ?? '';
+
+        return '$first$middle$last Ft';
+      },
+    );
+
+    result = result.replaceAllMapped(
+      RegExp(
+        r'\b(\d{2,9})\s*,?\s*-\s*(?:Ft)?\b',
+        caseSensitive: false,
+      ),
+      (Match match) {
+        return '${match.group(1)} Ft';
       },
     );
 
     result = result.replaceAll(
       RegExp(
-        r'(\d)\s*,\s*-\s*(?:Ft)?',
+        r'\s+Ft\b',
         caseSensitive: false,
       ),
-      r'$1 Ft',
-    );
-
-    result = result.replaceAll(
-      RegExp(
-        r'(\d)\s*Ft\b',
-        caseSensitive: false,
-      ),
-      r'$1 Ft',
+      ' Ft',
     );
 
     return result;
   }
 
-  String _normalizeTeamSeparators(
-    String value,
-  ) {
+  String _normalizeTeamSeparators(String value) {
     return value
         .replaceAll(
-          RegExp(
-            r'\s+[vV][sS]\.?\s+',
-          ),
+          RegExp(r'\s+[vV][sS]\.?\s+'),
           ' - ',
         )
         .replaceAll(
-          RegExp(
-            r'\s+[vV]\s+',
-          ),
+          RegExp(r'\s+[vV]\s+'),
           ' - ',
         )
         .replaceAll(
@@ -467,23 +447,17 @@ class BetslipParserV5Service {
         );
   }
 
-  String _removeUselessLines(
-    String value,
-  ) {
-    final List<String> result =
-        <String>[];
+  String _removeUselessLines(String value) {
+    final List<String> result = <String>[];
 
-    for (final String rawLine
-        in value.split('\n')) {
-      final String line =
-          rawLine.trim();
+    for (final String rawLine in value.split('\n')) {
+      final String line = rawLine.trim();
 
       if (line.isEmpty) {
         continue;
       }
 
-      final String content =
-          line.replaceAll(
+      final String content = line.replaceAll(
         RegExp(
           r'[^A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű0-9]',
         ),
@@ -495,8 +469,7 @@ class BetslipParserV5Service {
       }
 
       if (line.length == 1 &&
-          !RegExp(r'[0-9Xx]')
-              .hasMatch(line)) {
+          !RegExp(r'[0-9Xx]').hasMatch(line)) {
         continue;
       }
 
@@ -516,9 +489,7 @@ class BetslipParserV5Service {
     final List<_DetectedMatch> result =
         <_DetectedMatch>[];
 
-    for (int index = 0;
-        index < lines.length;
-        index++) {
+    for (int index = 0; index < lines.length; index++) {
       final List<String>? teams =
           _splitMatchLine(lines[index]);
 
@@ -537,21 +508,12 @@ class BetslipParserV5Service {
         continue;
       }
 
-      final bool duplicate =
-          result.any(
+      final bool duplicate = result.any(
         (_DetectedMatch item) {
-          return normalizeForSearch(
-                    item.homeTeam,
-                  ) ==
-                  normalizeForSearch(
-                    homeTeam,
-                  ) &&
-              normalizeForSearch(
-                    item.awayTeam,
-                  ) ==
-                  normalizeForSearch(
-                    awayTeam,
-                  );
+          return normalizeForSearch(item.homeTeam) ==
+                  normalizeForSearch(homeTeam) &&
+              normalizeForSearch(item.awayTeam) ==
+                  normalizeForSearch(awayTeam);
         },
       );
 
@@ -560,37 +522,26 @@ class BetslipParserV5Service {
       }
 
       String market = '';
-      String tip =
-          'Ismeretlen tipp';
+      String tip = 'Ismeretlen tipp';
 
-      final List<String> sourceLines =
-          <String>[];
+      final List<String> sourceLines = <String>[];
 
-      final int start =
-          math.max(0, index - 4);
-
+      final int start = math.max(0, index - 3);
       final int end =
-          math.min(
-        lines.length - 1,
-        index + 7,
-      );
+          math.min(lines.length - 1, index + 6);
 
-      for (int nearby = start;
-          nearby <= end;
-          nearby++) {
-        final String line =
-            lines[nearby];
+      for (int nearby = start; nearby <= end; nearby++) {
+        final String nearbyLine = lines[nearby];
 
-        sourceLines.add(line);
+        sourceLines.add(nearbyLine);
 
         if (market.isEmpty) {
-          market = _detectMarket(line);
+          market = _detectMarket(nearbyLine);
         }
 
         if (tip == 'Ismeretlen tipp') {
-          final String detectedTip =
-              _detectTip(
-            line: line,
+          final String detectedTip = _detectTip(
+            line: nearbyLine,
             market: market,
           );
 
@@ -601,13 +552,11 @@ class BetslipParserV5Service {
       }
 
       if (market.isEmpty &&
-          (tip == '6+' ||
-              tip.contains('gól'))) {
+          (tip == '6+' || tip.contains('gól'))) {
         market = 'Gólok';
       }
 
-      if (market == 'Gólok' &&
-          tip == '6+') {
+      if (market == 'Gólok' && tip == '6+') {
         tip = '6+ gól';
       }
 
@@ -626,13 +575,10 @@ class BetslipParserV5Service {
     return result;
   }
 
-  List<String>? _splitMatchLine(
-    String line,
-  ) {
+  List<String>? _splitMatchLine(String line) {
     String value = line.trim();
 
-    if (value.length < 5 ||
-        value.length > 120) {
+    if (value.length < 5 || value.length > 120) {
       return null;
     }
 
@@ -667,8 +613,7 @@ class BetslipParserV5Service {
           ' - ',
         );
 
-    final RegExp expression =
-        RegExp(
+    final RegExp expression = RegExp(
       r'^(.+?[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű])'
       r'\s*-\s*'
       r'([A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű].+)$',
@@ -693,15 +638,10 @@ class BetslipParserV5Service {
       return null;
     }
 
-    return <String>[
-      home,
-      away,
-    ];
+    return <String>[home, away];
   }
 
-  String _cleanTeamName(
-    String value,
-  ) {
+  String _cleanTeamName(String value) {
     String result = value
         .replaceAll(
           RegExp(
@@ -715,10 +655,7 @@ class BetslipParserV5Service {
           ),
           '',
         )
-        .replaceAll(
-          RegExp(r'\s+'),
-          ' ',
-        )
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
 
     if (RegExp(
@@ -731,9 +668,7 @@ class BetslipParserV5Service {
     return result;
   }
 
-  String _detectMarket(
-    String line,
-  ) {
+  String _detectMarket(String line) {
     final String normalized =
         normalizeForSearch(line);
 
@@ -767,9 +702,7 @@ class BetslipParserV5Service {
       return 'Mindkét csapat szerez gólt';
     }
 
-    if (normalized.contains(
-      'dupla esely',
-    )) {
+    if (normalized.contains('dupla esely')) {
       return 'Dupla esély';
     }
 
@@ -786,13 +719,10 @@ class BetslipParserV5Service {
     if (RegExp(
       r'(^|[^0-9])6\+($|[^0-9])',
     ).hasMatch(normalized)) {
-      return market == 'Gólok'
-          ? '6+ gól'
-          : '6+';
+      return market == 'Gólok' ? '6+ gól' : '6+';
     }
 
-    final RegExp overUnder =
-        RegExp(
+    final RegExp overUnder = RegExp(
       r'(tobb|kevesebb)\s+mint\s+'
       r'(\d+[,.]\d+)',
     );
@@ -806,11 +736,10 @@ class BetslipParserV5Service {
               ? 'Több mint'
               : 'Kevesebb mint';
 
-      final String value =
-          (match.group(2) ?? '')
-              .replaceAll('.', ',');
+      final String number =
+          (match.group(2) ?? '').replaceAll('.', ',');
 
-      return '$direction $value';
+      return '$direction $number';
     }
 
     if (normalized == '1' ||
@@ -838,43 +767,37 @@ class BetslipParserV5Service {
   }
 
   // =========================================================
-  // SZÁMOK, ODDSOK ÉS PÉNZÉRTÉKEK
+  // ODDSOK
   // =========================================================
 
-  List<_DecimalCandidate>
-      _collectDecimalCandidates(
+  List<_DecimalCandidate> _collectDecimalCandidates(
     List<String> lines,
   ) {
     final List<_DecimalCandidate> result =
         <_DecimalCandidate>[];
 
-    for (int index = 0;
-        index < lines.length;
-        index++) {
-      final String line =
-          lines[index];
+    for (int index = 0; index < lines.length; index++) {
+      final String line = lines[index];
 
       if (_looksLikeDateLine(line) ||
           _looksLikeBarcodeLine(line) ||
-          _looksLikeAddressLine(line)) {
+          _looksLikeAddressLine(line) ||
+          _looksLikeMoneyLine(line)) {
         continue;
       }
 
-      final Iterable<RegExpMatch> matches =
-          RegExp(
+      final Iterable<RegExpMatch> matches = RegExp(
         r'(^|[^0-9])'
         r'(\d{1,6}[,.]\d{1,3})'
         r'(?=$|[^0-9])',
       ).allMatches(line);
 
-      for (final RegExpMatch match
-          in matches) {
-        final String raw =
+      for (final RegExpMatch match in matches) {
+        final String rawValue =
             match.group(2) ?? '';
 
-        final double? value =
-            double.tryParse(
-          raw.replaceAll(',', '.'),
+        final double? value = double.tryParse(
+          rawValue.replaceAll(',', '.'),
         );
 
         if (value == null ||
@@ -896,18 +819,242 @@ class BetslipParserV5Service {
     return result;
   }
 
-  List<_MoneyCandidate>
-      _collectMoneyCandidates(
+  List<double> _detectMatchOdds({
+    required List<String> lines,
+    required List<_DetectedMatch> matches,
+    required List<_DecimalCandidate> decimals,
+  }) {
+    if (matches.isEmpty) {
+      return const <double>[];
+    }
+
+    final List<double> result = <double>[];
+
+    for (int matchIndex = 0;
+        matchIndex < matches.length;
+        matchIndex++) {
+      final _DetectedMatch detectedMatch =
+          matches[matchIndex];
+
+      final int nextMatchIndex =
+          matchIndex + 1 < matches.length
+              ? matches[matchIndex + 1].lineIndex
+              : lines.length;
+
+      final int start = detectedMatch.lineIndex;
+      final int end = math.min(
+        lines.length - 1,
+        math.min(
+          detectedMatch.lineIndex + 7,
+          nextMatchIndex - 1,
+        ),
+      );
+
+      final List<_DecimalCandidate> nearby =
+          decimals.where(
+        (_DecimalCandidate candidate) {
+          if (candidate.lineIndex < start ||
+              candidate.lineIndex > end) {
+            return false;
+          }
+
+          if (candidate.value < 1.01 ||
+              candidate.value > 30) {
+            return false;
+          }
+
+          final String normalized =
+              normalizeForSearch(candidate.line);
+
+          if (normalized.contains('eredo odds') ||
+              normalized.contains('max nyeremeny') ||
+              normalized.contains('ervenyesseg') ||
+              normalized.contains('akcio')) {
+            return false;
+          }
+
+          return true;
+        },
+      ).toList();
+
+      if (nearby.isEmpty) {
+        continue;
+      }
+
+      nearby.sort(
+        (
+          _DecimalCandidate first,
+          _DecimalCandidate second,
+        ) {
+          final int firstDistance =
+              (first.lineIndex -
+                      detectedMatch.lineIndex)
+                  .abs();
+
+          final int secondDistance =
+              (second.lineIndex -
+                      detectedMatch.lineIndex)
+                  .abs();
+
+          if (firstDistance != secondDistance) {
+            return firstDistance.compareTo(
+              secondDistance,
+            );
+          }
+
+          return first.lineIndex.compareTo(
+            second.lineIndex,
+          );
+        },
+      );
+
+      result.add(nearby.first.value);
+    }
+
+    return result;
+  }
+
+  double? _detectTotalOdds({
+    required List<String> lines,
+    required List<_DecimalCandidate> decimals,
+    required List<double> matchOdds,
+  }) {
+    final int labelIndex = _findLabelIndex(
+      lines,
+      const <String>[
+        'eredo odds',
+        'eredő odds',
+        'ossz odds',
+        'össz odds',
+      ],
+    );
+
+    if (labelIndex >= 0) {
+      final List<_DecimalCandidate> nearby =
+          decimals.where(
+        (_DecimalCandidate candidate) {
+          return candidate.lineIndex >= labelIndex &&
+              candidate.lineIndex <= labelIndex + 5 &&
+              candidate.value >= 1.01;
+        },
+      ).toList();
+
+      if (nearby.isNotEmpty) {
+        if (matchOdds.length >= 2) {
+          final double product =
+              matchOdds.fold<double>(
+            1,
+            (
+              double current,
+              double value,
+            ) {
+              return current * value;
+            },
+          );
+
+          nearby.sort(
+            (
+              _DecimalCandidate first,
+              _DecimalCandidate second,
+            ) {
+              final double firstDifference =
+                  (first.value - product).abs();
+
+              final double secondDifference =
+                  (second.value - product).abs();
+
+              return firstDifference.compareTo(
+                secondDifference,
+              );
+            },
+          );
+        } else {
+          nearby.sort(
+            (
+              _DecimalCandidate first,
+              _DecimalCandidate second,
+            ) {
+              return first.lineIndex.compareTo(
+                second.lineIndex,
+              );
+            },
+          );
+        }
+
+        return nearby.first.value;
+      }
+    }
+
+    if (matchOdds.length >= 2) {
+      final double product =
+          matchOdds.fold<double>(
+        1,
+        (
+          double current,
+          double value,
+        ) {
+          return current * value;
+        },
+      );
+
+      _DecimalCandidate? closest;
+      double closestDifference = double.infinity;
+
+      for (final _DecimalCandidate candidate
+          in decimals) {
+        final double difference =
+            (candidate.value - product).abs();
+
+        if (difference < closestDifference) {
+          closestDifference = difference;
+          closest = candidate;
+        }
+      }
+
+      final double tolerance =
+          math.max(product * 0.03, 0.10);
+
+      if (closest != null &&
+          closestDifference <= tolerance) {
+        return closest.value;
+      }
+
+      return double.parse(
+        product.toStringAsFixed(2),
+      );
+    }
+
+    final List<double> candidates = decimals
+        .map(
+          (_DecimalCandidate item) => item.value,
+        )
+        .where(
+          (double value) =>
+              value >= 10 && value <= 100000,
+        )
+        .toList();
+
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    candidates.sort();
+
+    return candidates.last;
+  }
+
+  // =========================================================
+  // PÉNZÉRTÉKEK
+  // =========================================================
+
+  List<_MoneyCandidate> _collectMoneyCandidates(
     List<String> lines,
   ) {
     final List<_MoneyCandidate> result =
         <_MoneyCandidate>[];
 
-    for (int index = 0;
-        index < lines.length;
-        index++) {
-      final String line =
-          lines[index];
+    for (int index = 0; index < lines.length; index++) {
+      final String line = lines[index];
 
       if (!_looksLikeMoneyLine(line) ||
           _looksLikeAddressLine(line) ||
@@ -915,8 +1062,10 @@ class BetslipParserV5Service {
         continue;
       }
 
-      for (final double value
-          in _extractMoneyValues(line)) {
+      final List<double> values =
+          _extractMoneyValues(line);
+
+      for (final double value in values) {
         if (value < 10 ||
             value > 1000000000) {
           continue;
@@ -935,440 +1084,30 @@ class BetslipParserV5Service {
     return result;
   }
 
-  List<double> _detectMatchOdds({
-    required List<_DecimalCandidate>
-        decimals,
-    required int matchCount,
-  }) {
-    if (matchCount <= 0) {
-      return const <double>[];
-    }
+  List<double> _extractMoneyValues(String line) {
+    final List<double> result = <double>[];
 
-    final List<double> result =
-        <double>[];
+    final String cleaned = line
+        .replaceAll(
+          RegExp(
+            r'\bFt\b',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(',-', '')
+        .replaceAll(' ', '');
 
-    for (final _DecimalCandidate candidate
-        in decimals) {
-      if (candidate.value < 1.01 ||
-          candidate.value > 30) {
-        continue;
-      }
-
-      if (_looksLikeMoneyLine(
-        candidate.line,
-      )) {
-        continue;
-      }
-
-      final bool duplicate =
-          result.any(
-        (double value) =>
-            (value - candidate.value).abs() <
-            0.001,
-      );
-
-      if (!duplicate) {
-        result.add(candidate.value);
-      }
-
-      if (result.length >= matchCount) {
-        break;
-      }
-    }
-
-    return result;
-  }
-
-  double? _detectTotalOdds({
-    required List<String> lines,
-    required List<_DecimalCandidate>
-        decimals,
-    required List<double> matchOdds,
-  }) {
-    if (decimals.isEmpty) {
-      return null;
-    }
-
-    if (matchOdds.length >= 2) {
-      final double product =
-          matchOdds.fold<double>(
-        1,
-        (
-          double total,
-          double value,
-        ) {
-          return total * value;
-        },
-      );
-
-      _DecimalCandidate? closest;
-      double difference =
-          double.infinity;
-
-      for (final _DecimalCandidate candidate
-          in decimals) {
-        final double currentDifference =
-            (candidate.value - product).abs();
-
-        if (currentDifference < difference) {
-          difference = currentDifference;
-          closest = candidate;
-        }
-      }
-
-      final double tolerance =
-          math.max(
-        product * 0.05,
-        0.15,
-      );
-
-      if (closest != null &&
-          difference <= tolerance) {
-        return closest.value;
-      }
-    }
-
-    final int labelIndex =
-        _findLabelIndex(
-      lines,
-      const <String>[
-        'eredo odds',
-        'eredő odds',
-        'ossz odds',
-        'össz odds',
-      ],
-    );
-
-    if (labelIndex >= 0) {
-      final List<_DecimalCandidate> nearby =
-          decimals.where(
-        (_DecimalCandidate item) {
-          return (item.lineIndex -
-                      labelIndex)
-                  .abs() <=
-              7;
-        },
-      ).toList();
-
-      if (nearby.isNotEmpty) {
-        nearby.sort(
-          (
-            _DecimalCandidate first,
-            _DecimalCandidate second,
-          ) {
-            final int firstDistance =
-                (first.lineIndex -
-                        labelIndex)
-                    .abs();
-
-            final int secondDistance =
-                (second.lineIndex -
-                        labelIndex)
-                    .abs();
-
-            return firstDistance.compareTo(
-              secondDistance,
-            );
-          },
-        );
-
-        return nearby.first.value;
-      }
-    }
-
-    final List<double> candidates =
-        decimals
-            .map(
-              (_DecimalCandidate item) =>
-                  item.value,
-            )
-            .where(
-              (double value) =>
-                  value >= 10 &&
-                  value <= 100000,
-            )
-            .toList();
-
-    if (candidates.isEmpty) {
-      return null;
-    }
-
-    candidates.sort();
-
-    return candidates.last;
-  }
-
-  double? _detectPossibleWin({
-    required List<String> lines,
-    required List<_MoneyCandidate>
-        moneyValues,
-    required double? totalOdds,
-  }) {
-    if (moneyValues.isEmpty) {
-      return null;
-    }
-
-    final int labelIndex =
-        _findLabelIndex(
-      lines,
-      const <String>[
-        'max nyeremeny',
-        'max nyeremény',
-        'maximalis nyeremeny',
-        'maximális nyeremény',
-      ],
-    );
-
-    if (labelIndex >= 0) {
-      final List<_MoneyCandidate> nearby =
-          moneyValues.where(
-        (_MoneyCandidate item) {
-          return (item.lineIndex -
-                      labelIndex)
-                  .abs() <=
-              8;
-        },
-      ).toList();
-
-      if (nearby.isNotEmpty) {
-        nearby.sort(
-          (
-            _MoneyCandidate first,
-            _MoneyCandidate second,
-          ) {
-            return second.value.compareTo(
-              first.value,
-            );
-          },
-        );
-
-        return nearby.first.value;
-      }
-    }
-
-    final List<double> values =
-        moneyValues
-            .map(
-              (_MoneyCandidate item) =>
-                  item.value,
-            )
-            .where(
-              (double value) =>
-                  value >= 1000,
-            )
-            .toList();
-
-    if (values.isEmpty) {
-      return null;
-    }
-
-    values.sort();
-
-    return values.last;
-  }
-
-  double? _detectStake({
-    required List<String> lines,
-    required List<_MoneyCandidate>
-        moneyValues,
-    required double? totalOdds,
-    required double? possibleWin,
-  }) {
-    if (moneyValues.isEmpty) {
-      return null;
-    }
-
-    if (totalOdds != null &&
-        possibleWin != null &&
-        totalOdds > 1) {
-      final double expectedStake =
-          possibleWin / totalOdds;
-
-      _MoneyCandidate? closest;
-      double difference =
-          double.infinity;
-
-      for (final _MoneyCandidate candidate
-          in moneyValues) {
-        if ((candidate.value -
-                    possibleWin)
-                .abs() <
-            0.01) {
-          continue;
-        }
-
-        final double currentDifference =
-            (candidate.value -
-                    expectedStake)
-                .abs();
-
-        if (currentDifference < difference) {
-          difference = currentDifference;
-          closest = candidate;
-        }
-      }
-
-      final double tolerance =
-          math.max(
-        expectedStake * 0.10,
-        30,
-      );
-
-      if (closest != null &&
-          difference <= tolerance) {
-        return closest.value;
-      }
-    }
-
-    final List<String> labels =
-        <String>[
-      'alaptet',
-      'alaptét',
-      'a jatek ara',
-      'a játék ára',
-      'fogadasi tet',
-      'fogadási tét',
-    ];
-
-    for (final String label in labels) {
-      final int labelIndex =
-          _findLabelIndex(
-        lines,
-        <String>[label],
-      );
-
-      if (labelIndex < 0) {
-        continue;
-      }
-
-      final List<_MoneyCandidate> nearby =
-          moneyValues.where(
-        (_MoneyCandidate item) {
-          if ((item.lineIndex -
-                      labelIndex)
-                  .abs() >
-              8) {
-            return false;
-          }
-
-          if (possibleWin != null &&
-              (item.value -
-                          possibleWin)
-                      .abs() <
-                  0.01) {
-            return false;
-          }
-
-          return item.value >= 50 &&
-              item.value <= 10000000;
-        },
-      ).toList();
-
-      if (nearby.isNotEmpty) {
-        return _mostFrequentMoneyValue(
-          nearby,
-        );
-      }
-    }
-
-    final List<_MoneyCandidate> candidates =
-        moneyValues.where(
-      (_MoneyCandidate item) {
-        if (item.value < 50 ||
-            item.value > 10000000) {
-          return false;
-        }
-
-        if (possibleWin != null &&
-            (item.value -
-                        possibleWin)
-                    .abs() <
-                0.01) {
-          return false;
-        }
-
-        return true;
-      },
-    ).toList();
-
-    if (candidates.isEmpty) {
-      return null;
-    }
-
-    return _mostFrequentMoneyValue(
-      candidates,
-    );
-  }
-
-  double _mostFrequentMoneyValue(
-    List<_MoneyCandidate> candidates,
-  ) {
-    final Map<int, int> frequency =
-        <int, int>{};
-
-    for (final _MoneyCandidate candidate
-        in candidates) {
-      final int value =
-          candidate.value.round();
-
-      frequency[value] =
-          (frequency[value] ?? 0) + 1;
-    }
-
-    int bestValue =
-        candidates.first.value.round();
-
-    int bestCount = 0;
-
-    frequency.forEach(
-      (
-        int value,
-        int count,
-      ) {
-        if (count > bestCount) {
-          bestCount = count;
-          bestValue = value;
-        } else if (count == bestCount &&
-            value < bestValue) {
-          bestValue = value;
-        }
-      },
-    );
-
-    return bestValue.toDouble();
-  }
-
-  List<double> _extractMoneyValues(
-    String line,
-  ) {
-    final List<double> result =
-        <double>[];
-
-    final String cleaned =
-        line
-            .replaceAll(
-              RegExp(
-                r'\bFt\b',
-                caseSensitive: false,
-              ),
-              '',
-            )
-            .replaceAll(',-', '')
-            .replaceAll(' ', '');
-
-    final Iterable<RegExpMatch> matches =
-        RegExp(
+    final Iterable<RegExpMatch> matches = RegExp(
       r'\d+(?:[,.]\d{1,2})?',
     ).allMatches(cleaned);
 
-    for (final RegExpMatch match
-        in matches) {
-      final String raw =
+    for (final RegExpMatch match in matches) {
+      final String rawValue =
           match.group(0) ?? '';
 
-      final double? value =
-          double.tryParse(
-        raw.replaceAll(',', '.'),
+      final double? value = double.tryParse(
+        rawValue.replaceAll(',', '.'),
       );
 
       if (value != null) {
@@ -1379,15 +1118,279 @@ class BetslipParserV5Service {
     return result;
   }
 
+  double? _detectStake({
+    required List<String> lines,
+    required List<_MoneyCandidate> moneyCandidates,
+  }) {
+    const List<String> labels = <String>[
+      'alaptet',
+      'alaptét',
+      'a jatek ara',
+      'a játék ára',
+      'fogadasi tet',
+      'fogadási tét',
+    ];
+
+    for (final String label in labels) {
+      final int labelIndex = _findLabelIndex(
+        lines,
+        <String>[label],
+      );
+
+      if (labelIndex < 0) {
+        continue;
+      }
+
+      final List<_MoneyCandidate> nearby =
+          moneyCandidates.where(
+        (_MoneyCandidate candidate) {
+          return candidate.lineIndex >= labelIndex &&
+              candidate.lineIndex <= labelIndex + 8 &&
+              candidate.value >= 50 &&
+              candidate.value <= 10000000;
+        },
+      ).toList();
+
+      if (nearby.isEmpty) {
+        continue;
+      }
+
+      nearby.sort(
+        (
+          _MoneyCandidate first,
+          _MoneyCandidate second,
+        ) {
+          final int firstDistance =
+              (first.lineIndex - labelIndex).abs();
+
+          final int secondDistance =
+              (second.lineIndex - labelIndex).abs();
+
+          if (firstDistance != secondDistance) {
+            return firstDistance.compareTo(
+              secondDistance,
+            );
+          }
+
+          return first.value.compareTo(
+            second.value,
+          );
+        },
+      );
+
+      return nearby.first.value;
+    }
+
+    return null;
+  }
+
+  double? _detectPossibleWin({
+    required List<String> lines,
+    required List<_MoneyCandidate> moneyCandidates,
+  }) {
+    final int labelIndex = _findLabelIndex(
+      lines,
+      const <String>[
+        'max nyeremeny',
+        'max nyeremény',
+        'maximalis nyeremeny',
+        'maximális nyeremény',
+      ],
+    );
+
+    if (labelIndex < 0) {
+      return null;
+    }
+
+    final List<_MoneyCandidate> nearby =
+        moneyCandidates.where(
+      (_MoneyCandidate candidate) {
+        return candidate.lineIndex >= labelIndex &&
+            candidate.lineIndex <= labelIndex + 8 &&
+            candidate.value >= 100;
+      },
+    ).toList();
+
+    if (nearby.isEmpty) {
+      return null;
+    }
+
+    nearby.sort(
+      (
+        _MoneyCandidate first,
+        _MoneyCandidate second,
+      ) {
+        final int firstDistance =
+            (first.lineIndex - labelIndex).abs();
+
+        final int secondDistance =
+            (second.lineIndex - labelIndex).abs();
+
+        if (firstDistance != secondDistance) {
+          return firstDistance.compareTo(
+            secondDistance,
+          );
+        }
+
+        return second.value.compareTo(
+          first.value,
+        );
+      },
+    );
+
+    return nearby.first.value;
+  }
+
+  _MoneyResolution _resolveMoneyValues({
+    required double? stake,
+    required double? possibleWin,
+    required double? totalOdds,
+    required List<_MoneyCandidate> moneyCandidates,
+  }) {
+    if (totalOdds == null || totalOdds <= 1) {
+      return _MoneyResolution(
+        stake: stake,
+        possibleWin: possibleWin,
+      );
+    }
+
+    double? resolvedStake = stake;
+    double? resolvedPossibleWin = possibleWin;
+
+    if (resolvedStake != null &&
+        resolvedPossibleWin != null) {
+      final double expectedWin =
+          resolvedStake * totalOdds;
+
+      final double tolerance = math.max(
+        resolvedPossibleWin * 0.03,
+        20,
+      );
+
+      if ((expectedWin - resolvedPossibleWin).abs() <=
+          tolerance) {
+        return _MoneyResolution(
+          stake: resolvedStake,
+          possibleWin: resolvedPossibleWin,
+        );
+      }
+    }
+
+    final List<double> moneyValues = moneyCandidates
+        .map(
+          (_MoneyCandidate candidate) =>
+              candidate.value,
+        )
+        .where(
+          (double value) =>
+              value >= 50 &&
+              value <= 1000000000,
+        )
+        .toSet()
+        .toList();
+
+    double bestDifference = double.infinity;
+    double? bestStake;
+    double? bestPossibleWin;
+
+    for (final double stakeCandidate in moneyValues) {
+      for (final double winCandidate in moneyValues) {
+        if (winCandidate <= stakeCandidate) {
+          continue;
+        }
+
+        final double calculatedWin =
+            stakeCandidate * totalOdds;
+
+        final double difference =
+            (calculatedWin - winCandidate).abs();
+
+        if (difference < bestDifference) {
+          bestDifference = difference;
+          bestStake = stakeCandidate;
+          bestPossibleWin = winCandidate;
+        }
+      }
+    }
+
+    if (bestStake != null &&
+        bestPossibleWin != null) {
+      final double tolerance = math.max(
+        bestPossibleWin * 0.03,
+        20,
+      );
+
+      if (bestDifference <= tolerance) {
+        resolvedStake = bestStake;
+        resolvedPossibleWin = bestPossibleWin;
+      }
+    }
+
+    if (resolvedStake != null &&
+        resolvedPossibleWin == null) {
+      resolvedPossibleWin = double.parse(
+        (resolvedStake * totalOdds)
+            .toStringAsFixed(0),
+      );
+    }
+
+    if (resolvedPossibleWin != null &&
+        resolvedStake == null) {
+      final double calculatedStake =
+          resolvedPossibleWin / totalOdds;
+
+      resolvedStake = _findNearestMoneyValue(
+        calculatedStake,
+        moneyValues,
+      );
+    }
+
+    return _MoneyResolution(
+      stake: resolvedStake,
+      possibleWin: resolvedPossibleWin,
+    );
+  }
+
+  double? _findNearestMoneyValue(
+    double target,
+    List<double> values,
+  ) {
+    if (values.isEmpty) {
+      return null;
+    }
+
+    double bestValue = values.first;
+    double bestDifference =
+        (bestValue - target).abs();
+
+    for (final double value in values.skip(1)) {
+      final double difference =
+          (value - target).abs();
+
+      if (difference < bestDifference) {
+        bestValue = value;
+        bestDifference = difference;
+      }
+    }
+
+    final double tolerance =
+        math.max(target * 0.10, 30);
+
+    if (bestDifference <= tolerance) {
+      return bestValue;
+    }
+
+    return null;
+  }
+
   // =========================================================
-  // SZELVÉNYSZÁM ÉS DÁTUM
+  // SZELVÉNYSZÁM
   // =========================================================
 
   String? _detectBetslipNumber(
     List<String> lines,
   ) {
-    final int labelIndex =
-        _findLabelIndex(
+    final int labelIndex = _findLabelIndex(
       lines,
       const <String>[
         'szelveny szama',
@@ -1397,29 +1400,76 @@ class BetslipParserV5Service {
       ],
     );
 
+    if (labelIndex >= 0) {
+      final int end =
+          math.min(lines.length - 1, labelIndex + 8);
+
+      final List<_TextCandidate> nearby =
+          <_TextCandidate>[];
+
+      for (int index = labelIndex;
+          index <= end;
+          index++) {
+        final String line = lines[index];
+
+        final Iterable<RegExpMatch> matches =
+            RegExp(
+          r'(?<!\d)(0\d{6,7})(?!\d)',
+        ).allMatches(line);
+
+        for (final RegExpMatch match in matches) {
+          final String value = match.group(1) ?? '';
+
+          if (value.isEmpty) {
+            continue;
+          }
+
+          nearby.add(
+            _TextCandidate(
+              value: value,
+              lineIndex: index,
+            ),
+          );
+        }
+      }
+
+      if (nearby.isNotEmpty) {
+        nearby.sort(
+          (
+            _TextCandidate first,
+            _TextCandidate second,
+          ) {
+            return first.lineIndex.compareTo(
+              second.lineIndex,
+            );
+          },
+        );
+
+        return nearby.first.value;
+      }
+    }
+
     final List<_TextCandidate> candidates =
         <_TextCandidate>[];
 
-    for (int index = 0;
-        index < lines.length;
-        index++) {
-      final String line =
-          lines[index];
+    for (int index = 0; index < lines.length; index++) {
+      final String line = lines[index];
 
-      if (_looksLikeDateLine(line) ||
-          _looksLikeMoneyLine(line) ||
+      if (_looksLikeMoneyLine(line) ||
           _looksLikeBarcodeLine(line) ||
           _looksLikeAddressLine(line)) {
         continue;
       }
 
-      for (final RegExpMatch match
-          in RegExp(r'\d+').allMatches(line)) {
-        final String value =
-            match.group(0) ?? '';
+      final Iterable<RegExpMatch> matches =
+          RegExp(
+        r'(?<!\d)(0?\d{6,7})(?!\d)',
+      ).allMatches(line);
 
-        if (value.length < 6 ||
-            value.length > 8) {
+      for (final RegExpMatch match in matches) {
+        final String value = match.group(1) ?? '';
+
+        if (value.isEmpty) {
           continue;
         }
 
@@ -1441,29 +1491,20 @@ class BetslipParserV5Service {
         _TextCandidate first,
         _TextCandidate second,
       ) {
-        final bool firstZero =
+        final bool firstStartsWithZero =
             first.value.startsWith('0');
 
-        final bool secondZero =
+        final bool secondStartsWithZero =
             second.value.startsWith('0');
 
-        if (firstZero && !secondZero) {
+        if (firstStartsWithZero &&
+            !secondStartsWithZero) {
           return -1;
         }
 
-        if (!firstZero && secondZero) {
+        if (!firstStartsWithZero &&
+            secondStartsWithZero) {
           return 1;
-        }
-
-        if (labelIndex >= 0) {
-          return (first.lineIndex -
-                  labelIndex)
-              .abs()
-              .compareTo(
-                (second.lineIndex -
-                        labelIndex)
-                    .abs(),
-              );
         }
 
         return first.lineIndex.compareTo(
@@ -1475,39 +1516,40 @@ class BetslipParserV5Service {
     return candidates.first.value;
   }
 
+  // =========================================================
+  // JÁTÉKBA KÜLDÉS IDŐPONTJA
+  // =========================================================
+
   DateTime? _detectSubmittedAt({
     required List<String> lines,
-    required List<_DetectedMatch> matches,
+    required List<_DetectedMatch> detectedMatches,
   }) {
-    final List<_DateCandidate> dates =
+    final List<_DateCandidate> dateCandidates =
         <_DateCandidate>[];
 
-    for (int index = 0;
-        index < lines.length;
-        index++) {
-      final DateTime? date =
-          _parseDateTime(lines[index]);
+    for (int index = 0; index < lines.length; index++) {
+      final List<DateTime> dates =
+          _parseAllDateTimes(lines[index]);
 
-      if (date == null ||
-          (date.hour == 0 &&
-              date.minute == 0)) {
-        continue;
+      for (final DateTime date in dates) {
+        if (date.hour == 0 && date.minute == 0) {
+          continue;
+        }
+
+        dateCandidates.add(
+          _DateCandidate(
+            value: date,
+            lineIndex: index,
+          ),
+        );
       }
-
-      dates.add(
-        _DateCandidate(
-          value: date,
-          lineIndex: index,
-        ),
-      );
     }
 
-    if (dates.isEmpty) {
+    if (dateCandidates.isEmpty) {
       return null;
     }
 
-    final int labelIndex =
-        _findLabelIndex(
+    final int labelIndex = _findLabelIndex(
       lines,
       const <String>[
         'jatekba kuldve',
@@ -1518,42 +1560,70 @@ class BetslipParserV5Service {
     );
 
     if (labelIndex >= 0) {
-      dates.sort(
-        (
-          _DateCandidate first,
-          _DateCandidate second,
-        ) {
-          return (first.lineIndex -
-                  labelIndex)
-              .abs()
-              .compareTo(
-                (second.lineIndex -
-                        labelIndex)
-                    .abs(),
-              );
+      final List<_DateCandidate> nearby =
+          dateCandidates.where(
+        (_DateCandidate candidate) {
+          return candidate.lineIndex >= labelIndex &&
+              candidate.lineIndex <= labelIndex + 10;
         },
-      );
+      ).toList();
 
-      return dates.first.value;
+      if (nearby.isNotEmpty) {
+        nearby.sort(
+          (
+            _DateCandidate first,
+            _DateCandidate second,
+          ) {
+            final bool firstHasMinute =
+                first.value.minute != 0;
+
+            final bool secondHasMinute =
+                second.value.minute != 0;
+
+            if (firstHasMinute && !secondHasMinute) {
+              return -1;
+            }
+
+            if (!firstHasMinute && secondHasMinute) {
+              return 1;
+            }
+
+            final int firstDistance =
+                (first.lineIndex - labelIndex).abs();
+
+            final int secondDistance =
+                (second.lineIndex - labelIndex).abs();
+
+            return firstDistance.compareTo(
+              secondDistance,
+            );
+          },
+        );
+
+        return nearby.first.value;
+      }
     }
 
-    final List<DateTime> matchDates =
-        matches
-            .map(
-              (_DetectedMatch match) =>
-                  _findDateInLines(
-                match.sourceLines,
-              ),
-            )
-            .whereType<DateTime>()
-            .toList();
+    final Set<String> matchDateKeys = <String>{};
+
+    for (final _DetectedMatch detectedMatch
+        in detectedMatches) {
+      for (final String sourceLine
+          in detectedMatch.sourceLines) {
+        final List<DateTime> dates =
+            _parseAllDateTimes(sourceLine);
+
+        for (final DateTime date in dates) {
+          matchDateKeys.add(_dateKey(date));
+        }
+      }
+    }
 
     final List<_DateCandidate> filtered =
-        dates.where(
+        dateCandidates.where(
       (_DateCandidate candidate) {
-        return !matchDates.any(
-          (DateTime matchDate) =>
-              matchDate == candidate.value,
+        return !matchDateKeys.contains(
+          _dateKey(candidate.value),
         );
       },
     ).toList();
@@ -1564,19 +1634,17 @@ class BetslipParserV5Service {
           _DateCandidate first,
           _DateCandidate second,
         ) {
-          final bool firstLikely =
+          final bool firstHasMinute =
               first.value.minute != 0;
 
-          final bool secondLikely =
+          final bool secondHasMinute =
               second.value.minute != 0;
 
-          if (firstLikely &&
-              !secondLikely) {
+          if (firstHasMinute && !secondHasMinute) {
             return -1;
           }
 
-          if (!firstLikely &&
-              secondLikely) {
+          if (!firstHasMinute && secondHasMinute) {
             return 1;
           }
 
@@ -1589,29 +1657,15 @@ class BetslipParserV5Service {
       return filtered.first.value;
     }
 
-    return dates.last.value;
+    return dateCandidates.last.value;
   }
 
-  DateTime? _findDateInLines(
-    List<String> lines,
-  ) {
-    for (final String line in lines) {
-      final DateTime? value =
-          _parseDateTime(line);
-
-      if (value != null) {
-        return value;
-      }
-    }
-
-    return null;
-  }
-
-  DateTime? _parseDateTime(
+  List<DateTime> _parseAllDateTimes(
     String text,
   ) {
-    final RegExp expression =
-        RegExp(
+    final List<DateTime> result = <DateTime>[];
+
+    final RegExp expression = RegExp(
       r'(20\d{2})[.,/\-]+'
       r'(\d{1,2})[.,/\-]+'
       r'(\d{1,2})'
@@ -1620,67 +1674,73 @@ class BetslipParserV5Service {
       r'(\d{2}))?',
     );
 
-    final RegExpMatch? match =
-        expression.firstMatch(text);
+    final Iterable<RegExpMatch> matches =
+        expression.allMatches(text);
 
-    if (match == null) {
-      return null;
+    for (final RegExpMatch match in matches) {
+      final int? year =
+          int.tryParse(match.group(1) ?? '');
+
+      final int? month =
+          int.tryParse(match.group(2) ?? '');
+
+      final int? day =
+          int.tryParse(match.group(3) ?? '');
+
+      final int hour =
+          int.tryParse(match.group(4) ?? '') ?? 0;
+
+      final int minute =
+          int.tryParse(match.group(5) ?? '') ?? 0;
+
+      if (year == null ||
+          month == null ||
+          day == null ||
+          month < 1 ||
+          month > 12 ||
+          day < 1 ||
+          day > 31 ||
+          hour < 0 ||
+          hour > 23 ||
+          minute < 0 ||
+          minute > 59) {
+        continue;
+      }
+
+      final DateTime value = DateTime(
+        year,
+        month,
+        day,
+        hour,
+        minute,
+      );
+
+      if (value.year == year &&
+          value.month == month &&
+          value.day == day) {
+        result.add(value);
+      }
     }
 
-    final int? year =
-        int.tryParse(match.group(1) ?? '');
-
-    final int? month =
-        int.tryParse(match.group(2) ?? '');
-
-    final int? day =
-        int.tryParse(match.group(3) ?? '');
-
-    final int hour =
-        int.tryParse(match.group(4) ?? '') ??
-            0;
-
-    final int minute =
-        int.tryParse(match.group(5) ?? '') ??
-            0;
-
-    if (year == null ||
-        month == null ||
-        day == null ||
-        month < 1 ||
-        month > 12 ||
-        day < 1 ||
-        day > 31 ||
-        hour < 0 ||
-        hour > 23 ||
-        minute < 0 ||
-        minute > 59) {
-      return null;
-    }
-
-    final DateTime value =
-        DateTime(
-      year,
-      month,
-      day,
-      hour,
-      minute,
-    );
-
-    if (value.year != year ||
-        value.month != month ||
-        value.day != day) {
-      return null;
-    }
-
-    return value;
+    return result;
   }
+
+  String _dateKey(DateTime value) {
+    return '${value.year}-'
+        '${value.month}-'
+        '${value.day}-'
+        '${value.hour}-'
+        '${value.minute}';
+  }
+
+  // =========================================================
+  // FOGADÁSOK SZÁMA
+  // =========================================================
 
   int? _detectPrintedMatchCount(
     List<String> lines,
   ) {
-    final int labelIndex =
-        _findLabelIndex(
+    final int labelIndex = _findLabelIndex(
       lines,
       const <String>[
         'fogadasszam',
@@ -1694,31 +1754,22 @@ class BetslipParserV5Service {
       return null;
     }
 
-    final List<int> values =
-        <int>[];
+    final List<int> values = <int>[];
 
     final int start =
-        math.max(0, labelIndex - 5);
+        math.max(0, labelIndex - 3);
 
     final int end =
-        math.min(
-      lines.length - 1,
-      labelIndex + 8,
-    );
+        math.min(lines.length - 1, labelIndex + 8);
 
-    for (int index = start;
-        index <= end;
-        index++) {
-      final String line =
-          lines[index];
+    for (int index = start; index <= end; index++) {
+      final String line = lines[index];
 
-      if (!RegExp(r'^\d{1,2}$')
-          .hasMatch(line)) {
+      if (!RegExp(r'^\d{1,2}$').hasMatch(line)) {
         continue;
       }
 
-      final int? value =
-          int.tryParse(line);
+      final int? value = int.tryParse(line);
 
       if (value != null &&
           value >= 1 &&
@@ -1737,13 +1788,11 @@ class BetslipParserV5Service {
   }
 
   // =========================================================
-  // MODELL ÉS ELLENŐRZÉS
+  // MODELLÉPÍTÉS
   // =========================================================
 
-  List<RecognizedMatch>
-      _buildRecognizedMatches({
-    required List<_DetectedMatch>
-        detectedMatches,
+  List<RecognizedMatch> _buildRecognizedMatches({
+    required List<_DetectedMatch> detectedMatches,
     required List<double> matchOdds,
   }) {
     final List<RecognizedMatch> result =
@@ -1766,8 +1815,7 @@ class BetslipParserV5Service {
         confidence += 15;
       }
 
-      if (detected.tip !=
-          'Ismeretlen tipp') {
+      if (detected.tip != 'Ismeretlen tipp') {
         confidence += 15;
       }
 
@@ -1782,16 +1830,18 @@ class BetslipParserV5Service {
           market: detected.market,
           tip: detected.tip,
           odds: odds,
-          confidence:
-              confidence.clamp(0, 100),
-          sourceLines:
-              detected.sourceLines,
+          confidence: confidence.clamp(0, 100),
+          sourceLines: detected.sourceLines,
         ),
       );
     }
 
     return result;
   }
+
+  // =========================================================
+  // MEGBÍZHATÓSÁG
+  // =========================================================
 
   int _calculateConfidence({
     required String rawText,
@@ -1811,9 +1861,7 @@ class BetslipParserV5Service {
 
     int score = 10;
 
-    if (looksLikeTippmixBetslip(
-      cleanedText,
-    )) {
+    if (looksLikeTippmixBetslip(cleanedText)) {
       score += 15;
     }
 
@@ -1837,8 +1885,7 @@ class BetslipParserV5Service {
       score += 10;
     }
 
-    if (matchCount != null &&
-        matchCount > 0) {
+    if (matchCount != null && matchCount > 0) {
       score += 10;
     }
 
@@ -1859,17 +1906,14 @@ class BetslipParserV5Service {
     if (stake != null &&
         totalOdds != null &&
         possibleWin != null) {
-      final double expected =
+      final double calculatedWin =
           stake * totalOdds;
 
       final double difference =
-          (expected - possibleWin).abs();
+          (calculatedWin - possibleWin).abs();
 
       final double tolerance =
-          math.max(
-        possibleWin * 0.05,
-        10,
-      );
+          math.max(possibleWin * 0.03, 10);
 
       if (difference <= tolerance) {
         score += 10;
@@ -1891,8 +1935,7 @@ class BetslipParserV5Service {
     required List<RecognizedMatch> matches,
     required int confidence,
   }) {
-    final List<String> warnings =
-        <String>[];
+    final List<String> warnings = <String>[];
 
     if (betslipNumber == null) {
       warnings.add(
@@ -1924,8 +1967,7 @@ class BetslipParserV5Service {
       );
     }
 
-    if (matchCount == null ||
-        matchCount <= 0) {
+    if (matchCount == null || matchCount <= 0) {
       warnings.add(
         'A fogadások számát nem sikerült felismerni.',
       );
@@ -1937,8 +1979,7 @@ class BetslipParserV5Service {
       );
     }
 
-    for (final RecognizedMatch match
-        in matches) {
+    for (final RecognizedMatch match in matches) {
       if (!match.hasOdds) {
         warnings.add(
           '${match.matchTitle}: az odds ellenőrzése szükséges.',
@@ -1961,17 +2002,14 @@ class BetslipParserV5Service {
     if (stake != null &&
         totalOdds != null &&
         possibleWin != null) {
-      final double calculated =
+      final double calculatedWin =
           stake * totalOdds;
 
       final double difference =
-          (calculated - possibleWin).abs();
+          (calculatedWin - possibleWin).abs();
 
       final double tolerance =
-          math.max(
-        possibleWin * 0.05,
-        10,
-      );
+          math.max(possibleWin * 0.03, 10);
 
       if (difference > tolerance) {
         warnings.add(
@@ -1992,20 +2030,16 @@ class BetslipParserV5Service {
   }
 
   // =========================================================
-  // ÁLTALÁNOS SEGÉDFÜGGVÉNYEK
+  // SEGÉDFÜGGVÉNYEK
   // =========================================================
 
   int _findLabelIndex(
     List<String> lines,
     List<String> labels,
   ) {
-    for (int index = 0;
-        index < lines.length;
-        index++) {
+    for (int index = 0; index < lines.length; index++) {
       final String normalized =
-          normalizeForSearch(
-        lines[index],
-      );
+          normalizeForSearch(lines[index]);
 
       for (final String label in labels) {
         if (normalized.contains(
@@ -2019,28 +2053,25 @@ class BetslipParserV5Service {
     return -1;
   }
 
-  bool _looksLikeDateLine(
-    String line,
-  ) {
+  bool _looksLikeDateLine(String line) {
     return RegExp(
-      r'20\d{2}[.,/\-]\d{1,2}[.,/\-]\d{1,2}',
+      r'20\d{2}[.,/\-]'
+      r'\d{1,2}[.,/\-]'
+      r'\d{1,2}',
     ).hasMatch(line);
   }
 
-  bool _looksLikeMoneyLine(
-    String line,
-  ) {
+  bool _looksLikeMoneyLine(String line) {
     return RegExp(
-      r'\b\d[\d .]*(?:[,.]\d{1,2})?\s*(?:,-\s*)?Ft\b',
+      r'\b\d[\d .]*'
+      r'(?:[,.]\d{1,2})?'
+      r'\s*(?:,-\s*)?Ft\b',
       caseSensitive: false,
     ).hasMatch(line);
   }
 
-  bool _looksLikeBarcodeLine(
-    String line,
-  ) {
-    final String digits =
-        line.replaceAll(
+  bool _looksLikeBarcodeLine(String line) {
+    final String digits = line.replaceAll(
       RegExp(r'[^0-9]'),
       '',
     );
@@ -2049,21 +2080,16 @@ class BetslipParserV5Service {
       return true;
     }
 
-    final int letters =
-        _countLetters(line);
+    final int letters = _countLetters(line);
 
-    return digits.length >= 9 &&
-        letters == 0;
+    return digits.length >= 9 && letters == 0;
   }
 
-  bool _looksLikeAddressLine(
-    String line,
-  ) {
+  bool _looksLikeAddressLine(String line) {
     final String normalized =
         normalizeForSearch(line);
 
-    const List<String> keywords =
-        <String>[
+    const List<String> keywords = <String>[
       'adoszam',
       'telefon',
       'budapest',
@@ -2081,14 +2107,11 @@ class BetslipParserV5Service {
     );
   }
 
-  bool _isMetadataLine(
-    String line,
-  ) {
+  bool _isMetadataLine(String line) {
     final String normalized =
         normalizeForSearch(line);
 
-    const List<String> keywords =
-        <String>[
+    const List<String> keywords = <String>[
       'szelveny',
       'jatekba kuldve',
       'ervenyesseg',
@@ -2112,11 +2135,10 @@ class BetslipParserV5Service {
     );
   }
 
-  int _countLetters(
-    String value,
-  ) {
+  int _countLetters(String value) {
     return RegExp(
-      r'[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű]',
+      r'[A-Za-zÁÉÍÓÖŐÚÜŰ'
+      r'áéíóöőúüű]',
     ).allMatches(value).length;
   }
 }
@@ -2184,5 +2206,15 @@ class _DateCandidate {
   const _DateCandidate({
     required this.value,
     required this.lineIndex,
+  });
+}
+
+class _MoneyResolution {
+  final double? stake;
+  final double? possibleWin;
+
+  const _MoneyResolution({
+    required this.stake,
+    required this.possibleWin,
   });
 }
