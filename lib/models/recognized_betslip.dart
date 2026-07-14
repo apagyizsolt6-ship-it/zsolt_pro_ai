@@ -1,8 +1,28 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.18.5
+// Version: v0.20.5
 // File: lib/models/recognized_betslip.dart
 // ===========================================
+
+/// A vonalkód és az OCR-felismerés
+/// összekapcsolásának aktuális állapota.
+enum BetslipIdentificationStatus {
+  /// Sem OCR-rel felismert szelvényszám,
+  /// sem beolvasott vonalkód nem áll rendelkezésre.
+  noIdentification,
+
+  /// Az OCR felismerte a szelvény adatait,
+  /// de vonalkód még nincs beolvasva.
+  ocrOnly,
+
+  /// A vonalkód beolvasása megtörtént,
+  /// de OCR-rel felismert szelvényszám még nincs.
+  barcodeOnly,
+
+  /// Az OCR-eredmény és a vonalkód is rendelkezésre áll,
+  /// ezért ugyanahhoz a felismeréshez vannak kapcsolva.
+  linked,
+}
 
 class RecognizedBetslip {
   final String rawText;
@@ -16,6 +36,19 @@ class RecognizedBetslip {
 
   final String? betslipNumber;
   final DateTime? submittedAt;
+
+  /// A Tippmix-szelvény kamerával beolvasott
+  /// vonalkódjának szöveges értéke.
+  final String? barcodeValue;
+
+  /// A beolvasott vonalkód formátuma.
+  ///
+  /// Példa:
+  /// `CODE 128`
+  final String? barcodeFormat;
+
+  /// A vonalkód beolvasásának időpontja.
+  final DateTime? barcodeScannedAt;
 
   final int confidence;
   final List<String> warnings;
@@ -34,6 +67,9 @@ class RecognizedBetslip {
     this.matchCount,
     this.betslipNumber,
     this.submittedAt,
+    this.barcodeValue,
+    this.barcodeFormat,
+    this.barcodeScannedAt,
   });
 
   bool get hasMatches {
@@ -61,12 +97,81 @@ class RecognizedBetslip {
     return submittedAt != null;
   }
 
+  bool get hasBarcode {
+    return barcodeValue != null &&
+        barcodeValue!.trim().isNotEmpty;
+  }
+
+  bool get hasBarcodeFormat {
+    return barcodeFormat != null &&
+        barcodeFormat!.trim().isNotEmpty;
+  }
+
+  bool get hasBarcodeScannedAt {
+    return barcodeScannedAt != null;
+  }
+
   bool get hasWarnings {
     return warnings.isNotEmpty;
   }
 
   bool get isReliable {
     return confidence >= 70;
+  }
+
+  /// Megadja, hogy a vonalkód és az OCR-adatok
+  /// milyen azonosítási állapotban vannak.
+  BetslipIdentificationStatus
+      get identificationStatus {
+    if (hasBarcode && hasBetslipNumber) {
+      return BetslipIdentificationStatus.linked;
+    }
+
+    if (hasBarcode) {
+      return BetslipIdentificationStatus.barcodeOnly;
+    }
+
+    if (hasBetslipNumber) {
+      return BetslipIdentificationStatus.ocrOnly;
+    }
+
+    return BetslipIdentificationStatus.noIdentification;
+  }
+
+  /// Felhasználóbarát magyar szöveg
+  /// az aktuális azonosítási állapothoz.
+  String get identificationStatusLabel {
+    switch (identificationStatus) {
+      case BetslipIdentificationStatus.linked:
+        return 'Vonalkód és OCR összekapcsolva';
+
+      case BetslipIdentificationStatus.barcodeOnly:
+        return 'Vonalkód beolvasva, OCR még nincs';
+
+      case BetslipIdentificationStatus.ocrOnly:
+        return 'OCR felismerve, vonalkód nincs';
+
+      case BetslipIdentificationStatus.noIdentification:
+        return 'Azonosítás még nem történt';
+    }
+  }
+
+  /// Rövidebb állapotszöveg olyan helyekhez,
+  /// ahol kevés hely áll rendelkezésre.
+  String get shortIdentificationStatusLabel {
+    switch (identificationStatus) {
+      case BetslipIdentificationStatus.linked:
+        return 'Összekapcsolva';
+
+      case BetslipIdentificationStatus.barcodeOnly:
+        return 'Csak vonalkód';
+
+      case BetslipIdentificationStatus.ocrOnly:
+        return 'Csak OCR';
+
+      case BetslipIdentificationStatus.noIdentification:
+        return 'Nincs azonosítás';
+    }
   }
 
   String get confidenceLabel {
@@ -93,6 +198,60 @@ class RecognizedBetslip {
     return stake! * totalOdds!;
   }
 
+  /// Új vonalkódot kapcsol a felismert szelvényhez.
+  RecognizedBetslip attachBarcode({
+    required String value,
+    String format = 'CODE 128',
+    DateTime? scannedAt,
+  }) {
+    final String cleanedValue =
+        value.trim();
+
+    if (cleanedValue.isEmpty) {
+      return this;
+    }
+
+    return RecognizedBetslip(
+      rawText: rawText,
+      cleanedText: cleanedText,
+      totalOdds: totalOdds,
+      stake: stake,
+      possibleWin: possibleWin,
+      matchCount: matchCount,
+      betslipNumber: betslipNumber,
+      submittedAt: submittedAt,
+      barcodeValue: cleanedValue,
+      barcodeFormat: format.trim().isEmpty
+          ? 'CODE 128'
+          : format.trim(),
+      barcodeScannedAt:
+          scannedAt ?? DateTime.now(),
+      confidence: confidence,
+      warnings: warnings,
+      matches: matches,
+    );
+  }
+
+  /// Eltávolítja a szelvényhez kapcsolt vonalkódot.
+  RecognizedBetslip removeBarcode() {
+    return RecognizedBetslip(
+      rawText: rawText,
+      cleanedText: cleanedText,
+      totalOdds: totalOdds,
+      stake: stake,
+      possibleWin: possibleWin,
+      matchCount: matchCount,
+      betslipNumber: betslipNumber,
+      submittedAt: submittedAt,
+      barcodeValue: null,
+      barcodeFormat: null,
+      barcodeScannedAt: null,
+      confidence: confidence,
+      warnings: warnings,
+      matches: matches,
+    );
+  }
+
   RecognizedBetslip copyWith({
     String? rawText,
     String? cleanedText,
@@ -102,12 +261,16 @@ class RecognizedBetslip {
     int? matchCount,
     String? betslipNumber,
     DateTime? submittedAt,
+    String? barcodeValue,
+    String? barcodeFormat,
+    DateTime? barcodeScannedAt,
     int? confidence,
     List<String>? warnings,
     List<RecognizedMatch>? matches,
   }) {
     return RecognizedBetslip(
-      rawText: rawText ?? this.rawText,
+      rawText:
+          rawText ?? this.rawText,
       cleanedText:
           cleanedText ?? this.cleanedText,
       totalOdds:
@@ -122,6 +285,13 @@ class RecognizedBetslip {
           betslipNumber ?? this.betslipNumber,
       submittedAt:
           submittedAt ?? this.submittedAt,
+      barcodeValue:
+          barcodeValue ?? this.barcodeValue,
+      barcodeFormat:
+          barcodeFormat ?? this.barcodeFormat,
+      barcodeScannedAt:
+          barcodeScannedAt ??
+              this.barcodeScannedAt,
       confidence:
           confidence ?? this.confidence,
       warnings:
@@ -135,6 +305,10 @@ class RecognizedBetslip {
   String toString() {
     return 'RecognizedBetslip('
         'betslipNumber: $betslipNumber, '
+        'barcodeValue: $barcodeValue, '
+        'barcodeFormat: $barcodeFormat, '
+        'identificationStatus: '
+        '${identificationStatus.name}, '
         'stake: $stake, '
         'totalOdds: $totalOdds, '
         'possibleWin: $possibleWin, '
@@ -178,7 +352,8 @@ class RecognizedMatch {
   }
 
   bool get hasOdds {
-    return odds != null && odds! > 1;
+    return odds != null &&
+        odds! > 1;
   }
 
   String get matchTitle {
