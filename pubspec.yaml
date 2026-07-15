@@ -22,7 +22,7 @@ dependencies:
   google_mlkit_text_recognition: ^0.16.0
 
   # Tippmix vonalkód- és QR-kód-beolvasás
-  mobile_scanner: ^7.2.0
+  mobile_scanner: 5.2.3
 
 dev_dependencies:
   flutter_test:
