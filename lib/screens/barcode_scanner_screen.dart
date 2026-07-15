@@ -65,7 +65,7 @@ class _BarcodeScannerScreenState
         BarcodeFormat.codabar,
         BarcodeFormat.ean13,
         BarcodeFormat.ean8,
-        BarcodeFormat.itf14,
+        BarcodeFormat.itf,
         BarcodeFormat.upcA,
         BarcodeFormat.upcE,
         BarcodeFormat.qrCode,
@@ -98,9 +98,7 @@ class _BarcodeScannerScreenState
   void didChangeAppLifecycleState(
     AppLifecycleState state,
   ) {
-    if (!_controller.value.hasCameraPermission) {
-      return;
-    }
+    
 
     switch (state) {
       case AppLifecycleState.detached:
@@ -172,9 +170,10 @@ class _BarcodeScannerScreenState
               controller: _controller,
               fit: BoxFit.cover,
               errorBuilder: (
-                BuildContext context,
-                MobileScannerException error,
-              ) {
+  BuildContext context,
+  Object error,
+  Widget? child,
+) {
                 return _buildCameraError(
                   error,
                 );
@@ -641,8 +640,8 @@ class _BarcodeScannerScreenState
   }
 
   Widget _buildCameraError(
-    MobileScannerException error,
-  ) {
+  Object error,
+)
     String title =
         'A kamera nem indítható';
 
@@ -650,19 +649,7 @@ class _BarcodeScannerScreenState
         'Ellenőrizd, hogy az alkalmazás '
         'megkapta-e a kameraengedélyt.';
 
-    if (error.errorCode ==
-        MobileScannerErrorCode.permissionDenied) {
-      title = 'Nincs kameraengedély';
-      message =
-          'Engedélyezd a kamera használatát '
-          'a telefon Beállítások menüjében.';
-    } else if (error.errorCode ==
-        MobileScannerErrorCode.unsupported) {
-      title = 'Nem támogatott kamera';
-      message =
-          'A készülék nem támogatja ezt '
-          'a vonalkódolvasási módot.';
-    }
+    
 
     return Container(
       color: Colors.black,
@@ -755,9 +742,7 @@ class _BarcodeScannerScreenState
 
     await _controller.stop();
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _isCameraRunning = false;
@@ -769,8 +754,7 @@ class _BarcodeScannerScreenState
     try {
       await _controller.toggleTorch();
 
-      if (!mounted) {
-        return;
+      if (!mounted) return;
       }
 
       setState(() {
@@ -797,9 +781,8 @@ class _BarcodeScannerScreenState
     try {
       await _controller.start();
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
+      
 
       setState(() {
         _isCameraRunning = true;
@@ -859,8 +842,7 @@ class _BarcodeScannerScreenState
       ),
     );
 
-    if (!mounted) {
-      return;
+    if (!mounted) return;
     }
 
     _showMessage(
@@ -922,7 +904,7 @@ class _BarcodeScannerScreenState
       case BarcodeFormat.ean8:
         return 'EAN-8';
 
-      case BarcodeFormat.itf14:
+      case BarcodeFormat.itf:
         return 'ITF-14';
 
       case BarcodeFormat.upcA:
