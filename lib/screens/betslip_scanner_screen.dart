@@ -14,7 +14,7 @@ import '../models/recognized_betslip.dart';
 import '../services/betslip_parser_v5_service.dart';
 import '../services/ocr_service.dart';
 import 'barcode_scanner_screen.dart';
-
+import '../services/ai_engine_v2_service.dart';
 class BetslipScannerScreen extends StatefulWidget {
   final String? initialBarcode;
 
@@ -36,13 +36,16 @@ class _BetslipScannerScreenState extends State<BetslipScannerScreen> {
 
   final BetslipParserV5Service _parserService =
       BetslipParserV5Service.instance;
-
+  final AiEngineV2Service _aiEngine = AiEngineV2Service.instance;
   XFile? _selectedImage;
   _ScannerSource? _selectedSource;
 
   OcrRecognitionResult? _ocrResult;
   RecognizedBetslip? _parsedBetslip;
-
+String? _aiSummary;
+double? _aiScore;
+String? _riskLevel;
+bool _isValueBet = false;
   String? _barcodeValue;
   String? _recognitionError;
 
