@@ -1,11 +1,11 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.21.5
+// Version: v0.21.6
 // File: lib/services/ai_engine_extension_service.dart
 // ===========================================
 
 import 'dart:async';
-import '../models/recognized_betslip.dart';
+import 'package:zsolt_pro_ai/models/recognized_betslip.dart';
 import 'sportsdb_search_service.dart';
 
 /// Kiegészítő AI szolgáltatás a Zsolt Pro AI rendszeréhez.
@@ -53,7 +53,7 @@ class AiEngineExtensionService {
       'totalMatches': betslip.matches.length,
       'successfullyAnalyzedCount': successfulMatchesCount,
       'matches': analyzedMatches,
-      'aiEngineVersion': 'v0.21.5',
+      'aiEngineVersion': 'v0.21.6',
     };
   }
 }
