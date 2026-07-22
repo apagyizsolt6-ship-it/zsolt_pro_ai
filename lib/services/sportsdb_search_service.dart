@@ -1,3 +1,5 @@
+// ignore_for_file: depend_on_referenced_packages
+
 // ===========================================
 // Zsolt Pro AI
 // Version: v0.21.1
