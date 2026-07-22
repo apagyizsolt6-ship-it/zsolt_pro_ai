@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.22.0
+// Version: v0.22.1
 // File: lib/services/ai_engine_extension_service.dart
 // ===========================================
 
@@ -30,10 +30,9 @@ class AiEngineExtensionService {
 
       if (homeId != null) {
         // Lekérjük az aktuális bajnokság adatait (pl. 4328 - Premier League)
-        // A teszt kedvéért egy fix top ligát nézünk, de az API-ból dinamikusan is jöhet
         final List<dynamic> table = await _searchService.getLeagueTable('4328', '2025-2026');
         
-        // Megkeressük a csapatunkat a tabellán, hogy leolvassuk a formáját (strForm: W-D-L-W)
+        // Megkeressük a csapatunkat a tabellán, hogy leolvassuk a formáját
         String teamForm = '';
         for (final team in table) {
           if (team['idTeam']?.toString() == homeId) {
@@ -45,16 +44,18 @@ class AiEngineExtensionService {
         // Elvégezzük a matematikai számításokat
         realProbability = _calculateRealProbability(teamForm);
         
-        // Példa odds: Ha a szelvényen nincs odds, egy 1.85-ös alapértékkel számolunk a teszthez
         double currentOdds = 1.85; 
         isValueBet = _checkIsValueBet(currentOdds, realProbability);
         
         if (isValueBet) valueBetsCount++;
       }
 
+      // Kijavított szoftveres string összefűzés (Dart interpolation szabvány)
+      final String percentageString = '${(realProbability * 100).toStringAsFixed(0)}%';
+
       analyzedMatches.add({
         'match': match,
-        'probability': (realProbability * 100).toStringAsFixed(0) + '%',
+        'probability': percentageString,
         'isValueBet': isValueBet,
         'recommendation': isValueBet ? 'ÉRTÉKES FOGADÁS (Value)' : 'Normál kockázat',
       });
