@@ -1,3 +1,5 @@
+// ignore_for_file: unused_field, prefer_final_fields, unused_element
+
 // ===========================================
 // Zsolt Pro AI
 // Version: v0.20.4
