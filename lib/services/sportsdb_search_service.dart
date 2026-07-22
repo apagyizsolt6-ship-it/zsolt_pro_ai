@@ -1,70 +1,55 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.21.0
+// Version: v0.21.1
 // File: lib/services/sportsdb_search_service.dart
 // ===========================================
 
 import 'dart:convert';
-import 'package:dio/dio.dart';
+import 'package:http/http.dart' as http;
 
 class SportsDbSearchService {
   SportsDbSearchService._privateConstructor();
   static final SportsDbSearchService instance = SportsDbSearchService._privateConstructor();
 
-  final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: 'https://thesportsdb.com',
-      headers: {
-        'X-API-KEY': '3', // Ingyenes fejlesztői kulcs
-        'Accept': 'application/json',
-      },
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-    ),
-  );
+  final String _baseUrl = 'https://thesportsdb.com';
+  final Map<String, String> _headers = {
+    'X-API-KEY': '3', // Ingyenes fejlesztői kulcs
+    'Accept': 'application/json',
+  };
 
   /// Megkeresi egy csapat egyedi azonosítóját (ID) a neve alapján.
-  /// Ha a magyar szelvényen pl. "Manc. United" van, ez a függvény 
-  /// megpróbálja intelligensen párosítani a hivatalos névvel.
   Future<String?> findTeamId(String ticketTeamName) async {
     try {
       final String cleanName = _normalizeTeamName(ticketTeamName);
       if (cleanName.isEmpty) return null;
 
-      // TheSportsDB V2 csapatkereső végpont: /search/teams.php?t=Csapatnév
-      final response = await _dio.get(
-        '/search/teams.php',
-        queryParameters: {'t': cleanName},
-      );
+      final Uri url = Uri.parse('$_baseUrl/search/teams.php?t=${Uri.encodeComponent(cleanName)}');
+      final response = await http.get(url, headers: _headers);
 
-      if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic>? teams = response.data['teams'];
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List<dynamic>? teams = data['teams'];
         if (teams != null && teams.isNotEmpty) {
-          // Visszaadjuk a legelső talált csapat egyedi ID-ját
           return teams.first['idTeam']?.toString();
         }
       }
     } catch (_) {
-      // Hálózati vagy parsing hiba esetén csendben null-t adunk vissza
+      // Hibakezelés csendben az app stabilitásáért
     }
     return null;
   }
   /// Lekéri egy adott bajnokság (pl. Premier League) aktuális tabelláját.
   Future<List<dynamic>> getLeagueTable(String leagueId, String season) async {
     try {
-      final response = await _dio.get(
-        '/livescore/table.php',
-        queryParameters: {
-          'l': leagueId,
-          's': season,
-        },
-      );
+      final Uri url = Uri.parse('$_baseUrl/livescore/table.php?l=$leagueId&s=${Uri.encodeComponent(season)}');
+      final response = await http.get(url, headers: _headers);
 
-      if (response.statusCode == 200 && response.data != null) {
-        return response.data['table'] ?? [];
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        return data['table'] ?? [];
       }
     } catch (_) {
-      // Hiba esetén üres listával térünk vissza, hogy ne omoljon össze az app
+      // Hiba esetén üres listával térünk vissza az app stabilitásáért
     }
     return [];
   }
