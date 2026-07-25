@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.4.2
+// Version: v0.4.3
 // File: lib/services/the_sports_db_statistics_service.dart
 // ===========================================
 
@@ -10,6 +10,14 @@ import 'package:http/http.dart' as http;
 import '../models/app_match.dart';
 import 'api_cache_service.dart';
 import 'api_rate_limiter.dart';
+
+class TheSportsDbStatisticsException implements Exception {
+  final String message;
+  const TheSportsDbStatisticsException(this.message);
+
+  @override
+  String toString() => 'TheSportsDbStatisticsException: $message';
+}
 
 class SportsDbStatisticsResult {
   final double averageGoals;
@@ -128,7 +136,6 @@ class TheSportsDbStatisticsService {
       TheSportsDbStatisticsService._internal();
 
   static const String _baseUrl = 'https://www.thesportsdb.com/api/v1/json';
-
   static const String _freeApiKey = '123';
 
   final ApiCacheService _cacheService = ApiCacheService.instance;
@@ -142,13 +149,15 @@ class TheSportsDbStatisticsService {
     return _freeApiKey;
   }
 
+  bool get usesFreeApiKey => apiKey == _freeApiKey;
+
   Future<SportsDbStatisticsResult> loadMatchStatistics({
     required AppMatch match,
-    int lastMatchesCount = 5,
-    int h2hCount = 5,
+    int formMatchCount = 5,
+    int h2hMatchCount = 5,
   }) async {
-    final int safeLastMatchesCount = lastMatchesCount.clamp(3, 10);
-    final int safeH2hCount = h2hCount.clamp(2, 10);
+    final int safeLastMatchesCount = formMatchCount.clamp(3, 10);
+    final int safeH2hCount = h2hMatchCount.clamp(2, 10);
 
     final DateTime matchDate = match.matchDate;
 
@@ -196,7 +205,7 @@ class TheSportsDbStatisticsService {
           .take(safeLastMatchesCount)
           .toList(growable: false);
 
-      // 1. DEDIKÁLT H2H API LEKÉRÉS
+      // DEDIKÁLT H2H KÉRÉS
       List<_SportsDbStatisticsEvent> h2hEvents =
           await _fetchDirectHeadToHeadEvents(
         homeTeamName: match.homeTeam,
@@ -205,7 +214,7 @@ class TheSportsDbStatisticsService {
         limit: safeH2hCount,
       );
 
-      // 2. FALLBACK H2H: Ha a dedikált API nem adott vissza semmit
+      // FALLBACK H2H
       if (h2hEvents.isEmpty) {
         h2hEvents = _findHeadToHeadEvents(
           homeEvents: rawHomeEvents,
@@ -240,24 +249,20 @@ class TheSportsDbStatisticsService {
       );
 
       final List<_SportsDbStatisticsEvent> homeVenueEvents = rawHomeEvents
-          .where((_SportsDbStatisticsEvent event) {
-            return _isTeamHome(
-              event: event,
-              targetTeamId: homeTeamId,
-              targetTeamName: match.homeTeam,
-            );
-          })
+          .where((event) => _isTeamHome(
+                event: event,
+                targetTeamId: homeTeamId,
+                targetTeamName: match.homeTeam,
+              ))
           .take(safeLastMatchesCount)
           .toList(growable: false);
 
       final List<_SportsDbStatisticsEvent> awayVenueEvents = rawAwayEvents
-          .where((_SportsDbStatisticsEvent event) {
-            return _isTeamAway(
-              event: event,
-              targetTeamId: awayTeamId,
-              targetTeamName: match.awayTeam,
-            );
-          })
+          .where((event) => _isTeamAway(
+                event: event,
+                targetTeamId: awayTeamId,
+                targetTeamName: match.awayTeam,
+              ))
           .take(safeLastMatchesCount)
           .toList(growable: false);
 
@@ -392,13 +397,12 @@ class TheSportsDbStatisticsService {
         diagnosticMessage: diagnosticMessage,
       );
     } catch (error) {
-      return SportsDbStatisticsResult.empty(
-        message: 'Hiba történt a statisztikák feldolgozása közben: $error',
+      throw TheSportsDbStatisticsException(
+        'Hiba történt a statisztikák feldolgozása közben: $error',
       );
     }
   }
 
-  /// Dedikált TheSportsDB H2H API lekérés kereső kifejezéssel
   Future<List<_SportsDbStatisticsEvent>> _fetchDirectHeadToHeadEvents({
     required String homeTeamName,
     required String awayTeamName,
@@ -434,12 +438,11 @@ class TheSportsDbStatisticsService {
       final List<_SportsDbStatisticsEvent> events = rawEvents
           .whereType<Map<String, dynamic>>()
           .map(_SportsDbStatisticsEvent.fromJson)
-          .where((_SportsDbStatisticsEvent event) {
-            return event.isSoccer &&
-                event.hasValidScore &&
-                event.isFinished &&
-                event.startDateTime.isBefore(matchDate);
-          })
+          .where((event) =>
+              event.isSoccer &&
+              event.hasValidScore &&
+              event.isFinished &&
+              event.startDateTime.isBefore(matchDate))
           .toList();
 
       events.sort((a, b) => b.startDateTime.compareTo(a.startDateTime));
@@ -533,12 +536,11 @@ class TheSportsDbStatisticsService {
       final List<_SportsDbStatisticsEvent> events = rawEvents
           .whereType<Map<String, dynamic>>()
           .map(_SportsDbStatisticsEvent.fromJson)
-          .where((_SportsDbStatisticsEvent event) {
-            return event.isSoccer &&
-                event.hasValidScore &&
-                event.isFinished &&
-                event.startDateTime.isBefore(matchDate);
-          })
+          .where((event) =>
+              event.isSoccer &&
+              event.hasValidScore &&
+              event.isFinished &&
+              event.startDateTime.isBefore(matchDate))
           .toList();
 
       events.sort((a, b) => b.startDateTime.compareTo(a.startDateTime));
@@ -620,17 +622,9 @@ class TheSportsDbStatisticsService {
       if (totalGoals > 2) over25Count++;
       if (totalGoals > 3) over35Count++;
 
-      if (teamScore > 0 && opponentScore > 0) {
-        bttsCount++;
-      }
-
-      if (opponentScore == 0) {
-        cleanSheetCount++;
-      }
-
-      if (teamScore == 0) {
-        failedToScoreCount++;
-      }
+      if (teamScore > 0 && opponentScore > 0) bttsCount++;
+      if (opponentScore == 0) cleanSheetCount++;
+      if (teamScore == 0) failedToScoreCount++;
 
       if (teamScore > opponentScore) {
         points += 3.0;
@@ -736,10 +730,7 @@ class TheSportsDbStatisticsService {
   }
 
   String _normalizeString(String input) {
-    return input
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]'), '')
-        .trim();
+    return input.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
   }
 
   double _calculateLeagueStrength(String leagueName) {
