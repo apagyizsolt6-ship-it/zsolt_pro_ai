@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.15.5
+// Version: v0.15.6
 // File: lib/services/the_sports_db_service.dart
 // ===========================================
 
@@ -107,13 +107,7 @@ class TheSportsDbService {
     final Uri uri = Uri.parse('$_baseUrl/$apiKey/eventsday.php')
         .replace(queryParameters: parameters);
 
-    // Dynamic cache TTL a dátum frissessége szerint
-    final Duration cacheTtl = _calculateDateCacheTtl(date);
-
-    final dynamic decoded = await _getJsonWithCacheAndRateLimit(
-      uri,
-      ttl: cacheTtl,
-    );
+    final dynamic decoded = await _getJsonWithCacheAndRateLimit(uri);
 
     if (decoded is! Map<String, dynamic>) {
       throw const TheSportsDbException(
@@ -240,10 +234,7 @@ class TheSportsDbService {
       queryParameters: <String, String>{'id': cleanId},
     );
 
-    final dynamic decoded = await _getJsonWithCacheAndRateLimit(
-      uri,
-      ttl: const Duration(hours: 6),
-    );
+    final dynamic decoded = await _getJsonWithCacheAndRateLimit(uri);
 
     if (decoded is! Map<String, dynamic>) {
       throw const TheSportsDbException(
@@ -277,10 +268,7 @@ class TheSportsDbService {
       queryParameters: <String, String>{'id': cleanId},
     );
 
-    final dynamic decoded = await _getJsonWithCacheAndRateLimit(
-      uri,
-      ttl: const Duration(days: 7),
-    );
+    final dynamic decoded = await _getJsonWithCacheAndRateLimit(uri);
 
     if (decoded is! Map<String, dynamic>) {
       throw const TheSportsDbException(
@@ -314,10 +302,7 @@ class TheSportsDbService {
       queryParameters: <String, String>{'t': cleanName},
     );
 
-    final dynamic decoded = await _getJsonWithCacheAndRateLimit(
-      uri,
-      ttl: const Duration(days: 1),
-    );
+    final dynamic decoded = await _getJsonWithCacheAndRateLimit(uri);
 
     if (decoded is! Map<String, dynamic>) {
       throw const TheSportsDbException(
@@ -344,10 +329,7 @@ class TheSportsDbService {
 
     final Uri uri = Uri.parse('$_baseUrl/$apiKey/all_leagues.php');
 
-    final dynamic decoded = await _getJsonWithCacheAndRateLimit(
-      uri,
-      ttl: const Duration(days: 7),
-    );
+    final dynamic decoded = await _getJsonWithCacheAndRateLimit(uri);
 
     if (decoded is! Map<String, dynamic>) {
       throw const TheSportsDbException(
@@ -376,10 +358,7 @@ class TheSportsDbService {
   }
 
   /// Belső segédmetódus a Cache és a RateLimiter használatához
-  Future<dynamic> _getJsonWithCacheAndRateLimit(
-    Uri uri, {
-    required Duration ttl,
-  }) async {
+  Future<dynamic> _getJsonWithCacheAndRateLimit(Uri uri) async {
     final String cacheKey = uri.toString();
 
     // 1. Gyors ellenőrzés a gyorsítótárban
@@ -399,8 +378,8 @@ class TheSportsDbService {
       final dynamic networkResult = await _getJson(uri);
 
       if (networkResult != null) {
-        // Névvel ellátott 'expiry' paraméterként adjuk át
-        _cacheService.put(cacheKey, networkResult, expiry: ttl);
+        // Pontosan 2 paraméteres put elérése (key, value)
+        _cacheService.put(cacheKey, networkResult);
       }
 
       return networkResult;
@@ -422,7 +401,7 @@ class TheSportsDbService {
 
       request.headers.set(
         HttpHeaders.userAgentHeader,
-        'Zsolt-Pro-AI/0.15.5',
+        'Zsolt-Pro-AI/0.15.6',
       );
 
       final HttpClientResponse response =
@@ -476,20 +455,6 @@ class TheSportsDbService {
       );
     } finally {
       client.close(force: true);
-    }
-  }
-
-  Duration _calculateDateCacheTtl(DateTime date) {
-    final DateTime now = DateTime.now();
-    final DateTime today = DateTime(now.year, now.month, now.day);
-    final DateTime targetDate = DateTime(date.year, date.month, date.day);
-
-    if (targetDate.isBefore(today)) {
-      return const Duration(days: 7);
-    } else if (targetDate.isAtSameMomentAs(today)) {
-      return const Duration(minutes: 15);
-    } else {
-      return const Duration(hours: 4);
     }
   }
 
