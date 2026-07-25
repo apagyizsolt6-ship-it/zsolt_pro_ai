@@ -1,968 +1,1092 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.4.3
+// Version: v0.17.0
 // File: lib/services/the_sports_db_statistics_service.dart
 // ===========================================
 
+import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'dart:io';
 
 import '../models/app_match.dart';
+import 'ai_engine_v2_service.dart';
 import 'api_cache_service.dart';
 import 'api_rate_limiter.dart';
 
-class TheSportsDbStatisticsException implements Exception {
-  final String message;
-  const TheSportsDbStatisticsException(this.message);
-
-  @override
-  String toString() => 'TheSportsDbStatisticsException: $message';
-}
-
-class SportsDbStatisticsResult {
-  final double averageGoals;
-  final double over15Percentage;
-  final double over25Percentage;
-  final double over35Percentage;
-  final double bttsPercentage;
-
-  final double homeScoredAverage;
-  final double homeConcededAverage;
-  final double awayScoredAverage;
-  final double awayConcededAverage;
-
-  final double homeCleanSheetPercentage;
-  final double awayCleanSheetPercentage;
-  final double homeFailedToScorePercentage;
-  final double awayFailedToScorePercentage;
-
-  final double homeFormPercentage;
-  final double awayFormPercentage;
-  final List<String> homeFormSequence;
-  final List<String> awayFormSequence;
-
-  final List<String> homeVenueFormSequence;
-  final List<String> awayVenueFormSequence;
-
-  final int sampleSize;
-  final int homeSampleSize;
-  final int awaySampleSize;
-
-  final int h2hCount;
-  final List<String> h2hResults;
-
-  final double leagueStrength;
-  final double dataQualityBonus;
-
-  final double reliability;
-  final String dataQualityLabel;
-  final String diagnosticMessage;
-
-  const SportsDbStatisticsResult({
-    required this.averageGoals,
-    required this.over15Percentage,
-    required this.over25Percentage,
-    required this.over35Percentage,
-    required this.bttsPercentage,
-    required this.homeScoredAverage,
-    required this.homeConcededAverage,
-    required this.awayScoredAverage,
-    required this.awayConcededAverage,
-    required this.homeCleanSheetPercentage,
-    required this.awayCleanSheetPercentage,
-    required this.homeFailedToScorePercentage,
-    required this.awayFailedToScorePercentage,
-    required this.homeFormPercentage,
-    required this.awayFormPercentage,
-    required this.homeFormSequence,
-    required this.awayFormSequence,
-    required this.homeVenueFormSequence,
-    required this.awayVenueFormSequence,
-    required this.sampleSize,
-    required this.homeSampleSize,
-    required this.awaySampleSize,
-    required this.h2hCount,
-    required this.h2hResults,
-    required this.leagueStrength,
-    required this.dataQualityBonus,
-    required this.reliability,
-    required this.dataQualityLabel,
-    required this.diagnosticMessage,
-  });
-
-  factory SportsDbStatisticsResult.empty({
-    String message = 'Nincs elérhető statisztikai adat.',
-  }) {
-    return SportsDbStatisticsResult(
-      averageGoals: 0.0,
-      over15Percentage: 0.0,
-      over25Percentage: 0.0,
-      over35Percentage: 0.0,
-      bttsPercentage: 0.0,
-      homeScoredAverage: 0.0,
-      homeConcededAverage: 0.0,
-      awayScoredAverage: 0.0,
-      awayConcededAverage: 0.0,
-      homeCleanSheetPercentage: 0.0,
-      awayCleanSheetPercentage: 0.0,
-      homeFailedToScorePercentage: 0.0,
-      awayFailedToScorePercentage: 0.0,
-      homeFormPercentage: 0.0,
-      awayFormPercentage: 0.0,
-      homeFormSequence: const <String>[],
-      awayFormSequence: const <String>[],
-      homeVenueFormSequence: const <String>[],
-      awayVenueFormSequence: const <String>[],
-      sampleSize: 0,
-      homeSampleSize: 0,
-      awaySampleSize: 0,
-      h2hCount: 0,
-      h2hResults: const <String>[],
-      leagueStrength: 50.0,
-      dataQualityBonus: 0.0,
-      reliability: 0.0,
-      dataQualityLabel: 'Nincs adat',
-      diagnosticMessage: message,
-    );
-  }
-
-  bool get hasEnoughData => sampleSize >= 4;
-}
-
+/// TheSportsDB-alapú mérkőzés-statisztikai szolgáltatás.
 class TheSportsDbStatisticsService {
-  TheSportsDbStatisticsService._internal();
+  TheSportsDbStatisticsService._();
 
   static final TheSportsDbStatisticsService instance =
-      TheSportsDbStatisticsService._internal();
+      TheSportsDbStatisticsService._();
 
   static const String _baseUrl = 'https://www.thesportsdb.com/api/v1/json';
+
+  static const String _environmentApiKey = String.fromEnvironment(
+    'THESPORTSDB_API_KEY',
+    defaultValue: String.fromEnvironment('THE_SPORTS_DB_API_KEY'),
+  );
+
   static const String _freeApiKey = '123';
+
+  static const Duration _connectionTimeout = Duration(seconds: 20);
+  static const Duration _responseTimeout = Duration(seconds: 30);
 
   final ApiCacheService _cacheService = ApiCacheService.instance;
   final ApiRateLimiter _rateLimiter = ApiRateLimiter.instance;
 
   String get apiKey {
-    const String envKey = String.fromEnvironment('THESPORTSDB_API_KEY');
-    if (envKey.trim().isNotEmpty) {
-      return envKey.trim();
+    final String configuredKey = _environmentApiKey.trim();
+
+    if (configuredKey.isNotEmpty) {
+      return configuredKey;
     }
+
     return _freeApiKey;
   }
 
-  bool get usesFreeApiKey => apiKey == _freeApiKey;
+  bool get hasApiKey {
+    return apiKey.trim().isNotEmpty;
+  }
 
-  Future<SportsDbStatisticsResult> loadMatchStatistics({
-    required AppMatch match,
+  bool get usesFreeApiKey {
+    return apiKey == _freeApiKey;
+  }
+
+  String get planLabel {
+    return usesFreeApiKey
+        ? 'Ingyenes TheSportsDB-kulcs'
+        : 'Saját TheSportsDB-kulcs';
+  }
+
+  /// Teljes AI-statisztikai csomag lekérése egy TheSportsDB-meccshez.
+  Future<AiMatchStatistics> loadMatchStatistics(
+    AppMatch match, {
     int formMatchCount = 5,
-    int h2hMatchCount = 5,
+    int h2hMatchCount = 8,
   }) async {
-    final int safeLastMatchesCount = formMatchCount.clamp(3, 10);
-    final int safeH2hCount = h2hMatchCount.clamp(2, 10);
+    _ensureApiKey();
 
-    final DateTime matchDate = match.matchDate;
-
-    try {
-      final _SportsDbTeamLookup homeTeam = await _findTeam(
-        teamName: match.homeTeam,
-        leagueName: match.league,
+    if (!match.isTheSportsDbMatch) {
+      throw const TheSportsDbStatisticsException(
+        'Ehhez a mérkőzéshez nincs TheSportsDB statisztikai adatforrás.',
       );
+    }
 
-      final _SportsDbTeamLookup awayTeam = await _findTeam(
-        teamName: match.awayTeam,
-        leagueName: match.league,
+    if (!match.hasTeamIds) {
+      throw const TheSportsDbStatisticsException(
+        'A TheSportsDB csapatazonosítók hiányoznak.',
       );
+    }
 
-      if (!homeTeam.hasId && !awayTeam.hasId) {
-        return SportsDbStatisticsResult.empty(
-          message: 'Egyik csapat sem azonosítható a TheSportsDB adatbázisában.',
-        );
-      }
+    final String homeTeamId = match.homeTeamId.trim();
+    final String awayTeamId = match.awayTeamId.trim();
 
-      final String? homeTeamId = homeTeam.id;
-      final String? awayTeamId = awayTeam.id;
-
-      final List<_SportsDbStatisticsEvent> rawHomeEvents = homeTeamId != null
-          ? await _fetchLastEventsForTeam(
-              teamId: homeTeamId,
-              matchDate: matchDate,
-              limit: safeLastMatchesCount * 3,
-            )
-          : <_SportsDbStatisticsEvent>[];
-
-      final List<_SportsDbStatisticsEvent> rawAwayEvents = awayTeamId != null
-          ? await _fetchLastEventsForTeam(
-              teamId: awayTeamId,
-              matchDate: matchDate,
-              limit: safeLastMatchesCount * 3,
-            )
-          : <_SportsDbStatisticsEvent>[];
-
-      final List<_SportsDbStatisticsEvent> homeLastEvents = rawHomeEvents
-          .take(safeLastMatchesCount)
-          .toList(growable: false);
-
-      final List<_SportsDbStatisticsEvent> awayLastEvents = rawAwayEvents
-          .take(safeLastMatchesCount)
-          .toList(growable: false);
-
-      // DEDIKÁLT H2H KÉRÉS
-      List<_SportsDbStatisticsEvent> h2hEvents =
-          await _fetchDirectHeadToHeadEvents(
-        homeTeamName: match.homeTeam,
-        awayTeamName: match.awayTeam,
-        matchDate: matchDate,
-        limit: safeH2hCount,
+    if (homeTeamId.isEmpty || awayTeamId.isEmpty) {
+      throw const TheSportsDbStatisticsException(
+        'A TheSportsDB csapatazonosítók érvénytelenek.',
       );
+    }
 
-      // FALLBACK H2H
-      if (h2hEvents.isEmpty) {
-        h2hEvents = _findHeadToHeadEvents(
-          homeEvents: rawHomeEvents,
-          awayEvents: rawAwayEvents,
-          homeTeamId: homeTeamId,
-          awayTeamId: awayTeamId,
-          matchDate: matchDate,
-          limit: safeH2hCount,
-        );
-      }
+    final int safeFormCount = formMatchCount.clamp(1, 10);
+    final int safeH2hCount = h2hMatchCount.clamp(1, 20);
 
-      final int homeSampleSize = homeLastEvents.length;
-      final int awaySampleSize = awayLastEvents.length;
-      final int sampleSize = homeSampleSize + awaySampleSize;
+    final List<dynamic> responses = await Future.wait<dynamic>(
+      <Future<dynamic>>[
+        _fetchLastTeamEvents(teamId: homeTeamId),
+        _fetchLastTeamEvents(teamId: awayTeamId),
+      ],
+    );
 
-      if (sampleSize == 0) {
-        return SportsDbStatisticsResult.empty(
-          message: 'A csapatokhoz nem találhatók befejezett korábbi mérkőzések.',
-        );
-      }
+    final List<_SportsDbStatisticsEvent> rawHomeEvents =
+        responses[0] as List<_SportsDbStatisticsEvent>;
 
-      final _TeamStats homeStats = _calculateTeamStats(
-        events: homeLastEvents,
-        targetTeamId: homeTeamId,
-        targetTeamName: match.homeTeam,
-      );
+    final List<_SportsDbStatisticsEvent> rawAwayEvents =
+        responses[1] as List<_SportsDbStatisticsEvent>;
 
-      final _TeamStats awayStats = _calculateTeamStats(
-        events: awayLastEvents,
-        targetTeamId: awayTeamId,
-        targetTeamName: match.awayTeam,
-      );
+    final DateTime matchDate = DateTime(
+      match.matchDate.year,
+      match.matchDate.month,
+      match.matchDate.day,
+    );
 
-      final List<_SportsDbStatisticsEvent> homeVenueEvents = rawHomeEvents
-          .where((event) => _isTeamHome(
-                event: event,
-                targetTeamId: homeTeamId,
-                targetTeamName: match.homeTeam,
-              ))
-          .take(safeLastMatchesCount)
-          .toList(growable: false);
+    final List<_SportsDbStatisticsEvent> homeEvents =
+        _finishedEventsBeforeDate(
+      events: rawHomeEvents,
+      date: matchDate,
+    ).take(safeFormCount).toList(growable: false);
 
-      final List<_SportsDbStatisticsEvent> awayVenueEvents = rawAwayEvents
-          .where((event) => _isTeamAway(
-                event: event,
-                targetTeamId: awayTeamId,
-                targetTeamName: match.awayTeam,
-              ))
-          .take(safeLastMatchesCount)
-          .toList(growable: false);
+    final List<_SportsDbStatisticsEvent> awayEvents =
+        _finishedEventsBeforeDate(
+      events: rawAwayEvents,
+      date: matchDate,
+    ).take(safeFormCount).toList(growable: false);
 
-      final List<String> homeVenueFormSequence = _extractFormSequence(
+    final List<_SportsDbStatisticsEvent> homeVenueEvents =
+        homeEvents.where((_SportsDbStatisticsEvent event) {
+      return event.homeTeamId == homeTeamId;
+    }).toList(growable: false);
+
+    final List<_SportsDbStatisticsEvent> awayVenueEvents =
+        awayEvents.where((_SportsDbStatisticsEvent event) {
+      return event.awayTeamId == awayTeamId;
+    }).toList(growable: false);
+
+    final List<_SportsDbStatisticsEvent> h2hEvents = _findHeadToHeadEvents(
+      homeEvents: rawHomeEvents,
+      awayEvents: rawAwayEvents,
+      homeTeamId: homeTeamId,
+      awayTeamId: awayTeamId,
+      matchDate: matchDate,
+      limit: safeH2hCount,
+    );
+
+    final _TeamStatisticsSummary homeSummary = _buildTeamSummary(
+      events: homeEvents,
+      teamId: homeTeamId,
+    );
+
+    final _TeamStatisticsSummary awaySummary = _buildTeamSummary(
+      events: awayEvents,
+      teamId: awayTeamId,
+    );
+
+    final _GoalStatisticsSummary goalSummary = _buildGoalSummary(
+      <_SportsDbStatisticsEvent>[
+        ...homeEvents,
+        ...awayEvents,
+      ],
+    );
+
+    final _HeadToHeadSummary h2hSummary = _buildHeadToHeadSummary(
+      events: h2hEvents,
+      selectedHomeTeamId: homeTeamId,
+      selectedAwayTeamId: awayTeamId,
+    );
+
+    final double dataQualityBonus = _calculateDataQualityBonus(
+      homeEventCount: homeEvents.length,
+      awayEventCount: awayEvents.length,
+      h2hEventCount: h2hEvents.length,
+    );
+
+    return AiMatchStatistics(
+      homeForm: _buildForm(
+        events: homeEvents,
+        teamId: homeTeamId,
+      ),
+      awayForm: _buildForm(
+        events: awayEvents,
+        teamId: awayTeamId,
+      ),
+      homeVenueForm: _buildForm(
         events: homeVenueEvents,
-        targetTeamId: homeTeamId,
-        targetTeamName: match.homeTeam,
-      );
-
-      final List<String> awayVenueFormSequence = _extractFormSequence(
+        teamId: homeTeamId,
+      ),
+      awayVenueForm: _buildForm(
         events: awayVenueEvents,
-        targetTeamId: awayTeamId,
-        targetTeamName: match.awayTeam,
+        teamId: awayTeamId,
+      ),
+      homeGoalsScoredAverage: homeSummary.goalsScoredAverage,
+      homeGoalsConcededAverage: homeSummary.goalsConcededAverage,
+      awayGoalsScoredAverage: awaySummary.goalsScoredAverage,
+      awayGoalsConcededAverage: awaySummary.goalsConcededAverage,
+      homeCleanSheetPercent: homeSummary.cleanSheetPercent,
+      awayCleanSheetPercent: awaySummary.cleanSheetPercent,
+      homeFailedToScorePercent: homeSummary.failedToScorePercent,
+      awayFailedToScorePercent: awaySummary.failedToScorePercent,
+      over15Percent: goalSummary.over15Percent,
+      over25Percent: goalSummary.over25Percent,
+      over35Percent: goalSummary.over35Percent,
+      bttsPercent: goalSummary.bttsPercent,
+      h2hHomeWins: h2hSummary.homeWins,
+      h2hDraws: h2hSummary.draws,
+      h2hAwayWins: h2hSummary.awayWins,
+      h2hAverageGoals: h2hSummary.averageGoals,
+      h2hBttsPercent: h2hSummary.bttsPercent,
+      h2hOver25Percent: h2hSummary.over25Percent,
+      leagueAverageGoals: goalSummary.averageGoals,
+      leagueStrength: _estimateLeagueStrength(match.league),
+      homeAdvantage: 8,
+      homeSampleSize: homeEvents.length,
+      awaySampleSize: awayEvents.length,
+      dataQualityBonus: dataQualityBonus,
+    );
+  }
+
+  /// Kapcsolat és adatlekérés tesztelése.
+  Future<TheSportsDbStatisticsConnectionResult> testConnection({
+    String? teamId,
+  }) async {
+    try {
+      _ensureApiKey();
+
+      final String cleanTeamId = teamId?.trim() ?? '';
+
+      if (cleanTeamId.isEmpty) {
+        return TheSportsDbStatisticsConnectionResult(
+          success: true,
+          message: 'A TheSportsDB statisztikai szolgáltatás használatra kész. '
+              'Csomag: $planLabel.',
+          eventCount: 0,
+          usesFreeApiKey: usesFreeApiKey,
+        );
+      }
+
+      final List<_SportsDbStatisticsEvent> events =
+          await _fetchLastTeamEvents(teamId: cleanTeamId);
+
+      return TheSportsDbStatisticsConnectionResult(
+        success: true,
+        message: 'A TheSportsDB statisztikai kapcsolat működik. '
+            '${events.length} korábbi esemény érkezett.',
+        eventCount: events.length,
+        usesFreeApiKey: usesFreeApiKey,
       );
-
-      final int totalGoalsScored = homeStats.scored + awayStats.scored;
-      final int totalGoalsConceded = homeStats.conceded + awayStats.conceded;
-      final double averageGoals = sampleSize > 0
-          ? (totalGoalsScored + totalGoalsConceded) / (sampleSize * 2)
-          : 0.0;
-
-      final int combinedOver15 = homeStats.over15Count + awayStats.over15Count;
-      final int combinedOver25 = homeStats.over25Count + awayStats.over25Count;
-      final int combinedOver35 = homeStats.over35Count + awayStats.over35Count;
-      final int combinedBtts = homeStats.bttsCount + awayStats.bttsCount;
-
-      final double over15Percentage =
-          sampleSize > 0 ? (combinedOver15 / sampleSize) * 100.0 : 0.0;
-      final double over25Percentage =
-          sampleSize > 0 ? (combinedOver25 / sampleSize) * 100.0 : 0.0;
-      final double over35Percentage =
-          sampleSize > 0 ? (combinedOver35 / sampleSize) * 100.0 : 0.0;
-      final double bttsPercentage =
-          sampleSize > 0 ? (combinedBtts / sampleSize) * 100.0 : 0.0;
-
-      final double homeScoredAverage =
-          homeSampleSize > 0 ? homeStats.scored / homeSampleSize : 0.0;
-      final double homeConcededAverage =
-          homeSampleSize > 0 ? homeStats.conceded / homeSampleSize : 0.0;
-      final double awayScoredAverage =
-          awaySampleSize > 0 ? awayStats.scored / awaySampleSize : 0.0;
-      final double awayConcededAverage =
-          awaySampleSize > 0 ? awayStats.conceded / awaySampleSize : 0.0;
-
-      final double homeCleanSheetPercentage = homeSampleSize > 0
-          ? (homeStats.cleanSheetCount / homeSampleSize) * 100.0
-          : 0.0;
-      final double awayCleanSheetPercentage = awaySampleSize > 0
-          ? (awayStats.cleanSheetCount / awaySampleSize) * 100.0
-          : 0.0;
-
-      final double homeFailedToScorePercentage = homeSampleSize > 0
-          ? (homeStats.failedToScoreCount / homeSampleSize) * 100.0
-          : 0.0;
-      final double awayFailedToScorePercentage = awaySampleSize > 0
-          ? (awayStats.failedToScoreCount / awaySampleSize) * 100.0
-          : 0.0;
-
-      final List<String> h2hResults = h2hEvents.map((event) {
-        final String home = event.homeTeam;
-        final String away = event.awayTeam;
-        final int? homeScore = event.homeScore;
-        final int? awayScore = event.awayScore;
-        return '$home $homeScore - $awayScore $away';
-      }).toList(growable: false);
-
-      final double leagueStrength = _calculateLeagueStrength(match.league);
-
-      final double dataQualityBonus = _calculateDataQualityBonus(
-        homeFound: homeTeam.hasId,
-        awayFound: awayTeam.hasId,
-        sampleSize: sampleSize,
-        h2hCount: h2hEvents.length,
-      );
-
-      final double reliability = _calculateReliability(
-        homeFound: homeTeam.hasId,
-        awayFound: awayTeam.hasId,
-        sampleSize: sampleSize,
-        h2hCount: h2hEvents.length,
-      );
-
-      final String dataQualityLabel = _buildDataQualityLabel(
-        reliability: reliability,
-        sampleSize: sampleSize,
-      );
-
-      final String diagnosticMessage = _buildDiagnosticMessage(
-        homeFound: homeTeam.hasId,
-        awayFound: awayTeam.hasId,
-        sampleSize: sampleSize,
-        h2hCount: h2hEvents.length,
-      );
-
-      return SportsDbStatisticsResult(
-        averageGoals: double.parse(averageGoals.toStringAsFixed(2)),
-        over15Percentage: double.parse(over15Percentage.toStringAsFixed(1)),
-        over25Percentage: double.parse(over25Percentage.toStringAsFixed(1)),
-        over35Percentage: double.parse(over35Percentage.toStringAsFixed(1)),
-        bttsPercentage: double.parse(bttsPercentage.toStringAsFixed(1)),
-        homeScoredAverage: double.parse(homeScoredAverage.toStringAsFixed(2)),
-        homeConcededAverage:
-            double.parse(homeConcededAverage.toStringAsFixed(2)),
-        awayScoredAverage: double.parse(awayScoredAverage.toStringAsFixed(2)),
-        awayConcededAverage:
-            double.parse(awayConcededAverage.toStringAsFixed(2)),
-        homeCleanSheetPercentage:
-            double.parse(homeCleanSheetPercentage.toStringAsFixed(1)),
-        awayCleanSheetPercentage:
-            double.parse(awayCleanSheetPercentage.toStringAsFixed(1)),
-        homeFailedToScorePercentage:
-            double.parse(homeFailedToScorePercentage.toStringAsFixed(1)),
-        awayFailedToScorePercentage:
-            double.parse(awayFailedToScorePercentage.toStringAsFixed(1)),
-        homeFormPercentage:
-            double.parse(homeStats.formPercentage.toStringAsFixed(1)),
-        awayFormPercentage:
-            double.parse(awayStats.formPercentage.toStringAsFixed(1)),
-        homeFormSequence: homeStats.formSequence,
-        awayFormSequence: awayStats.formSequence,
-        homeVenueFormSequence: homeVenueFormSequence,
-        awayVenueFormSequence: awayVenueFormSequence,
-        sampleSize: sampleSize,
-        homeSampleSize: homeSampleSize,
-        awaySampleSize: awaySampleSize,
-        h2hCount: h2hEvents.length,
-        h2hResults: h2hResults,
-        leagueStrength: double.parse(leagueStrength.toStringAsFixed(1)),
-        dataQualityBonus: double.parse(dataQualityBonus.toStringAsFixed(2)),
-        reliability: double.parse(reliability.toStringAsFixed(1)),
-        dataQualityLabel: dataQualityLabel,
-        diagnosticMessage: diagnosticMessage,
+    } on TheSportsDbStatisticsException catch (error) {
+      return TheSportsDbStatisticsConnectionResult(
+        success: false,
+        message: error.message,
+        statusCode: error.statusCode,
+        eventCount: 0,
+        usesFreeApiKey: usesFreeApiKey,
       );
     } catch (error) {
-      throw TheSportsDbStatisticsException(
-        'Hiba történt a statisztikák feldolgozása közben: $error',
+      return TheSportsDbStatisticsConnectionResult(
+        success: false,
+        message: 'Ismeretlen TheSportsDB statisztikai hiba: $error',
+        eventCount: 0,
+        usesFreeApiKey: usesFreeApiKey,
       );
     }
   }
 
-  Future<List<_SportsDbStatisticsEvent>> _fetchDirectHeadToHeadEvents({
-    required String homeTeamName,
-    required String awayTeamName,
-    required DateTime matchDate,
-    required int limit,
+  Future<List<_SportsDbStatisticsEvent>> _fetchLastTeamEvents({
+    required String teamId,
   }) async {
-    final String cleanHome = homeTeamName.trim();
-    final String cleanAway = awayTeamName.trim();
+    final String cleanTeamId = teamId.trim();
 
-    if (cleanHome.isEmpty || cleanAway.isEmpty) {
+    if (cleanTeamId.isEmpty) {
       return const <_SportsDbStatisticsEvent>[];
     }
 
-    final Uri uri =
-        Uri.parse('$_baseUrl/$apiKey/searcheventsvsevents.php').replace(
+    final Uri uri = Uri.parse('$_baseUrl/$apiKey/eventslast.php').replace(
       queryParameters: <String, String>{
-        'q': '$cleanHome vs $cleanAway',
+        'id': cleanTeamId,
       },
     );
 
-    try {
-      final dynamic decoded = await _getJsonWithCacheAndRateLimit(uri);
+    final dynamic decoded = await _getJsonWithCacheAndRateLimit(uri);
 
-      if (decoded is! Map<String, dynamic>) {
-        return const <_SportsDbStatisticsEvent>[];
-      }
-
-      final dynamic rawEvents = decoded['event'] ?? decoded['events'];
-      if (rawEvents is! List<dynamic>) {
-        return const <_SportsDbStatisticsEvent>[];
-      }
-
-      final List<_SportsDbStatisticsEvent> events = rawEvents
-          .whereType<Map<String, dynamic>>()
-          .map(_SportsDbStatisticsEvent.fromJson)
-          .where((event) =>
-              event.isSoccer &&
-              event.hasValidScore &&
-              event.isFinished &&
-              event.startDateTime.isBefore(matchDate))
-          .toList();
-
-      events.sort((a, b) => b.startDateTime.compareTo(a.startDateTime));
-      return events.take(limit).toList(growable: false);
-    } catch (_) {
-      return const <_SportsDbStatisticsEvent>[];
-    }
-  }
-
-  Future<_SportsDbTeamLookup> _findTeam({
-    required String teamName,
-    required String leagueName,
-  }) async {
-    final String cleanTeam = teamName.trim();
-    if (cleanTeam.isEmpty) {
-      return _SportsDbTeamLookup.empty();
-    }
-
-    final Uri uri = Uri.parse('$_baseUrl/$apiKey/searchteams.php').replace(
-      queryParameters: <String, String>{'t': cleanTeam},
-    );
-
-    try {
-      final dynamic decoded = await _getJsonWithCacheAndRateLimit(uri);
-
-      if (decoded is! Map<String, dynamic>) {
-        return _SportsDbTeamLookup.empty();
-      }
-
-      final dynamic rawTeams = decoded['teams'];
-      if (rawTeams is! List<dynamic> || rawTeams.isEmpty) {
-        return _SportsDbTeamLookup.empty();
-      }
-
-      final List<Map<String, dynamic>> teams =
-          rawTeams.whereType<Map<String, dynamic>>().toList();
-
-      for (final Map<String, dynamic> team in teams) {
-        final String? id = team['idTeam']?.toString();
-        final String? name = team['strTeam']?.toString();
-        final String? league = team['strLeague']?.toString();
-
-        if (id != null &&
-            name != null &&
-            _isSameTeamName(name, cleanTeam) &&
-            _isSameLeagueName(league, leagueName)) {
-          return _SportsDbTeamLookup(id: id, name: name);
-        }
-      }
-
-      for (final Map<String, dynamic> team in teams) {
-        final String? id = team['idTeam']?.toString();
-        final String? name = team['strTeam']?.toString();
-
-        if (id != null && name != null && _isSameTeamName(name, cleanTeam)) {
-          return _SportsDbTeamLookup(id: id, name: name);
-        }
-      }
-
-      final Map<String, dynamic> first = teams.first;
-      return _SportsDbTeamLookup(
-        id: first['idTeam']?.toString(),
-        name: first['strTeam']?.toString() ?? cleanTeam,
+    if (decoded is! Map<String, dynamic>) {
+      throw const TheSportsDbStatisticsException(
+        'A TheSportsDB korábbi eseményválasza hibás formátumú.',
       );
-    } catch (_) {
-      return _SportsDbTeamLookup.empty();
     }
-  }
 
-  Future<List<_SportsDbStatisticsEvent>> _fetchLastEventsForTeam({
-    required String teamId,
-    required DateTime matchDate,
-    required int limit,
-  }) async {
-    final Uri uri = Uri.parse('$_baseUrl/$apiKey/eventslast.php').replace(
-      queryParameters: <String, String>{'id': teamId},
-    );
+    final dynamic rawResults = decoded['results'];
 
-    try {
-      final dynamic decoded = await _getJsonWithCacheAndRateLimit(uri);
-
-      if (decoded is! Map<String, dynamic>) {
-        return const <_SportsDbStatisticsEvent>[];
-      }
-
-      final dynamic rawEvents = decoded['results'];
-      if (rawEvents is! List<dynamic>) {
-        return const <_SportsDbStatisticsEvent>[];
-      }
-
-      final List<_SportsDbStatisticsEvent> events = rawEvents
-          .whereType<Map<String, dynamic>>()
-          .map(_SportsDbStatisticsEvent.fromJson)
-          .where((event) =>
-              event.isSoccer &&
-              event.hasValidScore &&
-              event.isFinished &&
-              event.startDateTime.isBefore(matchDate))
-          .toList();
-
-      events.sort((a, b) => b.startDateTime.compareTo(a.startDateTime));
-      return events.take(limit).toList(growable: false);
-    } catch (_) {
+    if (rawResults == null) {
       return const <_SportsDbStatisticsEvent>[];
     }
+
+    if (rawResults is! List<dynamic>) {
+      throw const TheSportsDbStatisticsException(
+        'A TheSportsDB korábbi eseménylistája hibás formátumú.',
+      );
+    }
+
+    final List<_SportsDbStatisticsEvent> events = rawResults
+        .whereType<Map<String, dynamic>>()
+        .map(_SportsDbStatisticsEvent.fromJson)
+        .where((_SportsDbStatisticsEvent event) {
+          return event.isSoccer && event.hasTeamIds && event.hasValidScore;
+        })
+        .toList(growable: false);
+
+    final List<_SportsDbStatisticsEvent> sorted =
+        List<_SportsDbStatisticsEvent>.from(events);
+
+    sorted.sort((_SportsDbStatisticsEvent first, _SportsDbStatisticsEvent second) {
+      return second.startDateTime.compareTo(first.startDateTime);
+    });
+
+    return _removeDuplicateEvents(sorted);
+  }
+
+  /// Belső segédmetódus a Cache és a RateLimiter használatához
+  Future<dynamic> _getJsonWithCacheAndRateLimit(Uri uri) async {
+    final String cacheKey = uri.toString();
+
+    // 1. Gyors ellenőrzés a gyorsítótárban
+    final dynamic cachedResponse = _cacheService.get<dynamic>(cacheKey);
+    if (cachedResponse != null) {
+      return cachedResponse;
+    }
+
+    // 2. Kérés ütemezése a Rate Limiter execute metódusán keresztül
+    return await _rateLimiter.execute(() async {
+      final dynamic recheckedCache = _cacheService.get<dynamic>(cacheKey);
+      if (recheckedCache != null) {
+        return recheckedCache;
+      }
+
+      final dynamic networkResult = await _getJson(uri);
+
+      if (networkResult != null) {
+        _cacheService.put(cacheKey, networkResult);
+      }
+
+      return networkResult;
+    });
+  }
+
+  List<_SportsDbStatisticsEvent> _finishedEventsBeforeDate({
+    required List<_SportsDbStatisticsEvent> events,
+    required DateTime date,
+  }) {
+    return events.where((_SportsDbStatisticsEvent event) {
+      return event.isFinished &&
+          event.hasValidScore &&
+          event.startDateTime.isBefore(date);
+    }).toList(growable: false);
   }
 
   List<_SportsDbStatisticsEvent> _findHeadToHeadEvents({
     required List<_SportsDbStatisticsEvent> homeEvents,
     required List<_SportsDbStatisticsEvent> awayEvents,
-    required String? homeTeamId,
-    required String? awayTeamId,
+    required String homeTeamId,
+    required String awayTeamId,
     required DateTime matchDate,
     required int limit,
   }) {
-    final Map<String, _SportsDbStatisticsEvent> uniqueH2h =
+    final Map<String, _SportsDbStatisticsEvent> combined =
         <String, _SportsDbStatisticsEvent>{};
 
     for (final _SportsDbStatisticsEvent event in <_SportsDbStatisticsEvent>[
       ...homeEvents,
       ...awayEvents,
     ]) {
-      final bool isHomeMatch = _isTeamInEvent(
-        event: event,
-        teamId: homeTeamId,
-      );
-      final bool isAwayMatch = _isTeamInEvent(
-        event: event,
-        teamId: awayTeamId,
-      );
-
-      if (isHomeMatch &&
-          isAwayMatch &&
-          event.startDateTime.isBefore(matchDate)) {
-        uniqueH2h[event.id] = event;
+      if (!event.startDateTime.isBefore(matchDate)) {
+        continue;
       }
+
+      if (!event.hasValidScore || !event.isFinished) {
+        continue;
+      }
+
+      final bool correctTeams =
+          (event.homeTeamId == homeTeamId && event.awayTeamId == awayTeamId) ||
+              (event.homeTeamId == awayTeamId && event.awayTeamId == homeTeamId);
+
+      if (!correctTeams) {
+        continue;
+      }
+
+      combined[event.uniqueKey] = event;
     }
 
-    final List<_SportsDbStatisticsEvent> sorted = uniqueH2h.values.toList()
-      ..sort((a, b) => b.startDateTime.compareTo(a.startDateTime));
+    final List<_SportsDbStatisticsEvent> result = combined.values.toList();
 
-    return sorted.take(limit).toList(growable: false);
+    result.sort((_SportsDbStatisticsEvent first, _SportsDbStatisticsEvent second) {
+      return second.startDateTime.compareTo(first.startDateTime);
+    });
+
+    return result.take(limit).toList(growable: false);
   }
 
-  _TeamStats _calculateTeamStats({
+  List<AiMatchResult> _buildForm({
     required List<_SportsDbStatisticsEvent> events,
-    required String? targetTeamId,
-    required String targetTeamName,
+    required String teamId,
   }) {
-    int scored = 0;
-    int conceded = 0;
-    int over15Count = 0;
-    int over25Count = 0;
-    int over35Count = 0;
-    int bttsCount = 0;
-    int cleanSheetCount = 0;
-    int failedToScoreCount = 0;
+    return events.map((_SportsDbStatisticsEvent event) {
+      final int goalsFor = event.goalsForTeam(teamId);
+      final int goalsAgainst = event.goalsAgainstTeam(teamId);
 
-    double points = 0.0;
-    final List<String> formSequence = <String>[];
+      if (goalsFor > goalsAgainst) {
+        return AiMatchResult.win;
+      }
+
+      if (goalsFor == goalsAgainst) {
+        return AiMatchResult.draw;
+      }
+
+      return AiMatchResult.loss;
+    }).toList(growable: false);
+  }
+
+  _TeamStatisticsSummary _buildTeamSummary({
+    required List<_SportsDbStatisticsEvent> events,
+    required String teamId,
+  }) {
+    if (events.isEmpty) {
+      return const _TeamStatisticsSummary.empty();
+    }
+
+    int goalsScored = 0;
+    int goalsConceded = 0;
+    int cleanSheets = 0;
+    int failedToScore = 0;
+    int validEvents = 0;
 
     for (final _SportsDbStatisticsEvent event in events) {
-      final bool isHome = _isTeamHome(
-        event: event,
-        targetTeamId: targetTeamId,
-        targetTeamName: targetTeamName,
-      );
+      if (!event.containsTeam(teamId)) {
+        continue;
+      }
 
-      final int teamScore = isHome ? event.homeScore! : event.awayScore!;
-      final int opponentScore = isHome ? event.awayScore! : event.homeScore!;
-      final int totalGoals = teamScore + opponentScore;
+      final int scored = event.goalsForTeam(teamId);
+      final int conceded = event.goalsAgainstTeam(teamId);
 
-      scored += teamScore;
-      conceded += opponentScore;
+      goalsScored += scored;
+      goalsConceded += conceded;
+      validEvents += 1;
 
-      if (totalGoals > 1) over15Count++;
-      if (totalGoals > 2) over25Count++;
-      if (totalGoals > 3) over35Count++;
+      if (conceded == 0) {
+        cleanSheets += 1;
+      }
 
-      if (teamScore > 0 && opponentScore > 0) bttsCount++;
-      if (opponentScore == 0) cleanSheetCount++;
-      if (teamScore == 0) failedToScoreCount++;
-
-      if (teamScore > opponentScore) {
-        points += 3.0;
-        formSequence.add('G');
-      } else if (teamScore == opponentScore) {
-        points += 1.0;
-        formSequence.add('D');
-      } else {
-        formSequence.add('V');
+      if (scored == 0) {
+        failedToScore += 1;
       }
     }
 
-    final int maxPoints = events.length * 3;
-    final double formPercentage =
-        maxPoints > 0 ? (points / maxPoints) * 100.0 : 0.0;
+    if (validEvents == 0) {
+      return const _TeamStatisticsSummary.empty();
+    }
 
-    return _TeamStats(
-      scored: scored,
-      conceded: conceded,
-      over15Count: over15Count,
-      over25Count: over25Count,
-      over35Count: over35Count,
-      bttsCount: bttsCount,
-      cleanSheetCount: cleanSheetCount,
-      failedToScoreCount: failedToScoreCount,
-      formPercentage: formPercentage,
-      formSequence: formSequence,
+    return _TeamStatisticsSummary(
+      goalsScoredAverage: _roundToTwoDecimals(goalsScored / validEvents),
+      goalsConcededAverage: _roundToTwoDecimals(goalsConceded / validEvents),
+      cleanSheetPercent: _roundToTwoDecimals(cleanSheets / validEvents * 100),
+      failedToScorePercent:
+          _roundToTwoDecimals(failedToScore / validEvents * 100),
     );
   }
 
-  List<String> _extractFormSequence({
-    required List<_SportsDbStatisticsEvent> events,
-    required String? targetTeamId,
-    required String targetTeamName,
-  }) {
-    final List<String> form = <String>[];
+  _GoalStatisticsSummary _buildGoalSummary(
+    List<_SportsDbStatisticsEvent> events,
+  ) {
+    final List<_SportsDbStatisticsEvent> uniqueEvents =
+        _removeDuplicateEvents(
+      events.where((_SportsDbStatisticsEvent event) {
+        return event.hasValidScore && event.isFinished;
+      }).toList(),
+    );
 
-    for (final _SportsDbStatisticsEvent event in events) {
-      final bool isHome = _isTeamHome(
-        event: event,
-        targetTeamId: targetTeamId,
-        targetTeamName: targetTeamName,
-      );
+    if (uniqueEvents.isEmpty) {
+      return const _GoalStatisticsSummary.empty();
+    }
 
-      final int teamScore = isHome ? event.homeScore! : event.awayScore!;
-      final int opponentScore = isHome ? event.awayScore! : event.homeScore!;
+    int totalGoals = 0;
+    int over15 = 0;
+    int over25 = 0;
+    int over35 = 0;
+    int btts = 0;
 
-      if (teamScore > opponentScore) {
-        form.add('G');
-      } else if (teamScore == opponentScore) {
-        form.add('D');
-      } else {
-        form.add('V');
+    for (final _SportsDbStatisticsEvent event in uniqueEvents) {
+      final int matchGoals = event.homeGoals + event.awayGoals;
+
+      totalGoals += matchGoals;
+
+      if (matchGoals >= 2) {
+        over15 += 1;
+      }
+
+      if (matchGoals >= 3) {
+        over25 += 1;
+      }
+
+      if (matchGoals >= 4) {
+        over35 += 1;
+      }
+
+      if (event.homeGoals > 0 && event.awayGoals > 0) {
+        btts += 1;
       }
     }
 
-    return form;
+    final int count = uniqueEvents.length;
+
+    return _GoalStatisticsSummary(
+      averageGoals: _roundToTwoDecimals(totalGoals / count),
+      over15Percent: _roundToTwoDecimals(over15 / count * 100),
+      over25Percent: _roundToTwoDecimals(over25 / count * 100),
+      over35Percent: _roundToTwoDecimals(over35 / count * 100),
+      bttsPercent: _roundToTwoDecimals(btts / count * 100),
+    );
   }
 
-  bool _isTeamInEvent({
-    required _SportsDbStatisticsEvent event,
-    required String? teamId,
+  _HeadToHeadSummary _buildHeadToHeadSummary({
+    required List<_SportsDbStatisticsEvent> events,
+    required String selectedHomeTeamId,
+    required String selectedAwayTeamId,
   }) {
-    if (teamId != null && teamId.isNotEmpty) {
-      return event.homeTeamId == teamId || event.awayTeamId == teamId;
-    }
-    return false;
-  }
-
-  bool _isTeamHome({
-    required _SportsDbStatisticsEvent event,
-    required String? targetTeamId,
-    required String targetTeamName,
-  }) {
-    if (targetTeamId != null && targetTeamId.isNotEmpty) {
-      return event.homeTeamId == targetTeamId;
-    }
-    return _isSameTeamName(event.homeTeam, targetTeamName);
-  }
-
-  bool _isTeamAway({
-    required _SportsDbStatisticsEvent event,
-    required String? targetTeamId,
-    required String targetTeamName,
-  }) {
-    if (targetTeamId != null && targetTeamId.isNotEmpty) {
-      return event.awayTeamId == targetTeamId;
-    }
-    return _isSameTeamName(event.awayTeam, targetTeamName);
-  }
-
-  bool _isSameTeamName(String first, String second) {
-    final String cleanFirst = _normalizeString(first);
-    final String cleanSecond = _normalizeString(second);
-    return cleanFirst.contains(cleanSecond) || cleanSecond.contains(cleanFirst);
-  }
-
-  bool _isSameLeagueName(String? first, String second) {
-    if (first == null || first.trim().isEmpty) return false;
-    final String cleanFirst = _normalizeString(first);
-    final String cleanSecond = _normalizeString(second);
-    return cleanFirst.contains(cleanSecond) || cleanSecond.contains(cleanFirst);
-  }
-
-  String _normalizeString(String input) {
-    return input.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
-  }
-
-  double _calculateLeagueStrength(String leagueName) {
-    final String normalized = leagueName.toLowerCase();
-
-    if (normalized.contains('champions league') ||
-        normalized.contains('premier league') ||
-        normalized.contains('la liga') ||
-        normalized.contains('serie a') ||
-        normalized.contains('bundesliga')) {
-      return 95.0;
+    if (events.isEmpty) {
+      return const _HeadToHeadSummary.empty();
     }
 
-    if (normalized.contains('europa league') ||
-        normalized.contains('ligue 1') ||
-        normalized.contains('eredivisie') ||
-        normalized.contains('primeira liga')) {
-      return 88.0;
+    int homeWins = 0;
+    int draws = 0;
+    int awayWins = 0;
+    int totalGoals = 0;
+    int btts = 0;
+    int over25 = 0;
+    int validEvents = 0;
+
+    for (final _SportsDbStatisticsEvent event in events) {
+      if (!event.containsTeam(selectedHomeTeamId) ||
+          !event.containsTeam(selectedAwayTeamId)) {
+        continue;
+      }
+
+      final int selectedHomeGoals = event.goalsForTeam(selectedHomeTeamId);
+      final int selectedAwayGoals = event.goalsForTeam(selectedAwayTeamId);
+      final int matchGoals = event.homeGoals + event.awayGoals;
+
+      validEvents += 1;
+      totalGoals += matchGoals;
+
+      if (selectedHomeGoals > selectedAwayGoals) {
+        homeWins += 1;
+      } else if (selectedHomeGoals < selectedAwayGoals) {
+        awayWins += 1;
+      } else {
+        draws += 1;
+      }
+
+      if (event.homeGoals > 0 && event.awayGoals > 0) {
+        btts += 1;
+      }
+
+      if (matchGoals >= 3) {
+        over25 += 1;
+      }
     }
 
-    if (normalized.contains('hungarian nb i') ||
-        normalized.contains('nb i') ||
-        normalized.contains('otp bank liga')) {
-      return 78.0;
+    if (validEvents == 0) {
+      return const _HeadToHeadSummary.empty();
     }
 
-    return 70.0;
+    return _HeadToHeadSummary(
+      homeWins: homeWins,
+      draws: draws,
+      awayWins: awayWins,
+      averageGoals: _roundToTwoDecimals(totalGoals / validEvents),
+      bttsPercent: _roundToTwoDecimals(btts / validEvents * 100),
+      over25Percent: _roundToTwoDecimals(over25 / validEvents * 100),
+    );
+  }
+
+  List<_SportsDbStatisticsEvent> _removeDuplicateEvents(
+    List<_SportsDbStatisticsEvent> events,
+  ) {
+    final Map<String, _SportsDbStatisticsEvent> unique =
+        <String, _SportsDbStatisticsEvent>{};
+
+    for (final _SportsDbStatisticsEvent event in events) {
+      unique[event.uniqueKey] = event;
+    }
+
+    final List<_SportsDbStatisticsEvent> result = unique.values.toList();
+
+    result.sort((_SportsDbStatisticsEvent first, _SportsDbStatisticsEvent second) {
+      return second.startDateTime.compareTo(first.startDateTime);
+    });
+
+    return result;
   }
 
   double _calculateDataQualityBonus({
-    required bool homeFound,
-    required bool awayFound,
-    required int sampleSize,
-    required int h2hCount,
+    required int homeEventCount,
+    required int awayEventCount,
+    required int h2hEventCount,
   }) {
-    double bonus = 0.0;
-    if (homeFound && awayFound) bonus += 8.0;
-    if (sampleSize >= 10) bonus += 5.0;
-    if (h2hCount >= 3) bonus += 3.0;
-    return bonus;
+    double bonus = 0;
+
+    bonus += homeEventCount.clamp(0, 5) * 1.6;
+    bonus += awayEventCount.clamp(0, 5) * 1.6;
+    bonus += h2hEventCount.clamp(0, 5) * 1.2;
+
+    if (usesFreeApiKey) {
+      bonus *= 0.65;
+    }
+
+    return _roundToTwoDecimals(bonus.clamp(0, 24));
   }
 
-  double _calculateReliability({
-    required bool homeFound,
-    required bool awayFound,
-    required int sampleSize,
-    required int h2hCount,
-  }) {
-    double score = 40.0;
-    if (homeFound) score += 15.0;
-    if (awayFound) score += 15.0;
-    score += (sampleSize * 2.0).clamp(0.0, 20.0);
-    score += (h2hCount * 2.0).clamp(0.0, 10.0);
-    return score.clamp(0.0, 100.0);
+  double _estimateLeagueStrength(String league) {
+    final String normalized =
+        league.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+    if (normalized.contains('premierleague') ||
+        normalized.contains('laliga') ||
+        normalized.contains('bundesliga') ||
+        normalized.contains('seriea') ||
+        normalized.contains('ligue1') ||
+        normalized.contains('championsleague')) {
+      return 90;
+    }
+
+    if (normalized.contains('eredivisie') ||
+        normalized.contains('primeiraliga') ||
+        normalized.contains('europaleague') ||
+        normalized.contains('championship')) {
+      return 78;
+    }
+
+    if (normalized.contains('allsvenskan') ||
+        normalized.contains('superliga') ||
+        normalized.contains('eliteserien') ||
+        normalized.contains('mls')) {
+      return 68;
+    }
+
+    return 55;
   }
 
-  String _buildDataQualityLabel({
-    required double reliability,
-    required int sampleSize,
-  }) {
-    if (reliability >= 80.0 && sampleSize >= 8) {
-      return 'Kiváló adatminőség';
-    }
-    if (reliability >= 60.0 && sampleSize >= 5) {
-      return 'Jó adatminőség';
-    }
-    if (reliability >= 40.0) {
-      return 'Közepes adatminőség';
-    }
-    return 'Korlátozott adatminőség';
-  }
+  Future<dynamic> _getJson(Uri uri) async {
+    final HttpClient client = HttpClient();
+    client.connectionTimeout = _connectionTimeout;
 
-  String _buildDiagnosticMessage({
-    required bool homeFound,
-    required bool awayFound,
-    required int sampleSize,
-    required int h2hCount,
-  }) {
-    if (homeFound && awayFound && h2hCount > 0) {
-      return 'Teljes statisztikai minta és H2H adatok állnak rendelkezésre.';
-    }
-    if (homeFound && awayFound) {
-      return 'TheSportsDB: megfelelő csapatforma áll rendelkezésre, de kevés a H2H-adat.';
-    }
-    return 'Hiányos csapatprofilok miatt a statisztikai minta korlátozott.';
-  }
+    try {
+      final HttpClientRequest request =
+          await client.getUrl(uri).timeout(_connectionTimeout);
 
-  Future<dynamic> _getJsonWithCacheAndRateLimit(Uri uri) async {
-    final String urlString = uri.toString();
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        'application/json',
+      );
 
-    final dynamic cachedData = await _cacheService.get<dynamic>(urlString);
-    if (cachedData != null) {
-      return cachedData;
-    }
+      request.headers.set(
+        HttpHeaders.userAgentHeader,
+        'Zsolt-Pro-AI/0.17.0',
+      );
 
-    return await _rateLimiter.schedule(() async {
-      final http.Response response = await http.get(uri);
+      final HttpClientResponse response =
+          await request.close().timeout(_responseTimeout);
 
-      if (response.statusCode != 200) {
-        throw Exception(
-          'HTTP hiba: ${response.statusCode} - ${response.reasonPhrase}',
+      final String body = await response
+          .transform(utf8.decoder)
+          .join()
+          .timeout(_responseTimeout);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw TheSportsDbStatisticsException(
+          _buildHttpErrorMessage(
+            statusCode: response.statusCode,
+            body: body,
+          ),
+          statusCode: response.statusCode,
         );
       }
 
-      final dynamic decoded = jsonDecode(response.body);
-
-      await _cacheService.set(
-        urlString,
-        decoded,
-        ttl: const Duration(hours: 12),
+      try {
+        return jsonDecode(body);
+      } on FormatException catch (error) {
+        throw TheSportsDbStatisticsException(
+          'A TheSportsDB statisztikai válasza nem érvényes JSON. '
+          'Részlet: ${error.message}',
+        );
+      }
+    } on TimeoutException catch (error) {
+      throw TheSportsDbStatisticsException(
+        'A TheSportsDB statisztikai API nem válaszolt időben. '
+        'Részlet: ${error.message ?? 'időtúllépés'}',
       );
+    } on HandshakeException catch (error) {
+      throw TheSportsDbStatisticsException(
+        'TLS-kapcsolati hiba történt a TheSportsDB elérésekor. '
+        'Részlet: ${error.message}',
+      );
+    } on SocketException catch (error) {
+      throw TheSportsDbStatisticsException(_buildSocketErrorMessage(error));
+    } on HttpException catch (error) {
+      throw TheSportsDbStatisticsException(
+        'TheSportsDB HTTP-hiba: ${error.message}.',
+      );
+    } on TheSportsDbStatisticsException {
+      rethrow;
+    } catch (error) {
+      throw TheSportsDbStatisticsException(
+        'Váratlan TheSportsDB statisztikai hiba: $error',
+      );
+    } finally {
+      client.close(force: true);
+    }
+  }
 
-      return decoded;
-    });
+  String _buildHttpErrorMessage({
+    required int statusCode,
+    required String body,
+  }) {
+    String? apiMessage;
+
+    try {
+      final dynamic decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final dynamic message = decoded['message'] ?? decoded['error'];
+        if (message != null) {
+          apiMessage = message.toString().trim();
+        }
+      }
+    } catch (_) {}
+
+    if (apiMessage != null && apiMessage.isNotEmpty) {
+      return 'TheSportsDB statisztikai API-hiba (HTTP $statusCode): $apiMessage';
+    }
+
+    switch (statusCode) {
+      case 400:
+        return 'TheSportsDB statisztikai API-hiba (HTTP 400): hibás kérési paraméter.';
+      case 401:
+        return 'TheSportsDB statisztikai API-hiba (HTTP 401): hibás API-kulcs.';
+      case 403:
+        return 'TheSportsDB statisztikai API-hiba (HTTP 403): a jelenlegi csomag nem engedélyezi ezt az adatot.';
+      case 404:
+        return 'TheSportsDB statisztikai API-hiba (HTTP 404): a kért adat nem található.';
+      case 429:
+        return 'TheSportsDB statisztikai API-hiba (HTTP 429): túl sok kérés történt.';
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return 'TheSportsDB szerverhiba (HTTP $statusCode). Próbáld újra később.';
+      default:
+        return 'TheSportsDB statisztikai API-hiba: HTTP $statusCode.';
+    }
+  }
+
+  String _buildSocketErrorMessage(SocketException error) {
+    final String message = error.message.trim();
+    final String osMessage = error.osError?.message.trim() ?? '';
+    final String combined = '$message $osMessage'.toLowerCase();
+
+    if (combined.contains('failed host lookup') ||
+        combined.contains('name or service not known') ||
+        combined.contains('dns')) {
+      return 'DNS-hiba: a telefon nem tudta elérni a www.thesportsdb.com címet.';
+    }
+
+    if (combined.contains('network is unreachable') ||
+        combined.contains('no route to host')) {
+      return 'A hálózat nem érhető el. Ellenőrizd a mobilinternetet vagy a Wi-Fi-kapcsolatot.';
+    }
+
+    if (combined.contains('connection refused')) {
+      return 'A TheSportsDB szervere elutasította a kapcsolatot.';
+    }
+
+    if (combined.contains('timed out')) {
+      return 'A TheSportsDB statisztikai API nem válaszolt időben.';
+    }
+
+    return 'TheSportsDB hálózati hiba: ${error.message}.';
+  }
+
+  void _ensureApiKey() {
+    if (!hasApiKey) {
+      throw const TheSportsDbStatisticsException(
+        'A TheSportsDB API-kulcs nincs beállítva.',
+      );
+    }
+  }
+
+  double _roundToTwoDecimals(double value) {
+    return (value * 100).round() / 100;
   }
 }
 
-class _SportsDbTeamLookup {
-  final String? id;
-  final String name;
+class TheSportsDbStatisticsConnectionResult {
+  final bool success;
+  final String message;
+  final int eventCount;
+  final bool usesFreeApiKey;
+  final int? statusCode;
 
-  const _SportsDbTeamLookup({
-    required this.id,
-    required this.name,
+  const TheSportsDbStatisticsConnectionResult({
+    required this.success,
+    required this.message,
+    required this.eventCount,
+    required this.usesFreeApiKey,
+    this.statusCode,
+  });
+}
+
+class TheSportsDbStatisticsException implements Exception {
+  final String message;
+  final int? statusCode;
+
+  const TheSportsDbStatisticsException(
+    this.message, {
+    this.statusCode,
   });
 
-  factory _SportsDbTeamLookup.empty() {
-    return const _SportsDbTeamLookup(
-      id: null,
-      name: '',
-    );
-  }
-
-  bool get hasId => id != null && id!.isNotEmpty;
+  @override
+  String toString() => message;
 }
 
 class _SportsDbStatisticsEvent {
   final String id;
+  final String sport;
+
+  final String homeTeamId;
+  final String awayTeamId;
+
   final String homeTeam;
   final String awayTeam;
-  final String? homeTeamId;
-  final String? awayTeamId;
-  final int? homeScore;
-  final int? awayScore;
+
   final DateTime startDateTime;
-  final String? strSport;
-  final String? strStatus;
+
+  final int homeGoals;
+  final int awayGoals;
+
+  final String status;
 
   const _SportsDbStatisticsEvent({
     required this.id,
-    required this.homeTeam,
-    required this.awayTeam,
+    required this.sport,
     required this.homeTeamId,
     required this.awayTeamId,
-    required this.homeScore,
-    required this.awayScore,
+    required this.homeTeam,
+    required this.awayTeam,
     required this.startDateTime,
-    required this.strSport,
-    required this.strStatus,
+    required this.homeGoals,
+    required this.awayGoals,
+    required this.status,
   });
 
   factory _SportsDbStatisticsEvent.fromJson(Map<String, dynamic> json) {
-    final String id = json['idEvent']?.toString() ?? '';
-    final String homeTeam = json['strHomeTeam']?.toString() ?? '';
-    final String awayTeam = json['strAwayTeam']?.toString() ?? '';
-    final String? homeTeamId = json['idHomeTeam']?.toString();
-    final String? awayTeamId = json['idAwayTeam']?.toString();
-
-    final int? homeScore = int.tryParse(json['intHomeScore']?.toString() ?? '');
-    final int? awayScore = int.tryParse(json['intAwayScore']?.toString() ?? '');
-
-    final String dateStr = json['strTimestamp']?.toString() ??
-        json['dateEvent']?.toString() ??
-        '';
-
-    DateTime parsedDate = DateTime.fromMillisecondsSinceEpoch(0);
-    if (dateStr.isNotEmpty) {
-      parsedDate = DateTime.tryParse(dateStr) ?? parsedDate;
-    }
+    final String timestamp = _readString(json, <String>['strTimestamp']);
+    final String date =
+        _readString(json, <String>['dateEvent', 'dateEventLocal']);
+    final String time = _readString(json, <String>['strTime', 'strTimeLocal']);
 
     return _SportsDbStatisticsEvent(
-      id: id,
-      homeTeam: homeTeam,
-      awayTeam: awayTeam,
-      homeTeamId: homeTeamId,
-      awayTeamId: awayTeamId,
-      homeScore: homeScore,
-      awayScore: awayScore,
-      startDateTime: parsedDate,
-      strSport: json['strSport']?.toString(),
-      strStatus: json['strStatus']?.toString(),
+      id: _readString(json, <String>['idEvent']),
+      sport: _readString(json, <String>['strSport']),
+      homeTeamId: _readString(json, <String>['idHomeTeam']),
+      awayTeamId: _readString(json, <String>['idAwayTeam']),
+      homeTeam: _readString(json, <String>['strHomeTeam']),
+      awayTeam: _readString(json, <String>['strAwayTeam']),
+      startDateTime: _parseDateTime(
+        timestamp: timestamp,
+        date: date,
+        time: time,
+      ),
+      homeGoals: _readScore(json, 'intHomeScore'),
+      awayGoals: _readScore(json, 'intAwayScore'),
+      status: _readString(json, <String>['strStatus', 'strProgress']),
     );
   }
 
   bool get isSoccer {
-    if (strSport == null) return true;
-    return strSport!.toLowerCase() == 'soccer';
+    final String normalized = sport.trim().toLowerCase();
+    return normalized == 'soccer' || normalized == 'football';
   }
 
-  bool get hasValidScore => homeScore != null && awayScore != null;
+  bool get hasTeamIds {
+    return homeTeamId.trim().isNotEmpty && awayTeamId.trim().isNotEmpty;
+  }
+
+  bool get hasValidScore {
+    return homeGoals >= 0 && awayGoals >= 0;
+  }
 
   bool get isFinished {
-    if (strStatus == null) return true;
-    final String status = strStatus!.toLowerCase();
-    return status.contains('match finished') ||
-        status.contains('ft') ||
-        status == 'finished';
+    final String normalizedStatus = status.trim().toLowerCase();
+
+    if (normalizedStatus.isEmpty) {
+      return hasValidScore;
+    }
+
+    return normalizedStatus == 'ft' ||
+        normalizedStatus == 'aet' ||
+        normalizedStatus == 'after penalties' ||
+        normalizedStatus.contains('finished') ||
+        normalizedStatus.contains('match finished');
+  }
+
+  String get uniqueKey {
+    if (id.trim().isNotEmpty) {
+      return id.trim();
+    }
+
+    return '${homeTeamId.trim()}|${awayTeamId.trim()}|${startDateTime.toIso8601String()}';
+  }
+
+  bool containsTeam(String teamId) {
+    final String cleanId = teamId.trim();
+    return homeTeamId == cleanId || awayTeamId == cleanId;
+  }
+
+  int goalsForTeam(String teamId) {
+    final String cleanId = teamId.trim();
+
+    if (homeTeamId == cleanId) {
+      return homeGoals;
+    }
+
+    if (awayTeamId == cleanId) {
+      return awayGoals;
+    }
+
+    return 0;
+  }
+
+  int goalsAgainstTeam(String teamId) {
+    final String cleanId = teamId.trim();
+
+    if (homeTeamId == cleanId) {
+      return awayGoals;
+    }
+
+    if (awayTeamId == cleanId) {
+      return homeGoals;
+    }
+
+    return 0;
+  }
+
+  static String _readString(
+    Map<String, dynamic> json,
+    List<String> keys,
+  ) {
+    for (final String key in keys) {
+      final dynamic value = json[key];
+
+      if (value == null) {
+        continue;
+      }
+
+      final String result = value.toString().trim();
+
+      if (result.isNotEmpty && result.toLowerCase() != 'null') {
+        return result;
+      }
+    }
+
+    return '';
+  }
+
+  static int _readScore(
+    Map<String, dynamic> json,
+    String key,
+  ) {
+    final dynamic value = json[key];
+
+    if (value == null) {
+      return -1;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(value.toString().trim()) ?? -1;
+  }
+
+  static DateTime _parseDateTime({
+    required String timestamp,
+    required String date,
+    required String time,
+  }) {
+    final DateTime? parsedTimestamp = DateTime.tryParse(timestamp);
+
+    if (parsedTimestamp != null) {
+      return parsedTimestamp.toLocal();
+    }
+
+    String cleanTime = time.trim();
+
+    if (cleanTime.endsWith('Z')) {
+      cleanTime = cleanTime.substring(0, cleanTime.length - 1);
+    }
+
+    if (cleanTime.isEmpty) {
+      cleanTime = '12:00:00';
+    }
+
+    final DateTime? combined = DateTime.tryParse('${date.trim()}T$cleanTime');
+
+    if (combined != null) {
+      return combined.toLocal();
+    }
+
+    return DateTime.tryParse(date.trim()) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
   }
 }
 
-class _TeamStats {
-  final int scored;
-  final int conceded;
-  final int over15Count;
-  final int over25Count;
-  final int over35Count;
-  final int bttsCount;
-  final int cleanSheetCount;
-  final int failedToScoreCount;
-  final double formPercentage;
-  final List<String> formSequence;
+class _TeamStatisticsSummary {
+  final double goalsScoredAverage;
+  final double goalsConcededAverage;
+  final double cleanSheetPercent;
+  final double failedToScorePercent;
 
-  const _TeamStats({
-    required this.scored,
-    required this.conceded,
-    required this.over15Count,
-    required this.over25Count,
-    required this.over35Count,
-    required this.bttsCount,
-    required this.cleanSheetCount,
-    required this.failedToScoreCount,
-    required this.formPercentage,
-    required this.formSequence,
+  const _TeamStatisticsSummary({
+    required this.goalsScoredAverage,
+    required this.goalsConcededAverage,
+    required this.cleanSheetPercent,
+    required this.failedToScorePercent,
   });
+
+  const _TeamStatisticsSummary.empty()
+      : goalsScoredAverage = 0,
+        goalsConcededAverage = 0,
+        cleanSheetPercent = 0,
+        failedToScorePercent = 0;
+}
+
+class _GoalStatisticsSummary {
+  final double averageGoals;
+  final double over15Percent;
+  final double over25Percent;
+  final double over35Percent;
+  final double bttsPercent;
+
+  const _GoalStatisticsSummary({
+    required this.averageGoals,
+    required this.over15Percent,
+    required this.over25Percent,
+    required this.over35Percent,
+    required this.bttsPercent,
+  });
+
+  const _GoalStatisticsSummary.empty()
+      : averageGoals = 0,
+        over15Percent = 0,
+        over25Percent = 0,
+        over35Percent = 0,
+        bttsPercent = 0;
+}
+
+class _HeadToHeadSummary {
+  final int homeWins;
+  final int draws;
+  final int awayWins;
+
+  final double averageGoals;
+  final double bttsPercent;
+  final double over25Percent;
+
+  const _HeadToHeadSummary({
+    required this.homeWins,
+    required this.draws,
+    required this.awayWins,
+    required this.averageGoals,
+    required this.bttsPercent,
+    required this.over25Percent,
+  });
+
+  const _HeadToHeadSummary.empty()
+      : homeWins = 0,
+        draws = 0,
+        awayWins = 0,
+        averageGoals = 0,
+        bttsPercent = 0,
+        over25Percent = 0;
 }
