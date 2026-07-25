@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.15.2
+// Version: v0.15.3
 // File: lib/services/the_sports_db_service.dart
 // ===========================================
 
@@ -107,7 +107,7 @@ class TheSportsDbService {
     final Uri uri = Uri.parse('$_baseUrl/$apiKey/eventsday.php')
         .replace(queryParameters: parameters);
 
-    // Dynamic cache TTL a dátum stáltsága szerint
+    // Dynamic cache TTL a dátum frissessége szerint
     final Duration cacheTtl = _calculateDateCacheTtl(date);
 
     final dynamic decoded = await _getJsonWithCacheAndRateLimit(
@@ -388,8 +388,8 @@ class TheSportsDbService {
       return cachedResponse;
     }
 
-    // 2. Kérés ütemezése a Rate Limiter 'run' metódusán keresztül
-    return await _rateLimiter.run(() async {
+    // 2. Kérés ütemezése a Rate Limiter 'execute' metódusán keresztül
+    return await _rateLimiter.execute(() async {
       // Ismételt ellenőrzés a várakozási sor feloldása után
       final dynamic recheckedCache = _cacheService.get<dynamic>(cacheKey);
       if (recheckedCache != null) {
@@ -399,8 +399,8 @@ class TheSportsDbService {
       final dynamic networkResult = await _getJson(uri);
 
       if (networkResult != null) {
-        // A 'duration' elnevezésű paramétert használjuk a 'ttl' helyett
-        _cacheService.put(cacheKey, networkResult, duration: ttl);
+        // ApiCacheService 'put' metódusa 'ttl' paraméterrel
+        _cacheService.put(cacheKey, networkResult, ttl: ttl);
       }
 
       return networkResult;
@@ -422,7 +422,7 @@ class TheSportsDbService {
 
       request.headers.set(
         HttpHeaders.userAgentHeader,
-        'Zsolt-Pro-AI/0.15.2',
+        'Zsolt-Pro-AI/0.15.3',
       );
 
       final HttpClientResponse response =
