@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.15.4
+// Version: v0.15.5
 // File: lib/services/the_sports_db_service.dart
 // ===========================================
 
@@ -399,8 +399,8 @@ class TheSportsDbService {
       final dynamic networkResult = await _getJson(uri);
 
       if (networkResult != null) {
-        // A Duration pozicionális paraméterként kerül átadásra
-        _cacheService.put(cacheKey, networkResult, ttl);
+        // Névvel ellátott 'expiry' paraméterként adjuk át
+        _cacheService.put(cacheKey, networkResult, expiry: ttl);
       }
 
       return networkResult;
@@ -422,7 +422,7 @@ class TheSportsDbService {
 
       request.headers.set(
         HttpHeaders.userAgentHeader,
-        'Zsolt-Pro-AI/0.15.4',
+        'Zsolt-Pro-AI/0.15.5',
       );
 
       final HttpClientResponse response =
