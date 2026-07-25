@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.15.1
+// Version: v0.15.2
 // File: lib/services/the_sports_db_service.dart
 // ===========================================
 
@@ -388,8 +388,8 @@ class TheSportsDbService {
       return cachedResponse;
     }
 
-    // 2. Kérés ütemezése a Rate Limiteren keresztül (enqueue használatával)
-    return await _rateLimiter.enqueue(() async {
+    // 2. Kérés ütemezése a Rate Limiter 'run' metódusán keresztül
+    return await _rateLimiter.run(() async {
       // Ismételt ellenőrzés a várakozási sor feloldása után
       final dynamic recheckedCache = _cacheService.get<dynamic>(cacheKey);
       if (recheckedCache != null) {
@@ -399,8 +399,8 @@ class TheSportsDbService {
       final dynamic networkResult = await _getJson(uri);
 
       if (networkResult != null) {
-        // A ApiCacheService 'put' metódusát használjuk
-        _cacheService.put(cacheKey, networkResult, ttl: ttl);
+        // A 'duration' elnevezésű paramétert használjuk a 'ttl' helyett
+        _cacheService.put(cacheKey, networkResult, duration: ttl);
       }
 
       return networkResult;
@@ -422,7 +422,7 @@ class TheSportsDbService {
 
       request.headers.set(
         HttpHeaders.userAgentHeader,
-        'Zsolt-Pro-AI/0.15.1',
+        'Zsolt-Pro-AI/0.15.2',
       );
 
       final HttpClientResponse response =
