@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.14.5
+// Version: v0.15.0
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -28,14 +28,10 @@ class MatchesScreen extends StatefulWidget {
 }
 
 class _MatchesScreenState extends State<MatchesScreen> {
-  final TextEditingController _searchController =
-      TextEditingController();
-
-  final MatchRepository _matchRepository =
-      MatchRepository.instance;
+  final TextEditingController _searchController = TextEditingController();
+  final MatchRepository _matchRepository = MatchRepository.instance;
 
   int _selectedDayIndex = 0;
-
   String _searchText = '';
 
   bool _favoritesOnly = false;
@@ -50,12 +46,28 @@ class _MatchesScreenState extends State<MatchesScreen> {
   DateTime? _nextAvailableDate;
 
   MatchRepositoryResult? _lastRepositoryResult;
-
   List<AppMatch> _loadedMatches = <AppMatch>[];
+
+  /// Tárolja, hogy mely bajnokságcsoportok vannak kinyitva/összecsukva.
+  final Map<String, bool> _leagueExpansionState = <String, bool>{};
+
+  /// Kiemelt topligák listája a rendezéshez
+  static const List<String> _topLeaguesKeywords = <String>[
+    'hungarian nb i',
+    'nb i',
+    'otp bank liga',
+    'premier league',
+    'la liga',
+    'laliga',
+    'serie a',
+    'bundesliga',
+    'ligue 1',
+    'champions league',
+    'europa league',
+  ];
 
   DateTime get _requestedDate {
     final DateTime now = DateTime.now();
-
     return DateTime(
       now.year,
       now.month,
@@ -68,76 +80,35 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }
 
   List<AppMatch> get _filteredMatches {
-    final String normalizedSearch =
-        _searchText.trim().toLowerCase();
+    final String normalizedSearch = _searchText.trim().toLowerCase();
 
-    final List<AppMatch> result =
-        _loadedMatches.where(
-      (AppMatch match) {
-        final bool searchMatches =
-            normalizedSearch.isEmpty ||
-                match.homeTeam
-                    .toLowerCase()
-                    .contains(normalizedSearch) ||
-                match.awayTeam
-                    .toLowerCase()
-                    .contains(normalizedSearch) ||
-                match.league
-                    .toLowerCase()
-                    .contains(normalizedSearch);
+    final List<AppMatch> result = _loadedMatches.where((AppMatch match) {
+      final bool searchMatches = normalizedSearch.isEmpty ||
+          match.homeTeam.toLowerCase().contains(normalizedSearch) ||
+          match.awayTeam.toLowerCase().contains(normalizedSearch) ||
+          match.league.toLowerCase().contains(normalizedSearch);
 
-        final bool favoriteMatches =
-            !_favoritesOnly ||
-                FavoritesService.isFavorite(
-                  match.id,
-                );
+      final bool favoriteMatches =
+          !_favoritesOnly || FavoritesService.isFavorite(match.id);
 
-        return searchMatches &&
-            favoriteMatches;
-      },
-    ).toList();
+      return searchMatches && favoriteMatches;
+    }).toList();
 
-    result.sort(
-      (
-        AppMatch first,
-        AppMatch second,
-      ) {
-        final int dateComparison =
-            first.matchDate.compareTo(
-          second.matchDate,
-        );
+    result.sort((AppMatch first, AppMatch second) {
+      final int dateComparison = first.matchDate.compareTo(second.matchDate);
+      if (dateComparison != 0) return dateComparison;
 
-        if (dateComparison != 0) {
-          return dateComparison;
-        }
+      final int timeComparison = first.matchTime.compareTo(second.matchTime);
+      if (timeComparison != 0) return timeComparison;
 
-        final int timeComparison =
-            first.matchTime.compareTo(
-          second.matchTime,
-        );
+      final int leagueComparison =
+          first.league.toLowerCase().compareTo(second.league.toLowerCase());
+      if (leagueComparison != 0) return leagueComparison;
 
-        if (timeComparison != 0) {
-          return timeComparison;
-        }
-
-        final int leagueComparison =
-            first.league
-                .toLowerCase()
-                .compareTo(
-                  second.league.toLowerCase(),
-                );
-
-        if (leagueComparison != 0) {
-          return leagueComparison;
-        }
-
-        return first.homeTeam
-            .toLowerCase()
-            .compareTo(
-              second.homeTeam.toLowerCase(),
-            );
-      },
-    );
+      return first.homeTeam
+          .toLowerCase()
+          .compareTo(second.homeTeam.toLowerCase());
+    });
 
     return result;
   }
@@ -145,48 +116,34 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) {
-        _loadMatches();
-      },
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMatches();
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<AppMatch> matches =
-        _filteredMatches;
-
-    final Map<String, List<AppMatch>> groupedMatches =
-        _groupMatchesByLeague(
-      matches,
-    );
+    final List<AppMatch> matches = _filteredMatches;
+    final Map<String, List<AppMatch>> groupedMatches = _groupMatchesByLeague(matches);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           '⚽ Meccsek',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         actions: [
           IconButton(
             tooltip: 'Meccsek frissítése',
-            onPressed:
-                _isLoading ? null : _loadMatches,
-            icon: const Icon(
-              Icons.refresh,
-            ),
+            onPressed: _isLoading ? null : _loadMatches,
+            icon: const Icon(Icons.refresh),
           ),
         ],
       ),
@@ -195,29 +152,21 @@ class _MatchesScreenState extends State<MatchesScreen> {
           children: [
             SearchBarWidget(
               controller: _searchController,
-              onChanged: (
-                String value,
-              ) {
+              onChanged: (String value) {
                 setState(() {
                   _searchText = value;
                 });
               },
             ),
-
             DaySelector(
-              selectedIndex:
-                  _selectedDayIndex,
-              onChanged: (
-                int index,
-              ) {
-                if (_selectedDayIndex == index) {
-                  return;
-                }
+              selectedIndex: _selectedDayIndex,
+              onChanged: (int index) {
+                if (_selectedDayIndex == index) return;
 
                 setState(() {
                   _selectedDayIndex = index;
-                  _loadedMatches =
-                      <AppMatch>[];
+                  _loadedMatches = <AppMatch>[];
+                  _leagueExpansionState.clear();
                   _displayedDate = null;
                   _nextAvailableDate = null;
                   _lastRepositoryResult = null;
@@ -229,38 +178,48 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 _loadMatches();
               },
             ),
-
-            FilterBar(
-              favoritesOnly:
-                  _favoritesOnly,
-              onChanged: (
-                bool value,
-              ) {
-                setState(() {
-                  _favoritesOnly = value;
-                });
-              },
+            Row(
+              children: [
+                Expanded(
+                  child: FilterBar(
+                    favoritesOnly: _favoritesOnly,
+                    onChanged: (bool value) {
+                      setState(() {
+                        _favoritesOnly = value;
+                      });
+                    },
+                  ),
+                ),
+                if (groupedMatches.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () => _toggleAllLeagues(groupedMatches),
+                      icon: Icon(
+                        _areAllExpanded(groupedMatches)
+                            ? Icons.unfold_less
+                            : Icons.unfold_more,
+                        size: 18,
+                      ),
+                      label: Text(
+                        _areAllExpanded(groupedMatches) ? 'Csukás' : 'Nyitás',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-
-            _buildDataStatusBar(
-              context: context,
-            ),
-
-            if (_warningMessage != null)
-              _buildWarningBanner(
-                context: context,
-              ),
-
+            _buildDataStatusBar(context: context),
+            if (_warningMessage != null) _buildWarningBanner(context: context),
             if (_informationMessage != null)
-              _buildInformationBanner(
-                context: context,
-              ),
-
+              _buildInformationBanner(context: context),
             Expanded(
               child: _buildContent(
                 context: context,
-                groupedMatches:
-                    groupedMatches,
+                groupedMatches: groupedMatches,
                 matches: matches,
               ),
             ),
@@ -270,135 +229,109 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  Map<String, List<AppMatch>>
-      _groupMatchesByLeague(
-    List<AppMatch> matches,
-  ) {
-    final Map<String, List<AppMatch>> grouped =
-        <String, List<AppMatch>>{};
+  /// Bajnokságok szerinti csoportosítás:
+  /// - A Top Bajnokságok felülre kerülnek és alapértelmezetten NYITVA vannak.
+  /// - A többi bajnokság alulra kerül ábécésorrendben, alapértelmezetten ÖSSZECSUKVA.
+  Map<String, List<AppMatch>> _groupMatchesByLeague(List<AppMatch> matches) {
+    final Map<String, List<AppMatch>> grouped = <String, List<AppMatch>>{};
 
     for (final AppMatch match in matches) {
-      final String leagueName =
-          match.league.trim().isEmpty
-              ? 'Ismeretlen bajnokság'
-              : match.league.trim();
+      final String leagueName = match.league.trim().isEmpty
+          ? 'Ismeretlen bajnokság'
+          : match.league.trim();
 
-      grouped.putIfAbsent(
-        leagueName,
-        () => <AppMatch>[],
-      );
+      grouped.putIfAbsent(leagueName, () => <AppMatch>[]);
+      grouped[leagueName]!.add(match);
+    }
 
-      grouped[leagueName]!.add(
-        match,
+    final List<MapEntry<String, List<AppMatch>>> sortedEntries =
+        grouped.entries.toList()
+          ..sort((first, second) {
+            final bool firstIsTop = _isTopLeague(first.key);
+            final bool secondIsTop = _isTopLeague(second.key);
+
+            if (firstIsTop && !secondIsTop) return -1;
+            if (!firstIsTop && secondIsTop) return 1;
+
+            return first.key.toLowerCase().compareTo(second.key.toLowerCase());
+          });
+
+    final Map<String, List<AppMatch>> result = <String, List<AppMatch>>{};
+    for (final MapEntry<String, List<AppMatch>> entry in sortedEntries) {
+      result[entry.key] = entry.value;
+
+      // Alapértelmezett nyitási/csukási állapot beállítása az első betöltéskor
+      _leagueExpansionState.putIfAbsent(
+        entry.key,
+        () => _isTopLeague(entry.key) || _searchText.trim().isNotEmpty,
       );
     }
 
-    final List<MapEntry<String, List<AppMatch>>>
-        sortedEntries =
-        grouped.entries.toList()
-          ..sort(
-            (
-              MapEntry<String, List<AppMatch>>
-                  first,
-              MapEntry<String, List<AppMatch>>
-                  second,
-            ) {
-              return first.key
-                  .toLowerCase()
-                  .compareTo(
-                    second.key.toLowerCase(),
-                  );
-            },
-          );
-
-    return <String, List<AppMatch>>{
-      for (final MapEntry<String, List<AppMatch>>
-          entry in sortedEntries)
-        entry.key: entry.value,
-    };
+    return result;
   }
 
-  Widget _buildDataStatusBar({
-    required BuildContext context,
-  }) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
+  bool _isTopLeague(String leagueName) {
+    final String normalized = leagueName.toLowerCase();
+    return _topLeaguesKeywords.any((keyword) => normalized.contains(keyword));
+  }
+
+  bool _areAllExpanded(Map<String, List<AppMatch>> groupedMatches) {
+    return groupedMatches.keys.every((key) => _leagueExpansionState[key] ?? false);
+  }
+
+  void _toggleAllLeagues(Map<String, List<AppMatch>> groupedMatches) {
+    final bool targetState = !_areAllExpanded(groupedMatches);
+    setState(() {
+      for (final String key in groupedMatches.keys) {
+        _leagueExpansionState[key] = targetState;
+      }
+    });
+  }
+
+  Widget _buildDataStatusBar({required BuildContext context}) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
 
     if (_isLoading) {
-      return const LinearProgressIndicator(
-        minHeight: 3,
-      );
+      return const LinearProgressIndicator(minHeight: 3);
     }
 
-    final MatchRepositoryResult? result =
-        _lastRepositoryResult;
-
-    final bool hasError =
-        _errorMessage != null;
-
+    final MatchRepositoryResult? result = _lastRepositoryResult;
+    final bool hasError = _errorMessage != null;
     final String sourceLabel =
-        result?.sourceLabel ??
-            'SportMonks + TheSportsDB';
+        result?.sourceLabel ?? 'SportMonks + TheSportsDB';
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(
-        16,
-        4,
-        16,
-        4,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 10,
-      ),
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: hasError
-            ? Colors.red.withValues(
-                alpha: 0.08,
-              )
-            : colors.primaryContainer.withValues(
-                alpha: 0.22,
-              ),
-        borderRadius:
-            BorderRadius.circular(14),
+            ? Colors.red.withValues(alpha: 0.08)
+            : colors.primaryContainer.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: hasError
-              ? Colors.redAccent.withValues(
-                  alpha: 0.45,
-                )
-              : colors.primary.withValues(
-                  alpha: 0.18,
-                ),
+              ? Colors.redAccent.withValues(alpha: 0.45)
+              : colors.primary.withValues(alpha: 0.18),
         ),
       ),
       child: Row(
         children: [
           Icon(
-            hasError
-                ? Icons.cloud_off_outlined
-                : Icons.cloud_done_outlined,
+            hasError ? Icons.cloud_off_outlined : Icons.cloud_done_outlined,
             size: 19,
-            color: hasError
-                ? Colors.redAccent
-                : Colors.greenAccent,
+            color: hasError ? Colors.redAccent : Colors.greenAccent,
           ),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
               hasError
-                  ? 'A mérkőzésadatok betöltése '
-                      'nem sikerült.'
-                  : '$sourceLabel • '
-                      '${_formatDate(_activeDate)} • '
-                      '${_loadedMatches.length} mérkőzés',
+                  ? 'A mérkőzésadatok betöltése nem sikerült.'
+                  : '$sourceLabel • ${_formatDate(_activeDate)} • ${_loadedMatches.length} mérkőzés',
               style: TextStyle(
-                color: hasError
-                    ? Colors.redAccent
-                    : colors.onSurfaceVariant,
+                color: hasError ? Colors.redAccent : colors.onSurfaceVariant,
                 fontSize: 12,
-                fontWeight:
-                    FontWeight.w600,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -407,36 +340,22 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  Widget _buildWarningBanner({
-    required BuildContext context,
-  }) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
+  Widget _buildWarningBanner({required BuildContext context}) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(
-        16,
-        6,
-        16,
-        4,
-      ),
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 4),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.orange.withValues(
-          alpha: 0.10,
-        ),
-        borderRadius:
-            BorderRadius.circular(14),
+        color: Colors.orange.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.orangeAccent.withValues(
-            alpha: 0.55,
-          ),
+          color: Colors.orangeAccent.withValues(alpha: 0.55),
         ),
       ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(
             Icons.warning_amber_rounded,
@@ -448,8 +367,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             child: Text(
               _warningMessage!,
               style: TextStyle(
-                color:
-                    colors.onSurfaceVariant,
+                color: colors.onSurfaceVariant,
                 fontSize: 13,
                 height: 1.35,
               ),
@@ -460,36 +378,22 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  Widget _buildInformationBanner({
-    required BuildContext context,
-  }) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
+  Widget _buildInformationBanner({required BuildContext context}) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(
-        16,
-        6,
-        16,
-        4,
-      ),
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 4),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: colors.primaryContainer.withValues(
-          alpha: 0.25,
-        ),
-        borderRadius:
-            BorderRadius.circular(14),
+        color: colors.primaryContainer.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: colors.primary.withValues(
-            alpha: 0.35,
-          ),
+          color: colors.primary.withValues(alpha: 0.35),
         ),
       ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             Icons.info_outline,
@@ -501,8 +405,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             child: Text(
               _informationMessage!,
               style: TextStyle(
-                color:
-                    colors.onSurfaceVariant,
+                color: colors.onSurfaceVariant,
                 fontSize: 13,
                 height: 1.35,
               ),
@@ -515,131 +418,151 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   Widget _buildContent({
     required BuildContext context,
-    required Map<String, List<AppMatch>>
-        groupedMatches,
+    required Map<String, List<AppMatch>> groupedMatches,
     required List<AppMatch> matches,
   }) {
-    if (_isLoading &&
-        _loadedMatches.isEmpty) {
-      return _buildLoadingState(
-        context: context,
-      );
+    if (_isLoading && _loadedMatches.isEmpty) {
+      return _buildLoadingState(context: context);
     }
 
-    if (_errorMessage != null &&
-        _loadedMatches.isEmpty) {
-      return _buildErrorState(
-        context: context,
-      );
+    if (_errorMessage != null && _loadedMatches.isEmpty) {
+      return _buildErrorState(context: context);
     }
 
     if (matches.isEmpty) {
-      return _buildEmptyState(
-        context: context,
-      );
+      return _buildEmptyState(context: context);
     }
+
+    final ColorScheme colors = Theme.of(context).colorScheme;
 
     return RefreshIndicator(
       onRefresh: _loadMatches,
       child: ListView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          10,
-          16,
-          28,
-        ),
-        children:
-            groupedMatches.entries.map(
-          (
-            MapEntry<String, List<AppMatch>>
-                entry,
-          ) {
-            return Padding(
-              padding:
-                  const EdgeInsets.only(
-                bottom: 18,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+        children: groupedMatches.entries.map((entry) {
+          final String leagueName = entry.key;
+          final List<AppMatch> leagueMatches = entry.value;
+          final bool isExpanded = _leagueExpansionState[leagueName] ?? false;
+          final bool isTop = _isTopLeague(leagueName);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Card(
+              elevation: 0,
+              color: colors.surfaceContainerLow,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: isTop
+                      ? colors.primary.withValues(alpha: 0.3)
+                      : colors.outlineVariant.withValues(alpha: 0.2),
+                  width: isTop ? 1.5 : 1,
+                ),
               ),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
                 children: [
-                  LeagueHeader(
-                    leagueName: entry.key,
-                  ),
-                  const SizedBox(height: 8),
-                  ...entry.value.map(
-                    (AppMatch match) {
-                      return MatchCard(
-                        match: match,
-                        onTap: () {
-                          Navigator.of(context)
-                              .push(
-                            MaterialPageRoute<void>(
-                              builder: (
-                                BuildContext context,
-                              ) {
-                                return MatchDetailScreen(
-                                  match: match,
-                                );
-                              },
-                            ),
-                          );
-                        },
-                      );
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _leagueExpansionState[leagueName] = !isExpanded;
+                      });
                     },
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: LeagueHeader(leagueName: leagueName),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${leagueMatches.length}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            isExpanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+                  if (isExpanded)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: Column(
+                        children: leagueMatches.map((match) {
+                          return MatchCard(
+                            match: match,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (context) {
+                                    return MatchDetailScreen(match: match);
+                                  },
+                                ),
+                              );
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
                 ],
               ),
-            );
-          },
-        ).toList(),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildLoadingState({
-    required BuildContext context,
-  }) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
+  Widget _buildLoadingState({required BuildContext context}) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
 
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 18),
             Text(
               _isSearchingNextDate
-                  ? 'Következő mérkőzésnap '
-                      'keresése...'
-                  : 'Valódi mérkőzések '
-                      'betöltése...',
+                  ? 'Következő mérkőzésnap keresése...'
+                  : 'Valódi mérkőzések betöltése...',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 18,
-                fontWeight:
-                    FontWeight.bold,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               _isSearchingNextDate
-                  ? 'A SportMonks és a '
-                      'TheSportsDB következő '
-                      '30 napját ellenőrizzük.'
-                  : 'A SportMonks és a '
-                      'TheSportsDB adatait '
-                      'egyesítjük.',
+                  ? 'A SportMonks és a TheSportsDB következő 30 napját ellenőrizzük.'
+                  : 'A SportMonks és a TheSportsDB adatait egyesítjük.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color:
-                    colors.onSurfaceVariant,
+                color: colors.onSurfaceVariant,
                 height: 1.4,
               ),
             ),
@@ -649,17 +572,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  Widget _buildErrorState({
-    required BuildContext context,
-  }) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
+  Widget _buildErrorState({required BuildContext context}) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
 
     return RefreshIndicator(
       onRefresh: _loadMatches,
       child: ListView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 70),
@@ -674,39 +593,26 @@ class _MatchesScreenState extends State<MatchesScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 21,
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            _errorMessage ??
-                'Ismeretlen adatforrás-hiba.',
+            _errorMessage ?? 'Ismeretlen adatforrás-hiba.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color:
-                  colors.onSurfaceVariant,
+              color: colors.onSurfaceVariant,
               fontSize: 14,
               height: 1.4,
             ),
           ),
           const SizedBox(height: 22),
           FilledButton.icon(
-            onPressed: _isLoading
-                ? null
-                : _loadMatches,
-            icon: const Icon(
-              Icons.refresh,
-            ),
-            label: const Text(
-              'Újrapróbálás',
-            ),
-            style:
-                FilledButton.styleFrom(
-              minimumSize:
-                  const Size.fromHeight(
-                52,
-              ),
+            onPressed: _isLoading ? null : _loadMatches,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Újrapróbálás'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
             ),
           ),
         ],
@@ -714,21 +620,15 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  Widget _buildEmptyState({
-    required BuildContext context,
-  }) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
+  Widget _buildEmptyState({required BuildContext context}) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
     final bool filterActive =
-        _searchText.trim().isNotEmpty ||
-            _favoritesOnly;
+        _searchText.trim().isNotEmpty || _favoritesOnly;
 
     return RefreshIndicator(
       onRefresh: _loadMatches,
       child: ListView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 55),
@@ -737,105 +637,64 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 ? Icons.filter_alt_off_outlined
                 : Icons.event_busy_outlined,
             size: 72,
-            color:
-                colors.onSurfaceVariant,
+            color: colors.onSurfaceVariant,
           ),
           const SizedBox(height: 18),
           Text(
             filterActive
                 ? 'Nincs találat a szűrésre'
-                : 'Ezen a napon nincs '
-                    'elérhető mérkőzés',
+                : 'Ezen a napon nincs elérhető mérkőzés',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 20,
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 10),
           Text(
             filterActive
-                ? 'Módosítsd a keresést, '
-                    'vagy kapcsold ki a '
-                    'kedvencek szűrését.'
+                ? 'Módosítsd a keresést, vagy kapcsold ki a kedvencek szűrését.'
                 : _nextAvailableDate != null
-                    ? 'A következő elérhető '
-                        'mérkőzésnap: '
-                        '${_formatDate(_nextAvailableDate!)}'
-                    : 'A következő 30 napban '
-                        'egyik adatforrás sem '
-                        'talált mérkőzést.',
+                    ? 'A következő elérhető mérkőzésnap: ${_formatDate(_nextAvailableDate!)}'
+                    : 'A következő 30 napban egyik adatforrás sem talált mérkőzést.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color:
-                  colors.onSurfaceVariant,
+              color: colors.onSurfaceVariant,
               height: 1.4,
             ),
           ),
-
-          if (!filterActive &&
-              _nextAvailableDate != null) ...[
+          if (!filterActive && _nextAvailableDate != null) ...[
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed:
-                  _openNextAvailableDate,
-              icon: const Icon(
-                Icons.event_available_outlined,
-              ),
+              onPressed: _openNextAvailableDate,
+              icon: const Icon(Icons.event_available_outlined),
               label: Text(
-                'Meccsek megnyitása – '
-                '${_formatDate(_nextAvailableDate!)}',
+                'Meccsek megnyitása – ${_formatDate(_nextAvailableDate!)}',
               ),
-              style:
-                  FilledButton.styleFrom(
-                minimumSize:
-                    const Size.fromHeight(
-                  52,
-                ),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
               ),
             ),
           ],
-
-          if (!filterActive &&
-              _nextAvailableDate == null) ...[
+          if (!filterActive && _nextAvailableDate == null) ...[
             const SizedBox(height: 20),
             OutlinedButton.icon(
-              onPressed: _isLoading
-                  ? null
-                  : _findNextAvailableDate,
-              icon: const Icon(
-                Icons.search,
-              ),
-              label: const Text(
-                'Következő mérkőzésnap keresése',
-              ),
-              style:
-                  OutlinedButton.styleFrom(
-                minimumSize:
-                    const Size.fromHeight(
-                  52,
-                ),
+              onPressed: _isLoading ? null : _findNextAvailableDate,
+              icon: const Icon(Icons.search),
+              label: const Text('Következő mérkőzésnap keresése'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
               ),
             ),
           ],
-
           if (filterActive) ...[
             const SizedBox(height: 20),
             OutlinedButton.icon(
               onPressed: _clearFilters,
-              icon: const Icon(
-                Icons.filter_alt_off,
-              ),
-              label: const Text(
-                'Szűrők törlése',
-              ),
-              style:
-                  OutlinedButton.styleFrom(
-                minimumSize:
-                    const Size.fromHeight(
-                  52,
-                ),
+              icon: const Icon(Icons.filter_alt_off),
+              label: const Text('Szűrők törlése'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
               ),
             ),
           ],
@@ -845,9 +704,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }
 
   Future<void> _loadMatches() async {
-    if (_isLoading) {
-      return;
-    }
+    if (_isLoading) return;
 
     setState(() {
       _isLoading = true;
@@ -862,81 +719,45 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
     try {
       final MatchRepositoryResult result =
-          await _matchRepository
-              .fetchMatchesByDate(
-        _requestedDate,
-      );
+          await _matchRepository.fetchMatchesByDate(_requestedDate);
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       if (result.matches.isNotEmpty) {
         setState(() {
-          _loadedMatches =
-              List<AppMatch>.from(
-            result.matches,
-          );
-
-          _displayedDate =
-              result.date;
-
-          _lastRepositoryResult =
-              result;
-
-          _warningMessage =
-              result.warningMessage;
-
-          _informationMessage =
-              _buildSourceInformation(
-            result,
-          );
+          _loadedMatches = List<AppMatch>.from(result.matches);
+          _displayedDate = result.date;
+          _lastRepositoryResult = result;
+          _warningMessage = result.warningMessage;
+          _informationMessage = _buildSourceInformation(result);
         });
-
         return;
       }
 
       setState(() {
-        _loadedMatches =
-            <AppMatch>[];
-
-        _lastRepositoryResult =
-            result;
-
-        _warningMessage =
-            result.warningMessage;
-
+        _loadedMatches = <AppMatch>[];
+        _lastRepositoryResult = result;
+        _warningMessage = result.warningMessage;
         _isSearchingNextDate = true;
       });
 
-      await _findNextAvailableDate(
-        showLoading: false,
-      );
+      await _findNextAvailableDate(showLoading: false);
     } on MatchRepositoryException catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
-        _loadedMatches =
-            <AppMatch>[];
+        _loadedMatches = <AppMatch>[];
         _lastRepositoryResult = null;
-        _errorMessage =
-            error.message;
+        _errorMessage = error.message;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
-        _loadedMatches =
-            <AppMatch>[];
+        _loadedMatches = <AppMatch>[];
         _lastRepositoryResult = null;
         _errorMessage =
-            'Váratlan hiba történt. '
-            'Típus: ${error.runtimeType}. '
-            'Részlet: $error';
+            'Váratlan hiba történt. Típus: ${error.runtimeType}. Részlet: $error';
       });
     } finally {
       if (mounted) {
@@ -948,12 +769,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
-  Future<void> _findNextAvailableDate({
-    bool showLoading = true,
-  }) async {
-    if (_isLoading && showLoading) {
-      return;
-    }
+  Future<void> _findNextAvailableDate({bool showLoading = true}) async {
+    if (_isLoading && showLoading) return;
 
     if (showLoading) {
       setState(() {
@@ -967,68 +784,42 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
     try {
       final MatchAvailabilityResult availability =
-          await _matchRepository
-              .findNextAvailableMatches(
-        startDate: _requestedDate.add(
-          const Duration(days: 1),
-        ),
+          await _matchRepository.findNextAvailableMatches(
+        startDate: _requestedDate.add(const Duration(days: 1)),
         daysToCheck: 30,
       );
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
-        _nextAvailableDate =
-            availability.date;
+        _nextAvailableDate = availability.date;
 
-        if (availability.hasMatches &&
-            availability.date != null) {
+        if (availability.hasMatches && availability.date != null) {
           _informationMessage =
-              'A kiválasztott napon nincs meccs. '
-              'A következő elérhető mérkőzésnap: '
-              '${_formatDate(availability.date!)}.';
-
-          _warningMessage =
-              availability.repositoryResult
-                  ?.warningMessage;
+              'A kiválasztott napon nincs meccs. A következő elérhető mérkőzésnap: ${_formatDate(availability.date!)}.';
+          _warningMessage = availability.repositoryResult?.warningMessage;
         } else {
           _informationMessage =
-              'A SportMonks és a TheSportsDB '
-              'a következő '
-              '${availability.checkedDays} napban '
-              'sem talált elérhető mérkőzést.';
-
-          if (availability
-                  .diagnosticMessage !=
-              null) {
-            _warningMessage =
-                availability
-                    .diagnosticMessage;
+              'A SportMonks és a TheSportsDB a következő ${availability.checkedDays} napban sem talált elérhető mérkőzést.';
+          if (availability.diagnosticMessage != null) {
+            _warningMessage = availability.diagnosticMessage;
           }
         }
       });
     } on MatchRepositoryException catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _nextAvailableDate = null;
-        _errorMessage =
-            error.message;
+        _errorMessage = error.message;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _nextAvailableDate = null;
         _errorMessage =
-            'A következő mérkőzésnap '
-            'keresése nem sikerült: $error';
+            'A következő mérkőzésnap keresése nem sikerült: $error';
       });
     } finally {
       if (mounted && showLoading) {
@@ -1041,13 +832,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }
 
   Future<void> _openNextAvailableDate() async {
-    final DateTime? date =
-        _nextAvailableDate;
-
-    if (date == null ||
-        _isLoading) {
-      return;
-    }
+    final DateTime? date = _nextAvailableDate;
+    if (date == null || _isLoading) return;
 
     setState(() {
       _isLoading = true;
@@ -1059,55 +845,31 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
     try {
       final MatchRepositoryResult result =
-          await _matchRepository
-              .fetchMatchesByDate(
-        date,
-      );
+          await _matchRepository.fetchMatchesByDate(date);
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
-        _loadedMatches =
-            List<AppMatch>.from(
-          result.matches,
-        );
-
-        _displayedDate =
-            result.date;
-
+        _loadedMatches = List<AppMatch>.from(result.matches);
+        _displayedDate = result.date;
         _nextAvailableDate = null;
-
-        _lastRepositoryResult =
-            result;
-
-        _warningMessage =
-            result.warningMessage;
-
+        _lastRepositoryResult = result;
+        _warningMessage = result.warningMessage;
         _informationMessage =
-            'A következő elérhető '
-            'mérkőzésnap meccsei láthatók. '
-            '${_buildSourceInformation(result)}';
+            'A következő elérhető mérkőzésnap meccsei láthatók. ${_buildSourceInformation(result)}';
       });
     } on MatchRepositoryException catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
-        _errorMessage =
-            error.message;
+        _errorMessage = error.message;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _errorMessage =
-            'A mérkőzésnap megnyitása '
-            'nem sikerült: $error';
+            'A mérkőzésnap megnyitása nem sikerült: $error';
       });
     } finally {
       if (mounted) {
@@ -1118,60 +880,32 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
-  String _buildSourceInformation(
-    MatchRepositoryResult result,
-  ) {
+  String _buildSourceInformation(MatchRepositoryResult result) {
     if (result.usedBothSources) {
-      return 'SportMonks: '
-          '${result.sportMonksCount} • '
-          'TheSportsDB: '
-          '${result.theSportsDbCount} • '
-          'Egyesített lista: '
-          '${result.totalCount}.';
+      return 'SportMonks: ${result.sportMonksCount} • TheSportsDB: ${result.theSportsDbCount} • Egyesített lista: ${result.totalCount}.';
     }
 
     if (result.usedSportMonks) {
-      return 'SportMonks adatforrás: '
-          '${result.sportMonksCount} mérkőzés.';
+      return 'SportMonks adatforrás: ${result.sportMonksCount} mérkőzés.';
     }
 
     if (result.usedTheSportsDb) {
-      return 'TheSportsDB adatforrás: '
-          '${result.theSportsDbCount} mérkőzés.';
+      return 'TheSportsDB adatforrás: ${result.theSportsDbCount} mérkőzés.';
     }
 
-    return 'Egyik adatforrás sem adott '
-        'mérkőzést erre a napra.';
+    return 'Egyik adatforrás sem adott mérkőzést erre a napra.';
   }
 
-  String _formatDate(
-    DateTime date,
-  ) {
-    final String year =
-        date.year.toString();
-
-    final String month =
-        date.month
-            .toString()
-            .padLeft(
-              2,
-              '0',
-            );
-
-    final String day =
-        date.day
-            .toString()
-            .padLeft(
-              2,
-              '0',
-            );
+  String _formatDate(DateTime date) {
+    final String year = date.year.toString();
+    final String month = date.month.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
 
     return '$year.$month.$day.';
   }
 
   void _clearFilters() {
     _searchController.clear();
-
     setState(() {
       _searchText = '';
       _favoritesOnly = false;
