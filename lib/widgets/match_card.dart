@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.13.7
+// Version: v0.13.8
 // File: lib/widgets/match_card.dart
 // ===========================================
 
@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
 import '../services/favorites_service.dart';
+import '../utils/league_translator.dart';
 
 class MatchCard extends StatefulWidget {
   final AppMatch match;
@@ -148,6 +149,11 @@ class _MatchCardState extends State<MatchCard> {
     required BuildContext context,
     required ColorScheme colors,
   }) {
+    final String rawLeague = widget.match.league.trim();
+    final String displayLeague = rawLeague.isEmpty
+        ? 'Ismeretlen bajnokság'
+        : LeagueTranslator.translate(rawLeague);
+
     return Row(
       children: [
         _LeagueLogo(
@@ -156,9 +162,7 @@ class _MatchCardState extends State<MatchCard> {
         const SizedBox(width: 9),
         Expanded(
           child: Text(
-            widget.match.league.trim().isEmpty
-                ? 'Ismeretlen bajnokság'
-                : widget.match.league,
+            displayLeague,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
