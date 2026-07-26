@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.11.2
+// Version: v0.12.0 - Smart Cache & Advanced Fuzzy Match
 // File: lib/services/the_odds_api_service.dart
 // ===========================================
 
@@ -27,6 +27,10 @@ class TheOddsApiService {
 
   static const Duration _responseTimeout =
       Duration(seconds: 30);
+
+  /// 1 órás memóriagyorsítótár (Cache) az ingyenes kreditek védelmében
+  static const Duration _cacheDuration = Duration(hours: 1);
+  final Map<String, _CachedOddsResponse> _oddsCache = <String, _CachedOddsResponse>{};
 
   int? _requestsRemaining;
   int? _requestsUsed;
@@ -137,8 +141,7 @@ class TheOddsApiService {
   }) async {
     _ensureApiKey();
 
-    final String cleanSportKey =
-        sportKey.trim();
+    final String cleanSportKey = sportKey.trim();
 
     if (cleanSportKey.isEmpty) {
       throw const OddsApiException(
@@ -152,8 +155,21 @@ class TheOddsApiService {
       );
     }
 
-    final Map<String, String> parameters =
-        <String, String>{
+    // Cache kulcs előállítása
+    final String cacheKey = '$cleanSportKey|$regions|${markets.join(',')}|$oddsFormat|'
+        '${commenceTimeFrom?.millisecondsSinceEpoch}|${commenceTimeTo?.millisecondsSinceEpoch}';
+
+    // Ellenőrzés a gyorsítótárban (ha még nem járt le az 1 óra)
+    if (_oddsCache.containsKey(cacheKey)) {
+      final _CachedOddsResponse cached = _oddsCache[cacheKey]!;
+      if (DateTime.now().difference(cached.timestamp) < _cacheDuration) {
+        return cached.events;
+      } else {
+        _oddsCache.remove(cacheKey);
+      }
+    }
+
+    final Map<String, String> parameters = <String, String>{
       'apiKey': _apiKey,
       'regions': regions,
       'markets': markets.join(','),
@@ -162,17 +178,11 @@ class TheOddsApiService {
     };
 
     if (commenceTimeFrom != null) {
-      parameters['commenceTimeFrom'] =
-          _formatApiDate(
-        commenceTimeFrom,
-      );
+      parameters['commenceTimeFrom'] = _formatApiDate(commenceTimeFrom);
     }
 
     if (commenceTimeTo != null) {
-      parameters['commenceTimeTo'] =
-          _formatApiDate(
-        commenceTimeTo,
-      );
+      parameters['commenceTimeTo'] = _formatApiDate(commenceTimeTo);
     }
 
     final Uri uri = Uri.parse(
@@ -182,11 +192,8 @@ class TheOddsApiService {
       queryParameters: parameters,
     );
 
-    final _ApiResponse response =
-        await _get(uri);
-
-    final dynamic decoded =
-        _decodeJson(response.body);
+    final _ApiResponse response = await _get(uri);
+    final dynamic decoded = _decodeJson(response.body);
 
     if (decoded is! List<dynamic>) {
       throw const OddsApiException(
@@ -194,10 +201,18 @@ class TheOddsApiService {
       );
     }
 
-    return decoded
+    final List<OddsEvent> events = decoded
         .whereType<Map<String, dynamic>>()
         .map(OddsEvent.fromJson)
         .toList(growable: false);
+
+    // Eredmény elmentése a gyorsítótárba
+    _oddsCache[cacheKey] = _CachedOddsResponse(
+      timestamp: DateTime.now(),
+      events: events,
+    );
+
+    return events;
   }
 
   Future<OddsEvent?> findMatchOdds({
@@ -223,8 +238,7 @@ class TheOddsApiService {
         )
         .toUtc();
 
-    final List<OddsEvent> events =
-        await fetchOdds(
+    final List<OddsEvent> events = await fetchOdds(
       sportKey: sportKey,
       regions: regions,
       markets: markets,
@@ -232,49 +246,35 @@ class TheOddsApiService {
       commenceTimeTo: to,
     );
 
-    final String normalizedHome =
-        _normalizeTeamName(homeTeam);
-
-    final String normalizedAway =
-        _normalizeTeamName(awayTeam);
+    final String normalizedHome = _normalizeTeamName(homeTeam);
+    final String normalizedAway = _normalizeTeamName(awayTeam);
 
     OddsEvent? bestMatch;
     int bestScore = 0;
 
     for (final OddsEvent event in events) {
-      final String eventHome =
-          _normalizeTeamName(event.homeTeam);
-
-      final String eventAway =
-          _normalizeTeamName(event.awayTeam);
+      final String eventHome = _normalizeTeamName(event.homeTeam);
+      final String eventAway = _normalizeTeamName(event.awayTeam);
 
       int score = 0;
 
       if (eventHome == normalizedHome) {
         score += 5;
-      } else if (_namesSimilar(
-        eventHome,
-        normalizedHome,
-      )) {
+      } else if (_namesSimilar(eventHome, normalizedHome)) {
         score += 3;
       }
 
       if (eventAway == normalizedAway) {
         score += 5;
-      } else if (_namesSimilar(
-        eventAway,
-        normalizedAway,
-      )) {
+      } else if (_namesSimilar(eventAway, normalizedAway)) {
         score += 3;
       }
 
-      final Duration difference =
-          event.commenceTime.difference(
+      final Duration difference = event.commenceTime.difference(
         matchDate.toUtc(),
       );
 
-      final int hourDifference =
-          difference.inHours.abs();
+      final int hourDifference = difference.inHours.abs();
 
       if (hourDifference <= 3) {
         score += 3;
@@ -290,7 +290,7 @@ class TheOddsApiService {
       }
     }
 
-    if (bestScore < 6) {
+    if (bestScore < 5) {
       return null;
     }
 
@@ -440,7 +440,7 @@ class TheOddsApiService {
 
       request.headers.set(
         HttpHeaders.userAgentHeader,
-        'Zsolt-Pro-AI/0.11.2',
+        'Zsolt-Pro-AI/0.12.0',
       );
 
       final HttpClientResponse response =
@@ -814,10 +814,9 @@ class TheOddsApiService {
     }
   }
 
-  String _normalizeTeamName(
-    String value,
-  ) {
-    return value
+  /// Fejlett csapatnév normalizálás: Eltávolítja a szóközök mellett a gyakori utótagokat (FC, Utd, City, stb.)
+  String _normalizeTeamName(String value) {
+    String cleaned = value
         .toLowerCase()
         .replaceAll('á', 'a')
         .replaceAll('é', 'e')
@@ -827,11 +826,30 @@ class TheOddsApiService {
         .replaceAll('ő', 'o')
         .replaceAll('ú', 'u')
         .replaceAll('ü', 'u')
-        .replaceAll('ű', 'u')
-        .replaceAll(
-          RegExp(r'[^a-z0-9]'),
-          '',
-        );
+        .replaceAll('ű', 'u');
+
+    // Gyakori csapatnév-utótagok eltávolítása a jobb illesztéshez
+    final List<String> commonAffixes = <String>[
+      'football club',
+      'soccer club',
+      'fc',
+      'sc',
+      'ac',
+      'cf',
+      'afc',
+      'united',
+      'utd',
+      'city',
+      'real',
+      'st',
+      'saint',
+    ];
+
+    for (final String affix in commonAffixes) {
+      cleaned = cleaned.replaceAll(RegExp('\\b$affix\\b'), '');
+    }
+
+    return cleaned.replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   bool _namesSimilar(
@@ -846,8 +864,7 @@ class TheOddsApiService {
       return true;
     }
 
-    if (first.contains(second) ||
-        second.contains(first)) {
+    if (first.contains(second) || second.contains(first)) {
       return true;
     }
 
@@ -856,24 +873,25 @@ class TheOddsApiService {
             ? first.length
             : second.length;
 
-    if (shortestLength < 5) {
+    if (shortestLength < 4) {
       return false;
     }
 
-    final String firstPrefix =
-        first.substring(
-      0,
-      shortestLength >= 7 ? 7 : 5,
-    );
-
-    final String secondPrefix =
-        second.substring(
-      0,
-      shortestLength >= 7 ? 7 : 5,
-    );
+    final String firstPrefix = first.substring(0, shortestLength >= 6 ? 6 : 4);
+    final String secondPrefix = second.substring(0, shortestLength >= 6 ? 6 : 4);
 
     return firstPrefix == secondPrefix;
   }
+}
+
+class _CachedOddsResponse {
+  final DateTime timestamp;
+  final List<OddsEvent> events;
+
+  const _CachedOddsResponse({
+    required this.timestamp,
+    required this.events,
+  });
 }
 
 class OddsApiConnectionResult {
