@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.16.4 - Hidden Status Bar Fix
+// Version: v0.16.5 - Hide Both Info Bars
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -36,7 +36,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   bool _favoritesOnly = false;
   bool _isLoading = false;
   bool _isSearchingNextDate = false;
-  bool _showDataStatus = false; // ALAPÉRTELMEZETTEN REJTVE (FALSE)
+  bool _showDataStatus = false; // ALAPÉRTELMEZETTEN MINDKÉT INFÓ SÁV REJTVE
 
   String? _errorMessage;
   String? _informationMessage;
@@ -173,14 +173,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
               },
             ),
 
-            // 3. KAPCSOLHATÓ ADATINFÓ DOBOZ (CSAK AKKOR JELENIK MEG, HA _showDataStatus == TRUE)
-            if (_showDataStatus) _buildDataStatusBar(context: context),
-
-            const SizedBox(height: 4),
+            // 3. MINDKÉT ADATINFÓ DOBOZ ELREJTVE (CSAK AKKOR LÁTHATÓK, HA _showDataStatus == TRUE)
+            if (_showDataStatus) ...[
+              _buildDataStatusBar(context: context),
+              if (_informationMessage != null)
+                _buildInformationBanner(context: context),
+            ],
 
             if (_warningMessage != null) _buildWarningBanner(context: context),
-            if (_informationMessage != null)
-              _buildInformationBanner(context: context),
+
+            const SizedBox(height: 4),
 
             Expanded(
               child: _buildContent(
@@ -244,7 +246,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
           const SizedBox(width: 6),
 
-          // Infó doboz megjelenítése / elrejtése kapcsoló
+          // Infó dobozok megjelenítése / elrejtése kapcsoló
           InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: () {
