@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI Engine v2.0 - Professional Quant Edition
-// Version: v0.21.0 - Advanced Poisson xG & Multi-Factor Engine
+// Version: v0.22.0 - Fixed Compatibility & Full Quant Engine
 // File: lib/services/ai_engine_v2_service.dart
 // ===========================================
 
@@ -74,6 +74,10 @@ class AiMatchStatistics {
     required this.leagueStrength,
     required this.dataQualityBonus,
   });
+
+  /// Kompatibilitási getterek a többi szerviz számára
+  int get totalSampleSize => homeSampleSize + awaySampleSize;
+  int get h2hTotalMatches => h2hHomeWins + h2hDraws + h2hAwayWins;
 
   factory AiMatchStatistics.fallback({double leagueStrength = 65.0}) {
     return AiMatchStatistics(
@@ -179,33 +183,32 @@ class AiEngineV2Service {
   }) {
     final double leagueAvg = statistics.leagueAverageGoals > 0 ? statistics.leagueAverageGoals / 2.0 : 1.30;
 
-    // 1. Támadási és Védelmi Erősségek (Attack / Defense Ratings)
+    // 1. Támadási és Védelmi Erősségek
     final double homeAttack = (statistics.homeGoalsScoredAverage / leagueAvg).clamp(0.4, 2.5);
     final double homeDefense = (statistics.homeGoalsConcededAverage / leagueAvg).clamp(0.4, 2.5);
     final double awayAttack = (statistics.awayGoalsScoredAverage / leagueAvg).clamp(0.4, 2.5);
     final double awayDefense = (statistics.awayGoalsConcededAverage / leagueAvg).clamp(0.4, 2.5);
 
-    // 2. Hazai pálya előnye (Home Advantage Index: ~1.12x)
+    // 2. Hazai pálya előnye
     const double homeAdvantage = 1.12;
 
-    // 3. Várható gólok (xG) kiszámítása
+    // 3. Várható gólok (xG)
     final double homeXG = (homeAttack * awayDefense * leagueAvg * homeAdvantage).clamp(0.2, 4.5);
     final double awayXG = (awayAttack * homeDefense * leagueAvg).clamp(0.2, 4.5);
 
-    // 4. Súlyozott Forma Kiszámítása (Legutóbbi meccs nagyobb súllyal)
+    // 4. Súlyozott Forma
     final double homeFormWeight = _calculateWeightedForm(statistics.homeForm);
     final double awayFormWeight = _calculateWeightedForm(statistics.awayForm);
 
-    // 5. Poisson-mátrix generálása 0-tól 6 gólig
+    // 5. Poisson-mátrix generálása
     final Map<String, double> probabilities = _calculatePoissonProbabilities(homeXG, awayXG);
 
-    // Formakorrekció alkalmazása a valószínűségekre
+    // Formakorrekció
     final double formRatio = (homeFormWeight - awayFormWeight) / 100.0;
     double pHome = (probabilities['homeWin']! + formRatio * 0.12).clamp(0.05, 0.90);
     double pAway = (probabilities['awayWin']! - formRatio * 0.12).clamp(0.05, 0.90);
     double pDraw = (1.0 - pHome - pAway).clamp(0.08, 0.40);
 
-    // Mátrix alapú gólvalószínűségek
     final double pOver15 = probabilities['over15']!;
     final double pOver25 = probabilities['over25']!;
     final double pUnder35 = probabilities['under35']!;
@@ -214,7 +217,7 @@ class AiEngineV2Service {
     final double p1X = (pHome + pDraw).clamp(0.10, 0.96);
     final double pX2 = (pAway + pDraw).clamp(0.10, 0.96);
 
-    // 6. Profi Tippválasztó Algoritmus (A legmagasabb Várható Érték / Value alapján)
+    // 6. Tippválasztó Algoritmus
     final List<AiRecommendation> candidates = [
       AiRecommendation(marketName: 'Összes gól', selection: 'Több mint 1,5 gól', probability: pOver15, fairOdds: 1.0 / pOver15),
       AiRecommendation(marketName: 'Összes gól', selection: 'Több mint 2,5 gól', probability: pOver25, fairOdds: 1.0 / pOver25),
@@ -226,14 +229,12 @@ class AiEngineV2Service {
       AiRecommendation(marketName: 'Mérkőzés győztese', selection: '${match.awayTeam} győzelem', probability: pAway, fairOdds: 1.0 / pAway),
     ];
 
-    // Szűrés: Túl alacsony odds (1.05 alatti) ÉS túl magas odds (3.20 feletti) elvetése
     final List<AiRecommendation> validCandidates = candidates.where((c) => c.probability >= 0.58 && c.fairOdds <= 3.20).toList();
-
     validCandidates.sort((a, b) => b.probability.compareTo(a.probability));
 
     final AiRecommendation bestRecommendation = validCandidates.isNotEmpty ? validCandidates.first : candidates.first;
 
-    // 7. Dinamikus AI Pontszám kiszámítása (72% – 97% skálán)
+    // 7. Dinamikus AI Pontszám
     final double confidenceBonus = (statistics.homeSampleSize + statistics.awaySampleSize) * 0.4;
     final double leagueBonus = statistics.leagueStrength * 0.1;
     final int finalAiScore = (bestRecommendation.probability * 70.0 + confidenceBonus + leagueBonus).round().clamp(72, 97);
@@ -251,7 +252,18 @@ class AiEngineV2Service {
     );
   }
 
-  /// Exponenciálisan súlyozott forma (a legutóbbi meccsek többet érnek)
+  /// Kompatibilitási metódus a match_repository számára
+  AiMatchAnalysis analyzeWithFallbackData({
+    required AppMatch match,
+    AiOddsData? oddsData,
+  }) {
+    return analyzeMatch(
+      match: match,
+      statistics: AiMatchStatistics.fallback(),
+      oddsData: oddsData,
+    );
+  }
+
   double _calculateWeightedForm(List<AiMatchResult> form) {
     if (form.isEmpty) return 50.0;
     double totalPoints = 0.0;
@@ -270,7 +282,6 @@ class AiEngineV2Service {
     return (totalPoints / totalWeight) * 100.0;
   }
 
-  /// Poisson-mátrix számítás xG alapján
   Map<String, double> _calculatePoissonProbabilities(double homeXG, double awayXG) {
     double homeWin = 0.0;
     double draw = 0.0;
@@ -310,7 +321,6 @@ class AiEngineV2Service {
     };
   }
 
-  /// Poisson tömegfüggvény: P(k; lambda) = (lambda^k * e^-lambda) / k!
   double _poisson(int k, double lambda) {
     return (math.pow(lambda, k) * math.exp(-lambda)) / _factorial(k);
   }
