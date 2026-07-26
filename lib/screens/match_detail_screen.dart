@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.18.0 - Clean Odds Display & Fallback Integration
+// Version: v0.19.0 - Dynamic AI Fair Odds Engine
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
@@ -193,7 +193,8 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
               awayQuote: _awayWinQuote,
               over25Quote: _over25Quote,
               under25Quote: _under25Quote,
-              aiProbability: _selectedBetProbability,
+              statistics: _statistics,
+              aiScore: _displayedAiScore,
               onRefresh: _loadOdds,
             ),
             const SizedBox(height: 18),
@@ -203,6 +204,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                 aiProbability: _selectedBetProbability,
                 quote: _selectedBetQuote,
                 isLoading: _isLoadingOdds || _isLoadingAnalysis,
+                statistics: _statistics,
               ),
             if (!_isBuilderMode && _selectedSingleBet != null)
               const SizedBox(height: 22),
@@ -266,7 +268,8 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
               _SelectedSingleBetCard(
                 selectedBet: _selectedSingleBet!,
                 aiScore: _selectedBetProbability,
-                realOdds: _selectedBetQuote?.price ?? _fallbackPriceFromProb(_selectedBetProbability),
+                realOdds: _selectedBetQuote?.price ??
+                    _calculateSmartAiOdds(_selectedBetProbability),
               ),
             const SizedBox(height: 26),
             const _SectionTitle(
@@ -381,9 +384,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     );
   }
 
-  double _fallbackPriceFromProb(int prob) {
-    if (prob <= 0) return 1.50;
-    return (100 / prob).clamp(1.01, 15.0);
+  double _calculateSmartAiOdds(int prob) {
+    if (prob <= 0) return 2.10;
+    return (100 / prob).clamp(1.03, 12.0);
   }
 
   Widget _buildFormSection() {
@@ -909,7 +912,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
     final BetslipItem? existingItem = _betslipService.getItem(match.id);
     final bool alreadySaved = existingItem != null;
-    final double odds = _selectedBetQuote?.price ?? _fallbackPriceFromProb(_selectedBetProbability);
+    final double odds = _selectedBetQuote?.price ?? _calculateSmartAiOdds(_selectedBetProbability);
 
     if (alreadySaved) {
       _betslipService.updateItem(
@@ -945,7 +948,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     if (_builderSelections.isEmpty) return;
 
     final List<BetBuilderSelection> selectionsWithOdds = _builderSelections.map((selection) {
-      final double odds = _findBuilderSelectionOdds(selection) ?? _fallbackPriceFromProb(selection.aiScore);
+      final double odds = _findBuilderSelectionOdds(selection) ?? _calculateSmartAiOdds(selection.aiScore);
       return selection.copyWith(odds: odds);
     }).toList(growable: false);
 
@@ -1215,7 +1218,8 @@ class _RealOddsCard extends StatelessWidget {
   final _OddsQuote? awayQuote;
   final _OddsQuote? over25Quote;
   final _OddsQuote? under25Quote;
-  final int aiProbability;
+  final AiMatchStatistics? statistics;
+  final int aiScore;
   final Future<void> Function() onRefresh;
 
   const _RealOddsCard({
@@ -1227,7 +1231,8 @@ class _RealOddsCard extends StatelessWidget {
     required this.awayQuote,
     required this.over25Quote,
     required this.under25Quote,
-    required this.aiProbability,
+    required this.statistics,
+    required this.aiScore,
     required this.onRefresh,
   });
 
@@ -1236,11 +1241,35 @@ class _RealOddsCard extends StatelessWidget {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final bool hasRealOdds = event != null;
 
-    final double homeVal = homeQuote?.price ?? _fallbackProb(aiProbability + 5);
-    final double drawVal = drawQuote?.price ?? 3.40;
-    final double awayVal = awayQuote?.price ?? _fallbackProb(100 - aiProbability);
-    final double overVal = over25Quote?.price ?? 1.85;
-    final double underVal = under25Quote?.price ?? 1.95;
+    // Dinamikus AI Odds Számítás a csapatok statisztikáiból!
+    final double homeForm = statistics?.homeForm.isNotEmpty == true 
+        ? (statistics!.homeForm.where((r) => r == AiMatchResult.win).length * 3 + statistics!.homeForm.where((r) => r == AiMatchResult.draw).length) / (statistics!.homeForm.length * 3)
+        : 0.50;
+    
+    final double awayForm = statistics?.awayForm.isNotEmpty == true 
+        ? (statistics!.awayForm.where((r) => r == AiMatchResult.win).length * 3 + statistics!.awayForm.where((r) => r == AiMatchResult.draw).length) / (statistics!.awayForm.length * 3)
+        : 0.50;
+
+    final double homeProb = (0.40 + (homeForm - awayForm) * 0.35).clamp(0.15, 0.80);
+    final double awayProb = (0.35 + (awayForm - homeForm) * 0.35).clamp(0.10, 0.75);
+    final double drawProb = (1.0 - homeProb - awayProb).clamp(0.15, 0.35);
+
+    final double calculatedHomeOdds = (1.0 / homeProb).clamp(1.20, 8.50);
+    final double calculatedDrawOdds = (1.0 / drawProb).clamp(2.80, 5.50);
+    final double calculatedAwayOdds = (1.0 / awayProb).clamp(1.35, 9.50);
+
+    final double avgGoals = statistics?.leagueAverageGoals ?? 2.50;
+    final double over25Prob = (avgGoals / 4.0 + (statistics?.over25Percent ?? 50) / 200).clamp(0.30, 0.75);
+    final double under25Prob = 1.0 - over25Prob;
+
+    final double calculatedOver25 = (1.0 / over25Prob).clamp(1.30, 3.20);
+    final double calculatedUnder25 = (1.0 / under25Prob).clamp(1.35, 3.10);
+
+    final double homeVal = homeQuote?.price ?? calculatedHomeOdds;
+    final double drawVal = drawQuote?.price ?? calculatedDrawOdds;
+    final double awayVal = awayQuote?.price ?? calculatedAwayOdds;
+    final double overVal = over25Quote?.price ?? calculatedOver25;
+    final double underVal = under25Quote?.price ?? calculatedUnder25;
 
     return Card(
       child: Padding(
@@ -1363,11 +1392,6 @@ class _RealOddsCard extends StatelessWidget {
       ),
     );
   }
-
-  double _fallbackProb(int prob) {
-    if (prob <= 0) return 2.10;
-    return (100 / prob).clamp(1.05, 12.0);
-  }
 }
 
 class _OddsBox extends StatelessWidget {
@@ -1432,12 +1456,14 @@ class _ValueBetPanel extends StatelessWidget {
   final int aiProbability;
   final _OddsQuote? quote;
   final bool isLoading;
+  final AiMatchStatistics? statistics;
 
   const _ValueBetPanel({
     required this.selection,
     required this.aiProbability,
     required this.quote,
     required this.isLoading,
+    this.statistics,
   });
 
   double get _effectivePrice {
