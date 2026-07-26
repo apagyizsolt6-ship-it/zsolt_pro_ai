@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.17.3
+// Version: v0.17.4 - League Translation Added
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
@@ -13,6 +13,7 @@ import '../services/ai_engine_v2_service.dart';
 import '../services/betslip_service.dart';
 import '../services/match_analysis_service.dart';
 import '../services/the_odds_api_service.dart';
+import '../utils/league_translator.dart';
 import '../widgets/bet_builder_selector.dart';
 import '../widgets/bet_market_selector.dart';
 
@@ -3298,6 +3299,8 @@ class _MatchHeaderCard
     final ColorScheme colors =
         Theme.of(context).colorScheme;
 
+    final String translatedLeague = LeagueTranslator.translate(match.league);
+
     return Card(
       child: Padding(
         padding:
@@ -3307,9 +3310,9 @@ class _MatchHeaderCard
         child: Column(
           children: [
             Text(
-              match.league.isEmpty
+              translatedLeague.isEmpty
                   ? 'Ismeretlen bajnokság'
-                  : match.league,
+                  : translatedLeague,
               textAlign:
                   TextAlign.center,
               style: TextStyle(
