@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.16.3 - Data Status Toggle
+// Version: v0.16.4 - Hidden Status Bar Fix
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -36,7 +36,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   bool _favoritesOnly = false;
   bool _isLoading = false;
   bool _isSearchingNextDate = false;
-  bool _showDataStatus = false; // KAPCSOLÓ AZ ADATINFÓ DOBOZHOZ
+  bool _showDataStatus = false; // ALAPÉRTELMEZETTEN REJTVE (FALSE)
 
   String? _errorMessage;
   String? _informationMessage;
@@ -173,7 +173,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
               },
             ),
 
-            // 3. KAPCSOLHATÓ ADATINFÓ DOBOZ
+            // 3. KAPCSOLHATÓ ADATINFÓ DOBOZ (CSAK AKKOR JELENIK MEG, HA _showDataStatus == TRUE)
             if (_showDataStatus) _buildDataStatusBar(context: context),
 
             const SizedBox(height: 4),
