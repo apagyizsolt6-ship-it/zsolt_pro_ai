@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.14.6
+// Version: v0.14.7 - Compact Layout & League Translation
 // File: lib/screens/ai_top5_screen.dart
 // ===========================================
 
@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
 import '../services/match_repository.dart';
+import '../utils/league_translator.dart';
 import 'match_detail_screen.dart';
 
 class AITop5Screen extends StatefulWidget {
@@ -119,20 +120,20 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         ),
 
         if (_warningMessage != null) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _buildWarningBanner(
             context,
           ),
         ],
 
         if (_informationMessage != null) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _buildInformationBanner(
             context,
           ),
         ],
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
         ...List<Widget>.generate(
           _topMatches.length,
@@ -177,7 +178,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
             'SportMonks + TheSportsDB';
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: <Color>[
@@ -188,27 +189,27 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           end: Alignment.bottomRight,
         ),
         borderRadius:
-            BorderRadius.circular(22),
+            BorderRadius.circular(18),
       ),
       child: Row(
         children: [
           Container(
-            width: 58,
-            height: 58,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: colors.onPrimary.withValues(
                 alpha: 0.16,
               ),
               borderRadius:
-                  BorderRadius.circular(18),
+                  BorderRadius.circular(14),
             ),
             child: Icon(
               Icons.psychology,
               color: colors.onPrimary,
-              size: 34,
+              size: 28,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment:
@@ -218,12 +219,12 @@ class _AITop5ScreenState extends State<AITop5Screen> {
                   'Az 5 legerősebb AI tipp',
                   style: TextStyle(
                     color: colors.onPrimary,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight:
                         FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   _loadedDate == null
                       ? sourceLabel
@@ -234,10 +235,10 @@ class _AITop5ScreenState extends State<AITop5Screen> {
                         .withValues(
                       alpha: 0.88,
                     ),
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   '$sourceLabel • ideiglenes AI-pontszám',
                   style: TextStyle(
@@ -245,7 +246,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
                         .withValues(
                       alpha: 0.72,
                     ),
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -264,13 +265,13 @@ class _AITop5ScreenState extends State<AITop5Screen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.orange.withValues(
           alpha: 0.10,
         ),
         borderRadius:
-            BorderRadius.circular(14),
+            BorderRadius.circular(12),
         border: Border.all(
           color: Colors.orangeAccent.withValues(
             alpha: 0.55,
@@ -284,17 +285,17 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           const Icon(
             Icons.warning_amber_rounded,
             color: Colors.orangeAccent,
-            size: 21,
+            size: 18,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               _warningMessage!,
               style: TextStyle(
                 color:
                     colors.onSurfaceVariant,
-                fontSize: 13,
-                height: 1.35,
+                fontSize: 12,
+                height: 1.3,
               ),
             ),
           ),
@@ -311,14 +312,14 @@ class _AITop5ScreenState extends State<AITop5Screen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colors.primaryContainer
             .withValues(
           alpha: 0.24,
         ),
         borderRadius:
-            BorderRadius.circular(14),
+            BorderRadius.circular(12),
         border: Border.all(
           color: colors.primary.withValues(
             alpha: 0.35,
@@ -332,17 +333,17 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           Icon(
             Icons.info_outline,
             color: colors.primary,
-            size: 21,
+            size: 18,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               _informationMessage!,
               style: TextStyle(
                 color:
                     colors.onSurfaceVariant,
-                fontSize: 13,
-                height: 1.35,
+                fontSize: 12,
+                height: 1.3,
               ),
             ),
           ),
@@ -371,11 +372,11 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           'AI Top 5 betöltése...',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 19,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 9),
+        const SizedBox(height: 8),
         Text(
           'A SportMonks és a TheSportsDB '
           'mérkőzéseit egyesítjük, majd '
@@ -384,6 +385,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.onSurfaceVariant,
+            fontSize: 13,
             height: 1.4,
           ),
         ),
@@ -405,30 +407,30 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         const SizedBox(height: 85),
         const Icon(
           Icons.cloud_off_outlined,
-          size: 76,
+          size: 68,
           color: Colors.redAccent,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         const Text(
           'Az AI Top 5 betöltése nem sikerült',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 21,
+            fontSize: 19,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Text(
           _errorMessage ??
               'Ismeretlen adatforrás-hiba történt.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.onSurfaceVariant,
-            fontSize: 14,
+            fontSize: 13,
             height: 1.4,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         FilledButton.icon(
           onPressed:
               _isLoading ? null : _loadTopMatches,
@@ -440,7 +442,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           ),
           style: FilledButton.styleFrom(
             minimumSize:
-                const Size.fromHeight(52),
+                const Size.fromHeight(48),
           ),
         ),
       ],
@@ -461,19 +463,19 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         const SizedBox(height: 85),
         Icon(
           Icons.event_busy_outlined,
-          size: 76,
+          size: 68,
           color: colors.onSurfaceVariant,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         const Text(
           'Nincs elérhető mérkőzés',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 21,
+            fontSize: 19,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Text(
           'A SportMonks és a TheSportsDB '
           'a következő 30 napra sem talált '
@@ -481,10 +483,11 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.onSurfaceVariant,
+            fontSize: 13,
             height: 1.4,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         OutlinedButton.icon(
           onPressed:
               _isLoading ? null : _loadTopMatches,
@@ -496,7 +499,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           ),
           style: OutlinedButton.styleFrom(
             minimumSize:
-                const Size.fromHeight(52),
+                const Size.fromHeight(48),
           ),
         ),
       ],
@@ -795,15 +798,21 @@ class _TopMatchCard extends StatelessWidget {
     final Color aiColor =
         _aiColor();
 
+    // LEFORDÍTOTT LIGANÉV KINYERÉSE
+    final String translatedLeague = LeagueTranslator.translate(match.league);
+
     return Card(
       margin: const EdgeInsets.only(
-        bottom: 14,
+        bottom: 12,
       ),
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
@@ -811,38 +820,40 @@ class _TopMatchCard extends StatelessWidget {
               Row(
                 children: [
                   CircleAvatar(
-                    radius: 20,
+                    radius: 16,
                     backgroundColor:
                         _positionColor(),
                     child: Text(
                       '$position',
                       style: const TextStyle(
                         color: Colors.white,
+                        fontSize: 13,
                         fontWeight:
                             FontWeight.bold,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
 
                   _SmallNetworkLogo(
                     imageUrl:
                         match.leagueLogoUrl,
                     fallbackIcon:
                         Icons.emoji_events_outlined,
-                    size: 34,
+                    size: 28,
                   ),
 
-                  const SizedBox(width: 9),
+                  const SizedBox(width: 8),
 
                   Expanded(
                     child: Text(
-                      match.league,
+                      translatedLeague.isEmpty ? 'Ismeretlen bajnokság' : translatedLeague,
                       maxLines: 1,
                       overflow:
                           TextOverflow.ellipsis,
                       style: TextStyle(
                         color: colors.primary,
+                        fontSize: 13.5,
                         fontWeight:
                             FontWeight.bold,
                       ),
@@ -852,20 +863,21 @@ class _TopMatchCard extends StatelessWidget {
                   Container(
                     padding:
                         const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+                      horizontal: 8,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: aiColor.withValues(
                         alpha: 0.14,
                       ),
                       borderRadius:
-                          BorderRadius.circular(20),
+                          BorderRadius.circular(12),
                     ),
                     child: Text(
                       '${match.aiScore}%',
                       style: TextStyle(
                         color: aiColor,
+                        fontSize: 12,
                         fontWeight:
                             FontWeight.bold,
                       ),
@@ -874,7 +886,7 @@ class _TopMatchCard extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 17),
+              const SizedBox(height: 12),
 
               Row(
                 children: [
@@ -892,7 +904,7 @@ class _TopMatchCard extends StatelessWidget {
                   Padding(
                     padding:
                         const EdgeInsets.symmetric(
-                      horizontal: 10,
+                      horizontal: 8,
                     ),
                     child: Column(
                       children: [
@@ -904,18 +916,18 @@ class _TopMatchCard extends StatelessWidget {
                               : match.matchTime,
                           style:
                               const TextStyle(
-                            fontSize: 17,
+                            fontSize: 15,
                             fontWeight:
                                 FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           'VS',
                           style: TextStyle(
                             color: colors
                                 .onSurfaceVariant,
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight:
                                 FontWeight.bold,
                           ),
@@ -937,34 +949,35 @@ class _TopMatchCard extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
               ClipRRect(
                 borderRadius:
-                    BorderRadius.circular(20),
+                    BorderRadius.circular(12),
                 child: LinearProgressIndicator(
                   value: progress,
-                  minHeight: 9,
+                  minHeight: 6,
                   color: aiColor,
                   backgroundColor:
                       colors.surfaceContainerHighest,
                 ),
               ),
 
-              const SizedBox(height: 13),
+              const SizedBox(height: 10),
 
               Row(
                 children: [
                   Icon(
                     Icons.verified_outlined,
                     color: aiColor,
-                    size: 20,
+                    size: 16,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       confidenceText,
                       style: const TextStyle(
+                        fontSize: 12,
                         fontWeight:
                             FontWeight.bold,
                       ),
@@ -973,41 +986,42 @@ class _TopMatchCard extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 9),
+              const SizedBox(height: 8),
 
               Container(
                 width: double.infinity,
                 padding:
-                    const EdgeInsets.all(12),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: colors.primaryContainer
                       .withValues(
                     alpha: 0.25,
                   ),
                   borderRadius:
-                      BorderRadius.circular(13),
+                      BorderRadius.circular(10),
                 ),
                 child: Text(
                   'Ajánlott tipp: $recommendation',
                   style: TextStyle(
                     color: colors.onSurface,
+                    fontSize: 12.5,
                     fontWeight:
                         FontWeight.w600,
                   ),
                 ),
               ),
 
-              const SizedBox(height: 11),
+              const SizedBox(height: 8),
 
               Row(
                 children: [
                   Icon(
                     Icons.calendar_today_outlined,
-                    size: 16,
+                    size: 14,
                     color:
                         colors.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Text(
                     _formatCardDate(
                       match.matchDate,
@@ -1015,13 +1029,13 @@ class _TopMatchCard extends StatelessWidget {
                     style: TextStyle(
                       color:
                           colors.onSurfaceVariant,
-                      fontSize: 12,
+                      fontSize: 11.5,
                     ),
                   ),
                   const Spacer(),
                   Icon(
                     Icons.arrow_forward_ios,
-                    size: 16,
+                    size: 14,
                     color:
                         colors.onSurfaceVariant,
                   ),
@@ -1078,9 +1092,9 @@ class _TopTeamDisplay extends StatelessWidget {
         _SmallNetworkLogo(
           imageUrl: logoUrl,
           fallbackIcon: fallbackIcon,
-          size: 58,
+          size: 42,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           teamName.trim().isEmpty
               ? 'Ismeretlen csapat'
@@ -1089,9 +1103,9 @@ class _TopTeamDisplay extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 12.5,
             fontWeight: FontWeight.bold,
-            height: 1.18,
+            height: 1.15,
           ),
         ),
       ],
@@ -1122,22 +1136,22 @@ class _SmallNetworkLogo extends StatelessWidget {
       width: size,
       height: size,
       padding: EdgeInsets.all(
-        size >= 50 ? 7 : 5,
+        size >= 40 ? 5 : 4,
       ),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(
-          size >= 50 ? 17 : 10,
+          size >= 40 ? 12 : 8,
         ),
         border: Border.all(
-          color: colors.outlineVariant,
+          color: colors.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       child: cleanUrl.isEmpty
           ? Icon(
               fallbackIcon,
               color: colors.primary,
-              size: size * 0.58,
+              size: size * 0.55,
             )
           : Image.network(
               cleanUrl,
@@ -1185,7 +1199,7 @@ class _SmallNetworkLogo extends StatelessWidget {
                 return Icon(
                   fallbackIcon,
                   color: colors.primary,
-                  size: size * 0.58,
+                  size: size * 0.55,
                 );
               },
             ),
