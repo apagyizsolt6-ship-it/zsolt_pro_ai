@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.16.1 - Linter Warning Fix
+// Version: v0.16.2 - Clean Unused Fields
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -41,7 +41,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
   String? _informationMessage;
   String? _warningMessage;
 
-  DateTime? _displayedDate;
   DateTime? _nextAvailableDate;
 
   List<AppMatch> _loadedMatches = <AppMatch>[];
@@ -162,7 +161,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   _selectedDayIndex = index;
                   _loadedMatches = <AppMatch>[];
                   _leagueExpansionState.clear();
-                  _displayedDate = null;
                   _nextAvailableDate = null;
                   _errorMessage = null;
                   _informationMessage = null;
@@ -731,7 +729,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
       _informationMessage = null;
       _warningMessage = null;
       _nextAvailableDate = null;
-      _displayedDate = _requestedDate;
     });
 
     try {
@@ -743,7 +740,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
       if (result.matches.isNotEmpty) {
         setState(() {
           _loadedMatches = List<AppMatch>.from(result.matches);
-          _displayedDate = result.date;
           _warningMessage = result.warningMessage;
           _informationMessage = _buildSourceInformation(result);
         });
@@ -864,7 +860,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       setState(() {
         _loadedMatches = List<AppMatch>.from(result.matches);
-        _displayedDate = result.date;
         _nextAvailableDate = null;
         _warningMessage = result.warningMessage;
         _informationMessage =
