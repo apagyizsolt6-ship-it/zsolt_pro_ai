@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.16.2 - Clean Unused Fields
+// Version: v0.16.3 - Data Status Toggle
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -36,12 +36,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
   bool _favoritesOnly = false;
   bool _isLoading = false;
   bool _isSearchingNextDate = false;
+  bool _showDataStatus = false; // KAPCSOLÓ AZ ADATINFÓ DOBOZHOZ
 
   String? _errorMessage;
   String? _informationMessage;
   String? _warningMessage;
 
   DateTime? _nextAvailableDate;
+  MatchRepositoryResult? _lastRepositoryResult;
 
   List<AppMatch> _loadedMatches = <AppMatch>[];
 
@@ -146,7 +148,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // 1. ÁRAMVONALASÍTOTT KERESŐ + SZŰRŐK EGYETLEN SORBAN
+            // 1. ÁRAMVONALASÍTOTT KERESŐ + INFÓ + KEDVENCEK + NYITÁS/CSUKÁS
             _buildStreamlinedHeader(groupedMatches),
 
             const SizedBox(height: 6),
@@ -171,6 +173,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
               },
             ),
 
+            // 3. KAPCSOLHATÓ ADATINFÓ DOBOZ
+            if (_showDataStatus) _buildDataStatusBar(context: context),
+
             const SizedBox(height: 4),
 
             if (_warningMessage != null) _buildWarningBanner(context: context),
@@ -190,7 +195,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  /// Áramvonalasított felső sor: Kereső + Kedvencek + Nyitás/Csukás gombok egyben
+  /// Áramvonalasított felső sor: Kereső + Infó kapcsoló + Kedvencek + Nyitás/Csukás
   Widget _buildStreamlinedHeader(Map<String, List<AppMatch>> groupedMatches) {
     final ColorScheme colors = Theme.of(context).colorScheme;
 
@@ -198,7 +203,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       child: Row(
         children: [
-          // Keresőmező beépített törlés gombbal
+          // Keresőmező
           Expanded(
             child: SizedBox(
               height: 42,
@@ -237,9 +242,41 @@ class _MatchesScreenState extends State<MatchesScreen> {
             ),
           ),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
 
-          // Kedvencek gyorsgomb (Gombnyomásra narancssárga csillag)
+          // Infó doboz megjelenítése / elrejtése kapcsoló
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              setState(() {
+                _showDataStatus = !_showDataStatus;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: _showDataStatus
+                    ? colors.primaryContainer.withValues(alpha: 0.5)
+                    : colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _showDataStatus ? colors.primary : Colors.transparent,
+                  width: 1.2,
+                ),
+              ),
+              child: Icon(
+                _showDataStatus ? Icons.info : Icons.info_outline,
+                color: _showDataStatus ? colors.primary : colors.onSurfaceVariant,
+                size: 18,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          // Kedvencek gyorsgomb
           InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: () {
@@ -261,21 +298,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   width: 1.2,
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    _favoritesOnly ? Icons.star : Icons.star_border,
-                    color: _favoritesOnly ? Colors.amber : colors.onSurfaceVariant,
-                    size: 18,
-                  ),
-                ],
+              child: Icon(
+                _favoritesOnly ? Icons.star : Icons.star_border,
+                color: _favoritesOnly ? Colors.amber : colors.onSurfaceVariant,
+                size: 18,
               ),
             ),
           ),
 
           if (groupedMatches.isNotEmpty) ...[
-            const SizedBox(width: 6),
-            // Nyitás / Csukás gomb
+            const SizedBox(width: 4),
             IconButton(
               constraints: const BoxConstraints(),
               padding: const EdgeInsets.all(8),
@@ -295,7 +327,59 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  /// Bajnokságok szerinti csoportosítás
+  /// Adatinfó sáv (csak akkor látható, ha a felső ⓘ ikonra rányomsz)
+  Widget _buildDataStatusBar({required BuildContext context}) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+
+    if (_isLoading) {
+      return const LinearProgressIndicator(minHeight: 2);
+    }
+
+    final MatchRepositoryResult? result = _lastRepositoryResult;
+    final bool hasError = _errorMessage != null;
+    final String sourceLabel =
+        result?.sourceLabel ?? 'SportMonks + TheSportsDB';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(14, 6, 14, 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: hasError
+            ? Colors.red.withValues(alpha: 0.08)
+            : colors.primaryContainer.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: hasError
+              ? Colors.redAccent.withValues(alpha: 0.45)
+              : colors.primary.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasError ? Icons.cloud_off_outlined : Icons.cloud_done_outlined,
+            size: 16,
+            color: hasError ? Colors.redAccent : Colors.greenAccent,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              hasError
+                  ? 'A mérkőzésadatok betöltése nem sikerült.'
+                  : '$sourceLabel • ${_loadedMatches.length} mérkőzés',
+              style: TextStyle(
+                color: hasError ? Colors.redAccent : colors.onSurfaceVariant,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Map<String, List<AppMatch>> _groupMatchesByLeague(List<AppMatch> matches) {
     final Map<String, List<AppMatch>> grouped = <String, List<AppMatch>>{};
 
@@ -740,6 +824,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       if (result.matches.isNotEmpty) {
         setState(() {
           _loadedMatches = List<AppMatch>.from(result.matches);
+          _lastRepositoryResult = result;
           _warningMessage = result.warningMessage;
           _informationMessage = _buildSourceInformation(result);
         });
@@ -748,6 +833,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       setState(() {
         _loadedMatches = <AppMatch>[];
+        _lastRepositoryResult = result;
         _warningMessage = result.warningMessage;
         _isSearchingNextDate = true;
       });
@@ -758,6 +844,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       setState(() {
         _loadedMatches = <AppMatch>[];
+        _lastRepositoryResult = null;
         _errorMessage = error.message;
       });
     } catch (error) {
@@ -765,6 +852,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       setState(() {
         _loadedMatches = <AppMatch>[];
+        _lastRepositoryResult = null;
         _errorMessage =
             'Váratlan hiba történt. Típus: ${error.runtimeType}. Részlet: $error';
       });
@@ -861,6 +949,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       setState(() {
         _loadedMatches = List<AppMatch>.from(result.matches);
         _nextAvailableDate = null;
+        _lastRepositoryResult = result;
         _warningMessage = result.warningMessage;
         _informationMessage =
             'A következő elérhető mérkőzésnap meccsei láthatók. ${_buildSourceInformation(result)}';
