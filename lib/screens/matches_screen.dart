@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.15.0
+// Version: v0.15.1
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../models/app_match.dart';
 import '../services/favorites_service.dart';
 import '../services/match_repository.dart';
+import '../utils/league_translator.dart';
 import '../widgets/day_selector.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/league_header.dart';
@@ -83,10 +84,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final String normalizedSearch = _searchText.trim().toLowerCase();
 
     final List<AppMatch> result = _loadedMatches.where((AppMatch match) {
+      final String translatedLeague = LeagueTranslator.translate(match.league).toLowerCase();
+
       final bool searchMatches = normalizedSearch.isEmpty ||
           match.homeTeam.toLowerCase().contains(normalizedSearch) ||
           match.awayTeam.toLowerCase().contains(normalizedSearch) ||
-          match.league.toLowerCase().contains(normalizedSearch);
+          match.league.toLowerCase().contains(normalizedSearch) ||
+          translatedLeague.contains(normalizedSearch);
 
       final bool favoriteMatches =
           !_favoritesOnly || FavoritesService.isFavorite(match.id);
@@ -236,9 +240,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final Map<String, List<AppMatch>> grouped = <String, List<AppMatch>>{};
 
     for (final AppMatch match in matches) {
-      final String leagueName = match.league.trim().isEmpty
+      final String rawLeague = match.league.trim().isEmpty
           ? 'Ismeretlen bajnokság'
           : match.league.trim();
+
+      // MAGYAROSÍTOTT BAJNOKSÁG NÉV A CSOPORTOSÍTÁSHOZ ÉS MEGJELENÍTÉSHEZ
+      final String leagueName = LeagueTranslator.translate(rawLeague);
 
       grouped.putIfAbsent(leagueName, () => <AppMatch>[]);
       grouped[leagueName]!.add(match);
