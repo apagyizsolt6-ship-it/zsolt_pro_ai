@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.15.1
+// Version: v0.16.0 - Streamlined Compact Header
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -11,10 +11,8 @@ import '../services/favorites_service.dart';
 import '../services/match_repository.dart';
 import '../utils/league_translator.dart';
 import '../widgets/day_selector.dart';
-import '../widgets/filter_bar.dart';
 import '../widgets/league_header.dart';
 import '../widgets/match_card.dart';
-import '../widgets/search_bar_widget.dart';
 import 'match_detail_screen.dart';
 
 class MatchesScreen extends StatefulWidget {
@@ -154,14 +152,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            SearchBarWidget(
-              controller: _searchController,
-              onChanged: (String value) {
-                setState(() {
-                  _searchText = value;
-                });
-              },
-            ),
+            // 1. ÁRAMVONALASÍTOTT KERESŐ + SZŰRŐK EGYETLEN SORBAN
+            _buildStreamlinedHeader(groupedMatches),
+
+            const SizedBox(height: 6),
+
+            // 2. KOMPAKT DÁTUMVÁLASZTÓ SÁV
             DaySelector(
               selectedIndex: _selectedDayIndex,
               onChanged: (int index) {
@@ -182,44 +178,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 _loadMatches();
               },
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: FilterBar(
-                    favoritesOnly: _favoritesOnly,
-                    onChanged: (bool value) {
-                      setState(() {
-                        _favoritesOnly = value;
-                      });
-                    },
-                  ),
-                ),
-                if (groupedMatches.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: TextButton.icon(
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: () => _toggleAllLeagues(groupedMatches),
-                      icon: Icon(
-                        _areAllExpanded(groupedMatches)
-                            ? Icons.unfold_less
-                            : Icons.unfold_more,
-                        size: 18,
-                      ),
-                      label: Text(
-                        _areAllExpanded(groupedMatches) ? 'Csukás' : 'Nyitás',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            _buildDataStatusBar(context: context),
+
+            const SizedBox(height: 4),
+
             if (_warningMessage != null) _buildWarningBanner(context: context),
             if (_informationMessage != null)
               _buildInformationBanner(context: context),
+
             Expanded(
               child: _buildContent(
                 context: context,
@@ -233,9 +198,112 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  /// Bajnokságok szerinti csoportosítás:
-  /// - A Top Bajnokságok felülre kerülnek és alapértelmezetten NYITVA vannak.
-  /// - A többi bajnokság alulra kerül ábécésorrendben, alapértelmezetten ÖSSZECSUKVA.
+  /// Áramvonalasított felső sor: Kereső + Kedvencek + Nyitás/Csukás gombok egyben
+  Widget _buildStreamlinedHeader(Map<String, List<AppMatch>> groupedMatches) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: Row(
+        children: [
+          // Keresőmező beépített törlés gombbal
+          Expanded(
+            child: SizedBox(
+              height: 42,
+              child: TextField(
+                controller: _searchController,
+                style: const TextStyle(fontSize: 13.5),
+                onChanged: (String value) {
+                  setState(() {
+                    _searchText = value;
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: "Keresés csapatra, ligára...",
+                  hintStyle: TextStyle(fontSize: 12.5, color: colors.onSurfaceVariant),
+                  prefixIcon: const Icon(Icons.search, size: 18),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 16),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchText = '';
+                            });
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: colors.surfaceContainerLow,
+                  contentPadding: EdgeInsets.zero,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Kedvencek gyorsgomb (Gombnyomásra narancssárga csillag)
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              setState(() {
+                _favoritesOnly = !_favoritesOnly;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: _favoritesOnly
+                    ? Colors.amber.withValues(alpha: 0.18)
+                    : colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _favoritesOnly ? Colors.amber : Colors.transparent,
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _favoritesOnly ? Icons.star : Icons.star_border,
+                    color: _favoritesOnly ? Colors.amber : colors.onSurfaceVariant,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          if (groupedMatches.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            // Nyitás / Csukás gomb
+            IconButton(
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(8),
+              tooltip: _areAllExpanded(groupedMatches) ? 'Összes csukása' : 'Összes nyitása',
+              icon: Icon(
+                _areAllExpanded(groupedMatches)
+                    ? Icons.unfold_less
+                    : Icons.unfold_more,
+                size: 20,
+                color: colors.primary,
+              ),
+              onPressed: () => _toggleAllLeagues(groupedMatches),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Bajnokságok szerinti csoportosítás
   Map<String, List<AppMatch>> _groupMatchesByLeague(List<AppMatch> matches) {
     final Map<String, List<AppMatch>> grouped = <String, List<AppMatch>>{};
 
@@ -244,7 +312,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
           ? 'Ismeretlen bajnokság'
           : match.league.trim();
 
-      // MAGYAROSÍTOTT BAJNOKSÁG NÉV A CSOPORTOSÍTÁSHOZ ÉS MEGJELENÍTÉSHEZ
       final String leagueName = LeagueTranslator.translate(rawLeague);
 
       grouped.putIfAbsent(leagueName, () => <AppMatch>[]);
@@ -267,7 +334,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
     for (final MapEntry<String, List<AppMatch>> entry in sortedEntries) {
       result[entry.key] = entry.value;
 
-      // Alapértelmezett nyitási/csukási állapot beállítása az első betöltéskor
       _leagueExpansionState.putIfAbsent(
         entry.key,
         () => _isTopLeague(entry.key) || _searchText.trim().isNotEmpty,
@@ -295,70 +361,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
     });
   }
 
-  Widget _buildDataStatusBar({required BuildContext context}) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
-
-    if (_isLoading) {
-      return const LinearProgressIndicator(minHeight: 3);
-    }
-
-    final MatchRepositoryResult? result = _lastRepositoryResult;
-    final bool hasError = _errorMessage != null;
-    final String sourceLabel =
-        result?.sourceLabel ?? 'SportMonks + TheSportsDB';
-
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: hasError
-            ? Colors.red.withValues(alpha: 0.08)
-            : colors.primaryContainer.withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: hasError
-              ? Colors.redAccent.withValues(alpha: 0.45)
-              : colors.primary.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            hasError ? Icons.cloud_off_outlined : Icons.cloud_done_outlined,
-            size: 19,
-            color: hasError ? Colors.redAccent : Colors.greenAccent,
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              hasError
-                  ? 'A mérkőzésadatok betöltése nem sikerült.'
-                  : '$sourceLabel • ${_formatDate(_activeDate)} • ${_loadedMatches.length} mérkőzés',
-              style: TextStyle(
-                color: hasError ? Colors.redAccent : colors.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildWarningBanner({required BuildContext context}) {
     final ColorScheme colors = Theme.of(context).colorScheme;
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-      padding: const EdgeInsets.all(13),
+      margin: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.orange.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: Colors.orangeAccent.withValues(alpha: 0.55),
+          color: Colors.orangeAccent.withValues(alpha: 0.45),
         ),
       ),
       child: Row(
@@ -367,16 +381,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
           const Icon(
             Icons.warning_amber_rounded,
             color: Colors.orangeAccent,
-            size: 21,
+            size: 18,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               _warningMessage!,
               style: TextStyle(
                 color: colors.onSurfaceVariant,
-                fontSize: 13,
-                height: 1.35,
+                fontSize: 12,
+                height: 1.3,
               ),
             ),
           ),
@@ -390,13 +404,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-      padding: const EdgeInsets.all(13),
+      margin: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colors.primaryContainer.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(14),
+        color: colors.primaryContainer.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: colors.primary.withValues(alpha: 0.35),
+          color: colors.primary.withValues(alpha: 0.25),
         ),
       ),
       child: Row(
@@ -405,16 +419,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
           Icon(
             Icons.info_outline,
             color: colors.primary,
-            size: 21,
+            size: 18,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               _informationMessage!,
               style: TextStyle(
                 color: colors.onSurfaceVariant,
-                fontSize: 13,
-                height: 1.35,
+                fontSize: 12,
+                height: 1.3,
               ),
             ),
           ),
@@ -446,7 +460,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       onRefresh: _loadMatches,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
         children: groupedMatches.entries.map((entry) {
           final String leagueName = entry.key;
           final List<AppMatch> leagueMatches = entry.value;
@@ -454,18 +468,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
           final bool isTop = _isTopLeague(leagueName);
 
           return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: 8),
             child: Card(
               elevation: 0,
               color: colors.surfaceContainerLow,
               clipBehavior: Clip.antiAlias,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
                   color: isTop
                       ? colors.primary.withValues(alpha: 0.3)
                       : colors.outlineVariant.withValues(alpha: 0.2),
-                  width: isTop ? 1.5 : 1,
+                  width: isTop ? 1.2 : 1,
                 ),
               ),
               child: Column(
@@ -477,7 +491,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       });
                     },
                     child: Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       child: Row(
                         children: [
                           Expanded(
@@ -485,28 +499,29 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                              horizontal: 7,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
                               color: colors.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               '${leagueMatches.length}',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 color: colors.onSurfaceVariant,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
                           Icon(
                             isExpanded
                                 ? Icons.keyboard_arrow_up
                                 : Icons.keyboard_arrow_down,
                             color: colors.onSurfaceVariant,
+                            size: 20,
                           ),
                         ],
                       ),
@@ -514,7 +529,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   ),
                   if (isExpanded)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                       child: Column(
                         children: leagueMatches.map((match) {
                           return MatchCard(
@@ -558,7 +573,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   : 'Valódi mérkőzések betöltése...',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 17,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -570,6 +585,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colors.onSurfaceVariant,
+                fontSize: 13,
                 height: 1.4,
               ),
             ),
@@ -591,35 +607,35 @@ class _MatchesScreenState extends State<MatchesScreen> {
           const SizedBox(height: 70),
           const Icon(
             Icons.cloud_off_outlined,
-            size: 72,
+            size: 64,
             color: Colors.redAccent,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           const Text(
             'A meccsek betöltése nem sikerült',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 21,
+              fontSize: 19,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
             _errorMessage ?? 'Ismeretlen adatforrás-hiba.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.onSurfaceVariant,
-              fontSize: 14,
+              fontSize: 13,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: _isLoading ? null : _loadMatches,
             icon: const Icon(Icons.refresh),
             label: const Text('Újrapróbálás'),
             style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
+              minimumSize: const Size.fromHeight(48),
             ),
           ),
         ],
@@ -643,21 +659,21 @@ class _MatchesScreenState extends State<MatchesScreen> {
             filterActive
                 ? Icons.filter_alt_off_outlined
                 : Icons.event_busy_outlined,
-            size: 72,
+            size: 64,
             color: colors.onSurfaceVariant,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Text(
             filterActive
                 ? 'Nincs találat a szűrésre'
                 : 'Ezen a napon nincs elérhető mérkőzés',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             filterActive
                 ? 'Módosítsd a keresést, vagy kapcsold ki a kedvencek szűrését.'
@@ -667,11 +683,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.onSurfaceVariant,
+              fontSize: 13,
               height: 1.4,
             ),
           ),
           if (!filterActive && _nextAvailableDate != null) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: _openNextAvailableDate,
               icon: const Icon(Icons.event_available_outlined),
@@ -679,29 +696,29 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 'Meccsek megnyitása – ${_formatDate(_nextAvailableDate!)}',
               ),
               style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
+                minimumSize: const Size.fromHeight(48),
               ),
             ),
           ],
           if (!filterActive && _nextAvailableDate == null) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             OutlinedButton.icon(
               onPressed: _isLoading ? null : _findNextAvailableDate,
               icon: const Icon(Icons.search),
               label: const Text('Következő mérkőzésnap keresése'),
               style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
+                minimumSize: const Size.fromHeight(48),
               ),
             ),
           ],
           if (filterActive) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             OutlinedButton.icon(
               onPressed: _clearFilters,
               icon: const Icon(Icons.filter_alt_off),
               label: const Text('Szűrők törlése'),
               style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
+                minimumSize: const Size.fromHeight(48),
               ),
             ),
           ],
