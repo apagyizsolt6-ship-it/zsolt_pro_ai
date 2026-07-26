@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI Engine v2.0 - Professional Quant Edition
-// Version: v0.22.0 - Fixed Compatibility & Full Quant Engine
+// Version: v0.23.0 - Full Build Fix & Poisson Engine
 // File: lib/services/ai_engine_v2_service.dart
 // ===========================================
 
@@ -44,6 +44,7 @@ class AiMatchStatistics {
 
   final double leagueStrength;
   final double dataQualityBonus;
+  final double homeAdvantage;
 
   const AiMatchStatistics({
     required this.homeForm,
@@ -73,6 +74,7 @@ class AiMatchStatistics {
     required this.awaySampleSize,
     required this.leagueStrength,
     required this.dataQualityBonus,
+    this.homeAdvantage = 1.12,
   });
 
   /// Kompatibilitási getterek a többi szerviz számára
@@ -108,6 +110,7 @@ class AiMatchStatistics {
       awaySampleSize: 10,
       leagueStrength: leagueStrength,
       dataQualityBonus: 6.0,
+      homeAdvantage: 1.12,
     );
   }
 }
@@ -190,10 +193,10 @@ class AiEngineV2Service {
     final double awayDefense = (statistics.awayGoalsConcededAverage / leagueAvg).clamp(0.4, 2.5);
 
     // 2. Hazai pálya előnye
-    const double homeAdvantage = 1.12;
+    final double homeAdv = statistics.homeAdvantage > 0 ? statistics.homeAdvantage : 1.12;
 
     // 3. Várható gólok (xG)
-    final double homeXG = (homeAttack * awayDefense * leagueAvg * homeAdvantage).clamp(0.2, 4.5);
+    final double homeXG = (homeAttack * awayDefense * leagueAvg * homeAdv).clamp(0.2, 4.5);
     final double awayXG = (awayAttack * homeDefense * leagueAvg).clamp(0.2, 4.5);
 
     // 4. Súlyozott Forma
