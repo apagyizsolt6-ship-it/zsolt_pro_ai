@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.15.2
+// Version: v0.16.0 - Livescore & Results Extension
 // File: lib/models/app_match.dart
 // ===========================================
 
@@ -30,17 +30,15 @@ class AppMatch {
   final String awayTeamLogoUrl;
   final String leagueLogoUrl;
 
+  /// Élő eredmények és végeredmény mezők
+  final int homeScore;
+  final int awayScore;
+  final String minute;
+
   /// Az alkalmazáson belüli adatforrás.
-  ///
-  /// Ennek segítségével tudjuk eldönteni, hogy a részletes
-  /// statisztikákat a SportMonksból vagy a TheSportsDB-ből
-  /// kell lekérni.
   final MatchDataSource dataSource;
 
   /// Az eredeti mérkőzésazonosító az API-ban.
-  ///
-  /// Például:
-  /// SportMonks fixture ID vagy TheSportsDB event ID.
   final String externalMatchId;
 
   /// Az eredeti ligaazonosító az API-ban.
@@ -61,10 +59,7 @@ class AppMatch {
   /// Opcionális stadion vagy helyszín.
   final String venue;
 
-  /// Opcionális mérkőzésállapot.
-  ///
-  /// Például:
-  /// NS, LIVE, HT, FT.
+  /// Opcionális mérkőzésállapot (NS, LIVE, HT, FT, POSTP stb.).
   final String status;
 
   /// Van-e már részletes statisztikai adat a meccshez.
@@ -86,6 +81,9 @@ class AppMatch {
     this.homeTeamLogoUrl = '',
     this.awayTeamLogoUrl = '',
     this.leagueLogoUrl = '',
+    this.homeScore = 0,
+    this.awayScore = 0,
+    this.minute = '',
     this.dataSource = MatchDataSource.unknown,
     this.externalMatchId = '',
     this.externalLeagueId = '',
@@ -112,6 +110,9 @@ class AppMatch {
     String? homeTeamLogoUrl,
     String? awayTeamLogoUrl,
     String? leagueLogoUrl,
+    int? homeScore,
+    int? awayScore,
+    String? minute,
     MatchDataSource? dataSource,
     String? externalMatchId,
     String? externalLeagueId,
@@ -134,35 +135,30 @@ class AppMatch {
       aiScore: aiScore ?? this.aiScore,
       isFavorite: isFavorite ?? this.isFavorite,
       isLive: isLive ?? this.isLive,
-      homeTeamLogoUrl:
-          homeTeamLogoUrl ?? this.homeTeamLogoUrl,
-      awayTeamLogoUrl:
-          awayTeamLogoUrl ?? this.awayTeamLogoUrl,
-      leagueLogoUrl:
-          leagueLogoUrl ?? this.leagueLogoUrl,
-      dataSource:
-          dataSource ?? this.dataSource,
-      externalMatchId:
-          externalMatchId ?? this.externalMatchId,
-      externalLeagueId:
-          externalLeagueId ?? this.externalLeagueId,
-      homeTeamId:
-          homeTeamId ?? this.homeTeamId,
-      awayTeamId:
-          awayTeamId ?? this.awayTeamId,
-      seasonId:
-          seasonId ?? this.seasonId,
-      country:
-          country ?? this.country,
-      venue:
-          venue ?? this.venue,
-      status:
-          status ?? this.status,
-      hasStatistics:
-          hasStatistics ?? this.hasStatistics,
-      hasOdds:
-          hasOdds ?? this.hasOdds,
+      homeTeamLogoUrl: homeTeamLogoUrl ?? this.homeTeamLogoUrl,
+      awayTeamLogoUrl: awayTeamLogoUrl ?? this.awayTeamLogoUrl,
+      leagueLogoUrl: leagueLogoUrl ?? this.leagueLogoUrl,
+      homeScore: homeScore ?? this.homeScore,
+      awayScore: awayScore ?? this.awayScore,
+      minute: minute ?? this.minute,
+      dataSource: dataSource ?? this.dataSource,
+      externalMatchId: externalMatchId ?? this.externalMatchId,
+      externalLeagueId: externalLeagueId ?? this.externalLeagueId,
+      homeTeamId: homeTeamId ?? this.homeTeamId,
+      awayTeamId: awayTeamId ?? this.awayTeamId,
+      seasonId: seasonId ?? this.seasonId,
+      country: country ?? this.country,
+      venue: venue ?? this.venue,
+      status: status ?? this.status,
+      hasStatistics: hasStatistics ?? this.hasStatistics,
+      hasOdds: hasOdds ?? this.hasOdds,
     );
+  }
+
+  /// Igaz, ha a mérkőzés már véget ért.
+  bool get isFinished {
+    final String s = status.trim().toUpperCase();
+    return s == 'FT' || s == 'AET' || s == 'PEN' || s == 'FINISHED';
   }
 
   bool get hasExternalMatchId {
@@ -170,8 +166,7 @@ class AppMatch {
   }
 
   bool get hasTeamIds {
-    return homeTeamId.trim().isNotEmpty &&
-        awayTeamId.trim().isNotEmpty;
+    return homeTeamId.trim().isNotEmpty && awayTeamId.trim().isNotEmpty;
   }
 
   bool get isSportMonksMatch {
@@ -200,38 +195,17 @@ class AppMatch {
   }
 
   String get uniqueComparisonKey {
-    final String normalizedHome =
-        _normalizeText(homeTeam);
+    final String normalizedHome = _normalizeText(homeTeam);
+    final String normalizedAway = _normalizeText(awayTeam);
 
-    final String normalizedAway =
-        _normalizeText(awayTeam);
+    final String year = matchDate.year.toString().padLeft(4, '0');
+    final String month = matchDate.month.toString().padLeft(2, '0');
+    final String day = matchDate.day.toString().padLeft(2, '0');
 
-    final String year =
-        matchDate.year.toString().padLeft(
-              4,
-              '0',
-            );
-
-    final String month =
-        matchDate.month.toString().padLeft(
-              2,
-              '0',
-            );
-
-    final String day =
-        matchDate.day.toString().padLeft(
-              2,
-              '0',
-            );
-
-    return '$normalizedHome|'
-        '$normalizedAway|'
-        '$year-$month-$day';
+    return '$normalizedHome|$normalizedAway|$year-$month-$day';
   }
 
-  static String _normalizeText(
-    String value,
-  ) {
+  static String _normalizeText(String value) {
     return value
         .toLowerCase()
         .replaceAll('á', 'a')
@@ -246,10 +220,7 @@ class AppMatch {
         .replaceAll('æ', 'ae')
         .replaceAll('ø', 'o')
         .replaceAll('å', 'a')
-        .replaceAll(
-          RegExp(r'[^a-z0-9]'),
-          '',
-        );
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   @override
@@ -266,15 +237,12 @@ class AppMatch {
   }
 
   @override
-  bool operator ==(
-    Object other,
-  ) {
+  bool operator ==(Object other) {
     if (identical(this, other)) {
       return true;
     }
 
-    return other is AppMatch &&
-        other.id == id;
+    return other is AppMatch && other.id == id;
   }
 
   @override
