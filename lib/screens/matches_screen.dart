@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.16.0 - Streamlined Compact Header
+// Version: v0.16.1 - Linter Warning Fix
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -44,7 +44,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
   DateTime? _displayedDate;
   DateTime? _nextAvailableDate;
 
-  MatchRepositoryResult? _lastRepositoryResult;
   List<AppMatch> _loadedMatches = <AppMatch>[];
 
   /// Tárolja, hogy mely bajnokságcsoportok vannak kinyitva/összecsukva.
@@ -72,10 +71,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
       now.month,
       now.day + _selectedDayIndex,
     );
-  }
-
-  DateTime get _activeDate {
-    return _displayedDate ?? _requestedDate;
   }
 
   List<AppMatch> get _filteredMatches {
@@ -169,7 +164,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   _leagueExpansionState.clear();
                   _displayedDate = null;
                   _nextAvailableDate = null;
-                  _lastRepositoryResult = null;
                   _errorMessage = null;
                   _informationMessage = null;
                   _warningMessage = null;
@@ -738,7 +732,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
       _warningMessage = null;
       _nextAvailableDate = null;
       _displayedDate = _requestedDate;
-      _lastRepositoryResult = null;
     });
 
     try {
@@ -751,7 +744,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
         setState(() {
           _loadedMatches = List<AppMatch>.from(result.matches);
           _displayedDate = result.date;
-          _lastRepositoryResult = result;
           _warningMessage = result.warningMessage;
           _informationMessage = _buildSourceInformation(result);
         });
@@ -760,7 +752,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       setState(() {
         _loadedMatches = <AppMatch>[];
-        _lastRepositoryResult = result;
         _warningMessage = result.warningMessage;
         _isSearchingNextDate = true;
       });
@@ -771,7 +762,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       setState(() {
         _loadedMatches = <AppMatch>[];
-        _lastRepositoryResult = null;
         _errorMessage = error.message;
       });
     } catch (error) {
@@ -779,7 +769,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       setState(() {
         _loadedMatches = <AppMatch>[];
-        _lastRepositoryResult = null;
         _errorMessage =
             'Váratlan hiba történt. Típus: ${error.runtimeType}. Részlet: $error';
       });
@@ -877,7 +866,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
         _loadedMatches = List<AppMatch>.from(result.matches);
         _displayedDate = result.date;
         _nextAvailableDate = null;
-        _lastRepositoryResult = result;
         _warningMessage = result.warningMessage;
         _informationMessage =
             'A következő elérhető mérkőzésnap meccsei láthatók. ${_buildSourceInformation(result)}';
