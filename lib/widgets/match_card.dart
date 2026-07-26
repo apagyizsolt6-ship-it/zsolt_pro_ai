@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.16.1 - Flashscore Compact Typography
+// Version: v0.16.2 - Linter Fix & Compact Typography
 // File: lib/widgets/match_card.dart
 // ===========================================
 
@@ -68,7 +68,7 @@ class _MatchCardState extends State<MatchCard> {
 
                 const SizedBox(width: 8),
 
-                // 2. CSAPATOK ÉS LOGÓK (Kompakt kis betűkkel)
+                // 2. CSAPATOK ÉS LOGÓK
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,7 +91,7 @@ class _MatchCardState extends State<MatchCard> {
 
                 const SizedBox(width: 6),
 
-                // 3. AI JELVÉNY & CSILLAG (Kicsi kapszula)
+                // 3. AI JELVÉNY & CSILLAG
                 _buildRightActions(colors),
               ],
             ),
@@ -143,7 +143,7 @@ class _MatchCardState extends State<MatchCard> {
     );
   }
 
-  /// Csapat sora (Kicsi 16x16 logo + 12px finom betűk)
+  /// Csapat sora (Kicsi 16x16 logo + 12.5px finom betűk)
   Widget _buildTeamRow({
     required String teamName,
     required String logoUrl,
@@ -161,7 +161,7 @@ class _MatchCardState extends State<MatchCard> {
               : Image.network(
                   cleanLogo,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Icon(
+                  errorBuilder: (BuildContext ctx, Object err, StackTrace? stack) => Icon(
                     Icons.shield_outlined,
                     size: 14,
                     color: colors.primary,
