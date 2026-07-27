@@ -176,11 +176,11 @@ class MatchAnalysisService {
         statisticsResult: MatchStatisticsResult(
           matchId: match.id,
           statistics: AiMatchStatistics.fallback(),
-          source: WatchStatisticsSource.fallback,
+          source: MatchStatisticsSource.fallback,
           sourceLabel: 'Becsült AI-adatok',
           usedFallback: true,
           hasRealStatistics: false,
-          quality: WatchStatisticsQuality.fallback,
+          quality: MatchStatisticsQuality.fallback,
           warningMessage: 'Hiba történt a statisztikák letöltésekor.',
           errorMessage: error.toString(),
           loadedAt: DateTime.now(),
@@ -198,16 +198,21 @@ class MatchAnalysisService {
   Future<AiOddsData> _tryFetchOrEstimateOdds(AppMatch match) async {
     if (_oddsService.hasApiKey) {
       try {
-        final event = await _oddsService.findMatchOdds(match);
+        final event = await _oddsService.findMatchOdds(
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
+          matchDate: match.date,
+          sportKey: match.sportKey,
+        );
         if (event != null) {
           return AiOddsData(
-            homeWinOdds: event.homeOdds,
-            drawOdds: event.drawOdds,
-            awayWinOdds: event.awayOdds,
-            over15Odds: event.over15Odds,
-            over25Odds: event.over25Odds,
-            under25Odds: event.under25Odds,
-            bttsYesOdds: event.bttsOdds,
+            homeWinOdds: event.homePrice,
+            drawOdds: event.drawPrice,
+            awayWinOdds: event.awayPrice,
+            over15Odds: event.over15Price,
+            over25Odds: event.over25Price,
+            under25Odds: event.under25Price,
+            bttsYesOdds: event.bttsYesPrice,
           );
         }
       } catch (_) {}
@@ -253,8 +258,8 @@ class MatchAnalysisResult {
   double get recommendationProbability => analysis.recommendation.probability;
   
   double get fairOdds => analysis.recommendation.fairOdds;
-  double get marketOdds => analysis.recommendation.marketOdds;
-  double get valueEdgePercentage => analysis.recommendation.edgePercentage;
+  double get marketOdds => analysis.recommendation.odds;
+  double get valueEdgePercentage => analysis.recommendation.edge;
 
   String get dataSourceLabel => statisticsResult.sourceLabel;
   String get qualityLabel => statisticsResult.qualityLabel;
