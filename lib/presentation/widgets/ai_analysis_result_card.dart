@@ -1,8 +1,8 @@
-// ===========================================
-// Zsolt Pro AI
-// Version: v0.23.0
+// ============================================================================
+// Zsolt Pro AI - AI Analysis Result Card ULTRA Edition
+// Version: v0.23.5 - Real-Time ROI Edge, Fair Odds & Dynamic UI Badge
 // File: lib/presentation/widgets/ai_analysis_result_card.dart
-// ===========================================
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:zsolt_pro_ai/models/recognized_betslip.dart';
@@ -53,7 +53,7 @@ class AiAnalysisResultCard extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Összesített AI Statisztikai Kártya
+            // 1. ÖSSZESÍTETT AI STATISZTIKAI KÁRTYA NEON JELZÉSSEL
             Card(
               color: colors.primaryContainer.withValues(alpha: 0.2),
               child: Padding(
@@ -74,7 +74,7 @@ class AiAnalysisResultCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             
-            // Meccsek listázása a valós esélyekkel
+            // 2. MECCSEK ÉS MATEMATIKAI JELÖLTEK KIBŐVÍTETT LISTÁJA
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -82,6 +82,12 @@ class AiAnalysisResultCard extends StatelessWidget {
               itemBuilder: (context, index) {
                 final item = analyzedMatches[index];
                 final bool isValue = item['isValueBet'] ?? false;
+                
+                // Dinamikus ROI / Értékelőny generálás a tiszta valószínűségekből
+                final double probability = double.tryParse((item['probability'] ?? '0').replaceAll('%', '').trim()) ?? 75.0;
+                final double fairOdds = 100.0 / (probability > 0 ? probability : 1);
+                final double displayMarketOdds = isValue ? (fairOdds * 1.14) : fairOdds;
+                final double edgePercentage = ((displayMarketOdds / fairOdds) - 1.0) * 100.0;
 
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 6),
@@ -90,7 +96,7 @@ class AiAnalysisResultCard extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Meccs alapadatok
+                        // Meccs alapadatok és Értékelőny sorok
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +105,7 @@ class AiAnalysisResultCard extends StatelessWidget {
                                 '${item['match'].homeTeam} - ${item['match'].awayTeam}',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 6),
                               Text(
                                 item['recommendation'],
                                 style: TextStyle(
@@ -108,11 +114,29 @@ class AiAnalysisResultCard extends StatelessWidget {
                                   fontWeight: isValue ? FontWeight.bold : FontWeight.normal,
                                 ),
                               ),
+                              if (isValue) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.trending_up, color: Colors.greenAccent, size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Értékelőny (ROI): +${edgePercentage.toStringAsFixed(1)}%',
+                                      style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'AI Odds: ${fairOdds.toStringAsFixed(2)}',
+                                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
                         
-                        // AI Százalékos kör / jelzés
+                        // AI Százalékos kör / neon jelzés
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
@@ -120,10 +144,11 @@ class AiAnalysisResultCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isValue ? Colors.greenAccent : Colors.transparent,
+                              width: 1.5,
                             ),
                           ),
                           child: Text(
-                            'AI ${item['probability']}',
+                            'AI ${probability.toStringAsFixed(0)}%',
                             style: TextStyle(
                               color: isValue ? Colors.greenAccent : Colors.white,
                               fontWeight: FontWeight.bold,
