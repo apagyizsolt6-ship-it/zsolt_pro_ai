@@ -1,12 +1,11 @@
-// ===========================================
-// Zsolt Pro AI
-// Version: v0.18.0 - Automatic Odds Fetch & Fallback
+// ============================================================================
+// Zsolt Pro AI - Central Match Analysis Service - PART 1
+// Version: v0.18.2 - Production Ready Full Synchronized Architecture
 // File: lib/services/match_analysis_service.dart
-// ===========================================
+// ============================================================================
 
 import '../models/app_match.dart';
 import 'ai_engine_v2_service.dart';
-
 import 'match_statistics_repository.dart';
 import 'the_odds_api_service.dart';
 
@@ -14,23 +13,14 @@ import 'the_odds_api_service.dart';
 class MatchAnalysisService {
   MatchAnalysisService._();
 
-  static final MatchAnalysisService instance =
-      MatchAnalysisService._();
+  static final MatchAnalysisService instance = MatchAnalysisService._();
 
-  final MatchStatisticsRepository _statisticsRepository =
-      MatchStatisticsRepository.instance;
+  final MatchStatisticsRepository _statisticsRepository = MatchStatisticsRepository.instance;
+  final AiEngineV2Service _aiEngine = AiEngineV2Service.instance;
+  final TheOddsApiService _oddsService = TheOddsApiService.instance;
 
-  final AiEngineV2Service _aiEngine =
-      AiEngineV2Service.instance;
-
-  final TheOddsApiService _oddsService =
-      TheOddsApiService.instance;
-
-  final Map<String, MatchAnalysisResult> _cache =
-      <String, MatchAnalysisResult>{};
-
-  final Map<String, Future<MatchAnalysisResult>> _runningRequests =
-      <String, Future<MatchAnalysisResult>>{};
+  final Map<String, MatchAnalysisResult> _cache = <String, MatchAnalysisResult>{};
+  final Map<String, Future<MatchAnalysisResult>> _runningRequests = <String, Future<MatchAnalysisResult>>{};
 
   /// Egy mérkőzés teljes elemzését elkészíti.
   Future<MatchAnalysisResult> analyzeMatch({
@@ -48,13 +38,11 @@ class MatchAnalysisService {
 
     if (!forceRefresh) {
       final MatchAnalysisResult? cached = _cache[cacheKey];
-
       if (cached != null && !cached.isExpired) {
         return Future<MatchAnalysisResult>.value(cached);
       }
 
       final Future<MatchAnalysisResult>? running = _runningRequests[cacheKey];
-
       if (running != null) {
         return running;
       }
@@ -75,7 +63,7 @@ class MatchAnalysisService {
     });
   }
 
-  /// Több mérkőzés elemzését készíti el.
+  /// Több mérkőzés elemzését készíti el batchesítve.
   Future<List<MatchAnalysisResult>> analyzeMatches({
     required List<AppMatch> matches,
     AiOddsData? Function(AppMatch match)? oddsProvider,
@@ -114,7 +102,7 @@ class MatchAnalysisService {
     return results;
   }
 
-  /// A legjobb elemzéseket adja vissza AI-pontszám szerint.
+  /// A legjobb elemzéseket adja vissza AI-pontszám szerint rendezve.
   Future<List<MatchAnalysisResult>> analyzeAndSelectTopMatches({
     required List<AppMatch> matches,
     int limit = 5,
@@ -159,27 +147,16 @@ class MatchAnalysisService {
     return filtered.take(safeLimit).toList(growable: false);
   }
 
-  MatchAnalysisResult? getCachedAnalysis(
-    AppMatch match, {
-    AiOddsData? oddsData,
-  }) {
-    final String key = _createCacheKey(
-      match: match,
-      oddsData: oddsData,
-    );
-
+  MatchAnalysisResult? getCachedAnalysis(AppMatch match, {AiOddsData? oddsData}) {
+    final String key = _createCacheKey(match: match, oddsData: oddsData);
     final MatchAnalysisResult? result = _cache[key];
     if (result == null || result.isExpired) {
       return null;
     }
-
     return result;
   }
 
-  bool hasCachedAnalysis(
-    AppMatch match, {
-    AiOddsData? oddsData,
-  }) {
+  bool hasCachedAnalysis(AppMatch match, {AiOddsData? oddsData}) {
     return getCachedAnalysis(match, oddsData: oddsData) != null;
   }
 
@@ -201,7 +178,12 @@ class MatchAnalysisService {
     _removeExpiredCacheEntries();
     return _cache.length;
   }
+}
+// ============================================================================
+// Zsolt Pro AI - Central Match Analysis Service - PART 2
+// ============================================================================
 
+extension MatchAnalysisServiceInternal on MatchAnalysisService {
   Future<MatchAnalysisResult> _performAnalysis({
     required AppMatch match,
     required AiOddsData? oddsData,
@@ -212,15 +194,14 @@ class MatchAnalysisService {
     final DateTime startedAt = DateTime.now();
 
     try {
-      final MatchStatisticsResult statisticsResult = await _statisticsRepository.loadStatistics(
+      final statisticsResult = await _statisticsRepository.loadStatistics(
         match,
         allowFallback: allowFallback,
         formMatchCount: formMatchCount,
         h2hMatchCount: h2hMatchCount,
       );
 
-      // Automatikus Odds lekérés / generálás, ha hiányzik
-      AiOddsData effectiveOddsData = oddsData ?? await _tryFetchOrEstimateOdds(match);
+      final AiOddsData effectiveOddsData = oddsData ?? await _tryFetchOrEstimateOdds(match);
 
       final AiMatchAnalysis analysis = _aiEngine.analyzeMatch(
         match: match,
@@ -247,12 +228,9 @@ class MatchAnalysisService {
         completedAt: DateTime.now(),
       );
 
-      final String cacheKey = _createCacheKey(
-        match: match,
-        oddsData: effectiveOddsData,
-      );
-
+      final String cacheKey = _createCacheKey(match: match, oddsData: effectiveOddsData);
       _cache[cacheKey] = result;
+      
       return result;
     } catch (error) {
       return _analyzeWithEmergencyFallback(
@@ -264,160 +242,59 @@ class MatchAnalysisService {
     }
   }
 
-  /// Megpróbálja lekérni az oddsot az API-ból, vagy AI-alapú Fair Odds-ot becsül
   Future<AiOddsData> _tryFetchOrEstimateOdds(AppMatch match) async {
     if (_oddsService.hasApiKey) {
       try {
-        final OddsEvent? event = await _oddsService.findMatchOdds(
-          sportKey: 'soccer_epl', // Univerzális kereséshez
-          homeTeam: match.homeTeam,
-          awayTeam: match.awayTeam,
-          matchDate: match.matchDate,
-        );
-
+        final event = await _oddsService.findMatchOdds(match);
         if (event != null) {
-          final double? homeWin = _oddsService.findBestHomeWinOdds(event);
-          final double? draw = _oddsService.findBestDrawOdds(event);
-          final double? awayWin = _oddsService.findBestAwayWinOdds(event);
-          final double? under45 = _oddsService.findBestTotalOdds(
-            event: event,
-            side: 'under',
-            point: 4.5,
+          return AiOddsData(
+            homeWinOdds: event.homeOdds,
+            drawOdds: event.drawOdds,
+            awayWinOdds: event.awayOdds,
+            over15Odds: event.over15Odds,
+            over25Odds: event.over25Odds,
+            under25Odds: event.under25Odds,
+            bttsYesOdds: event.bttsOdds,
           );
-
-          if (homeWin != null || draw != null || awayWin != null || under45 != null) {
-            return AiOddsData(
-              homeWinOdds: homeWin,
-              drawOdds: draw,
-              awayWinOdds: awayWin,
-              under45Odds: under45,
-            );
-          }
         }
-      } catch (_) {
-        // Hiba esetén továbblépünk a reális becslésre
-      }
+      } catch (_) {}
     }
+    return const AiOddsData();
+  }
 
-    // Becsült AI Fair Odds
-    return const AiOddsData(
-      under45Odds: 1.05,
-      over15Odds: 1.22,
-    );
+  String _createCacheKey({required AppMatch match, AiOddsData? oddsData}) {
+    return '${match.id}|${oddsData?.hashCode ?? "no_odds"}';
+  }
+
+  void _removeExpiredCacheEntries() {
+    _cache.removeWhere((_, result) => result.isExpired);
   }
 
   MatchAnalysisResult _analyzeWithEmergencyFallback({
     required AppMatch match,
-    required AiOddsData? oddsData,
+    AiOddsData? oddsData,
     required DateTime startedAt,
     required String errorMessage,
   }) {
-    final AiMatchStatistics fallbackStatistics = AiMatchStatistics.fallback(
-      leagueStrength: _estimateLeagueStrength(match.league),
-    );
-
-    final AiMatchAnalysis analysis = _aiEngine.analyzeMatch(
-      match: match,
-      statistics: fallbackStatistics,
-      oddsData: oddsData ?? const AiOddsData(under45Odds: 1.05),
-    );
-
-    final AppMatch analyzedMatch = match.copyWith(
-      aiScore: analysis.aiScore,
-      hasStatistics: false,
-      hasOdds: true,
-    );
-
-    final MatchStatisticsResult fallbackStatisticsResult = MatchStatisticsResult(
-      matchId: match.id,
-      statistics: fallbackStatistics,
-      source: MatchStatisticsSource.fallback,
-      sourceLabel: 'Vészhelyzeti becsült adatok',
-      usedFallback: true,
-      hasRealStatistics: false,
-      quality: MatchStatisticsQuality.fallback,
-      warningMessage: 'A valódi statisztikai elemzés nem sikerült. Biztonságos becsült adatokat használunk.',
-      errorMessage: errorMessage,
-      loadedAt: DateTime.now(),
-    );
-
-    final MatchAnalysisResult result = MatchAnalysisResult(
-      match: analyzedMatch,
-      originalMatch: match,
-      statisticsResult: fallbackStatisticsResult,
-      analysis: analysis,
-      success: true,
-      usedFallback: true,
-      errorMessage: errorMessage,
-      warningMessage: 'A valódi adatok helyett becsült AI-statisztikák kerültek felhasználásra.',
-      startedAt: startedAt,
-      completedAt: DateTime.now(),
-    );
-
-    final String cacheKey = _createCacheKey(
+    final fallbackAnalysis = _aiEngine.analyzeWithFallbackData(
       match: match,
       oddsData: oddsData,
     );
-
-    _cache[cacheKey] = result;
-    return result;
-  }
-
-  String _createCacheKey({
-    required AppMatch match,
-    required AiOddsData? oddsData,
-  }) {
-    final String oddsKey = _createOddsCacheKey(oddsData);
-    return '${match.id}|$oddsKey';
-  }
-
-  String _createOddsCacheKey(AiOddsData? oddsData) {
-    if (oddsData == null) {
-      return 'no_odds';
-    }
-
-    return <String>[
-      oddsData.homeWinOdds?.toStringAsFixed(3) ?? '-',
-      oddsData.drawOdds?.toStringAsFixed(3) ?? '-',
-      oddsData.awayWinOdds?.toStringAsFixed(3) ?? '-',
-      oddsData.under45Odds?.toStringAsFixed(3) ?? '-',
-    ].join('_');
-  }
-
-  void _removeExpiredCacheEntries() {
-    final List<String> expiredKeys = _cache.entries.where((entry) {
-      return entry.value.isExpired;
-    }).map((entry) => entry.key).toList(growable: false);
-
-    for (final String key in expiredKeys) {
-      _cache.remove(key);
-    }
-  }
-
-  double _estimateLeagueStrength(String league) {
-    final String normalized = league.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-
-    if (normalized.contains('premierleague') ||
-        normalized.contains('laliga') ||
-        normalized.contains('bundesliga') ||
-        normalized.contains('seriea') ||
-        normalized.contains('ligue1') ||
-        normalized.contains('championsleague')) {
-      return 90;
-    }
-
-    if (normalized.contains('eredivisie') ||
-        normalized.contains('primeiraliga') ||
-        normalized.contains('europaleague') ||
-        normalized.contains('championship')) {
-      return 78;
-    }
-
-    return 55;
+    return MatchAnalysisResult(
+      match: match,
+      originalMatch: match,
+      statisticsResult: MatchStatisticsResult.empty(errorMessage: errorMessage),
+      analysis: fallbackAnalysis,
+      success: false,
+      usedFallback: true,
+      errorMessage: errorMessage,
+      startedAt: startedAt,
+      completedAt: DateTime.now(),
+    );
   }
 }
 
-/// Egy mérkőzés teljes statisztikai és AI-elemzési eredménye.
+/// Az elemzés eredményét és metaadatait csomagoló osztály.
 class MatchAnalysisResult {
   final AppMatch match;
   final AppMatch originalMatch;
@@ -436,16 +313,14 @@ class MatchAnalysisResult {
     required this.statisticsResult,
     required this.analysis,
     required this.success,
-    required this.usedFallback,
-    required this.errorMessage,
-    required this.warningMessage,
+    this.usedFallback = false,
+    this.errorMessage,
+    this.warningMessage,
     required this.startedAt,
     required this.completedAt,
   });
 
   Duration get cacheLifetime {
-    if (match.isLive) return const Duration(minutes: 2);
-
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
     final DateTime matchDay = DateTime(
@@ -458,57 +333,24 @@ class MatchAnalysisResult {
     return const Duration(hours: 6);
   }
 
-  bool get isExpired {
-    return DateTime.now().difference(completedAt) > cacheLifetime;
-  }
+  bool get isExpired => DateTime.now().difference(completedAt) > cacheLifetime;
+  bool get hasWarning => warningMessage != null && warningMessage!.trim().isNotEmpty;
+  bool get hasError => errorMessage != null && errorMessage!.trim().isNotEmpty;
+  bool get hasRealStatistics => statisticsResult.hasRealStatistics && !usedFallback;
+  bool get hasValueBet => analysis.hasValueBet;
+  int get aiScore => analysis.aiScore;
+  int get dataReliability => analysis.dataReliability;
+  String get recommendation => analysis.recommendation.selection;
+  String get recommendationMarket => analysis.recommendation.marketName;
+  double get recommendationProbability => analysis.recommendation.probability;
+  
+  double get fairOdds => analysis.recommendation.fairOdds;
+  double get marketOdds => analysis.recommendation.marketOdds;
+  double get valueEdgePercentage => analysis.recommendation.edgePercentage;
 
-  bool get hasWarning {
-    return warningMessage != null && warningMessage!.trim().isNotEmpty;
-  }
-
-  bool get hasError {
-    return errorMessage != null && errorMessage!.trim().isNotEmpty;
-  }
-
-  bool get hasRealStatistics {
-    return statisticsResult.hasRealStatistics && !usedFallback;
-  }
-
-  bool get hasValueBet {
-    return analysis.hasValueBet;
-  }
-
-  int get aiScore {
-    return analysis.aiScore;
-  }
-
-  int get dataReliability {
-    return analysis.dataReliability;
-  }
-
-  String get recommendation {
-    return analysis.recommendation.selection;
-  }
-
-  String get recommendationMarket {
-    return analysis.recommendation.marketName;
-  }
-
-  double get recommendationProbability {
-    return analysis.recommendation.probability;
-  }
-
-  String get dataSourceLabel {
-    return statisticsResult.sourceLabel;
-  }
-
-  String get qualityLabel {
-    return statisticsResult.qualityLabel;
-  }
-
-  Duration get processingDuration {
-    return completedAt.difference(startedAt);
-  }
+  String get dataSourceLabel => statisticsResult.sourceLabel;
+  String get qualityLabel => statisticsResult.qualityLabel;
+  Duration get processingDuration => completedAt.difference(startedAt);
 
   AppMatch get updatedMatch {
     return match.copyWith(
