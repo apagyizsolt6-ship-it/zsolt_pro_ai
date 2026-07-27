@@ -210,11 +210,11 @@ class AiEngineV2Service {
 
     final double pHomePct = probabilities['homeWin']! * 100.0;
     final double pAwayPct = probabilities['awayWin']! * 100.0;
-    final double pDrawPct = probabilities['draw']! * 100.0;
+    
 
     final double pOver15 = probabilities['over15']! * 100.0;
     final double pOver25 = probabilities['over25']! * 100.0;
-    final double pUnder35 = probabilities['under35']! * 100.0;
+    
     final double pBtts = probabilities['btts']! * 100.0;
 
     final double p1X = (probabilities['homeWin']! + probabilities['draw']!).clamp(0.0, 1.0) * 100.0;
