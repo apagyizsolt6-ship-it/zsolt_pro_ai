@@ -5,6 +5,7 @@
 // ===========================================
 
 import '../models/app_match.dart';
+import 'ai_engine_v2_service.dart';
 
 import 'match_statistics_repository.dart';
 import 'the_odds_api_service.dart';
