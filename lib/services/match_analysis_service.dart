@@ -1,6 +1,6 @@
 // ============================================================================
 // Zsolt Pro AI - Central Match Analysis Service - PART 1
-// Version: v0.18.2 - Production Ready Full Synchronized Architecture
+// Version: v0.18.4 - Production Ready Full Synchronized Architecture
 // File: lib/services/match_analysis_service.dart
 // ============================================================================
 
@@ -31,10 +31,7 @@ class MatchAnalysisService {
     int formMatchCount = 5,
     int h2hMatchCount = 8,
   }) {
-    final String cacheKey = _createCacheKey(
-      match: match,
-      oddsData: oddsData,
-    );
+    final String cacheKey = _createCacheKey(match: match, oddsData: oddsData);
 
     if (!forceRefresh) {
       final MatchAnalysisResult? cached = _cache[cacheKey];
@@ -43,9 +40,7 @@ class MatchAnalysisService {
       }
 
       final Future<MatchAnalysisResult>? running = _runningRequests[cacheKey];
-      if (running != null) {
-        return running;
-      }
+      if (running != null) return running;
     }
 
     final Future<MatchAnalysisResult> request = _performAnalysis(
@@ -57,10 +52,7 @@ class MatchAnalysisService {
     );
 
     _runningRequests[cacheKey] = request;
-
-    return request.whenComplete(() {
-      _runningRequests.remove(cacheKey);
-    });
+    return request.whenComplete(() => _runningRequests.remove(cacheKey));
   }
 
   /// Több mérkőzés elemzését készíti el batchesítve.
@@ -73,21 +65,18 @@ class MatchAnalysisService {
     int h2hMatchCount = 8,
     int batchSize = 2,
   }) async {
-    if (matches.isEmpty) {
-      return const <MatchAnalysisResult>[];
-    }
-
+    if (matches.isEmpty) return const <MatchAnalysisResult>[];
     final int safeBatchSize = batchSize.clamp(1, 4);
     final List<MatchAnalysisResult> results = <MatchAnalysisResult>[];
 
-    for (int startIndex = 0; startIndex < matches.length; startIndex += safeBatchSize) {
-      final int endIndex = (startIndex + safeBatchSize).clamp(0, matches.length);
-      final List<AppMatch> batch = matches.sublist(startIndex, endIndex);
+    for (int i = 0; i < matches.length; i += safeBatchSize) {
+      final int end = (i + safeBatchSize).clamp(0, matches.length);
+      final List<AppMatch> batch = matches.sublist(i, end);
 
-      final List<Future<MatchAnalysisResult>> requests = batch.map((AppMatch match) {
+      final List<Future<MatchAnalysisResult>> requests = batch.map((m) {
         return analyzeMatch(
-          match: match,
-          oddsData: oddsProvider?.call(match),
+          match: m,
+          oddsData: oddsProvider?.call(m),
           forceRefresh: forceRefresh,
           allowFallback: allowFallback,
           formMatchCount: formMatchCount,
@@ -95,10 +84,8 @@ class MatchAnalysisService {
         );
       }).toList(growable: false);
 
-      final List<MatchAnalysisResult> batchResults = await Future.wait(requests);
-      results.addAll(batchResults);
+      results.addAll(await Future.wait(requests));
     }
-
     return results;
   }
 
@@ -124,66 +111,27 @@ class MatchAnalysisService {
       batchSize: batchSize,
     );
 
-    final List<MatchAnalysisResult> filtered = results.where((MatchAnalysisResult result) {
-      return result.analysis.aiScore >= minimumAiScore;
-    }).toList();
-
-    filtered.sort((MatchAnalysisResult first, MatchAnalysisResult second) {
-      final int scoreComparison = second.analysis.aiScore.compareTo(first.analysis.aiScore);
-      if (scoreComparison != 0) return scoreComparison;
-
-      final int probabilityComparison = second.analysis.recommendation.probability
-          .compareTo(first.analysis.recommendation.probability);
-      if (probabilityComparison != 0) return probabilityComparison;
-
-      final int reliabilityComparison = second.analysis.dataReliability
-          .compareTo(first.analysis.dataReliability);
-      if (reliabilityComparison != 0) return reliabilityComparison;
-
-      return first.match.matchTime.compareTo(second.match.matchTime);
-    });
-
-    final int safeLimit = limit.clamp(1, 20);
-    return filtered.take(safeLimit).toList(growable: false);
+    final List<MatchAnalysisResult> filtered = results.where((r) => r.analysis.aiScore >= minimumAiScore).toList();
+    filtered.sort((a, b) => b.analysis.aiScore.compareTo(a.analysis.aiScore));
+    return filtered.take(limit.clamp(1, 20)).toList(growable: false);
   }
 
   MatchAnalysisResult? getCachedAnalysis(AppMatch match, {AiOddsData? oddsData}) {
     final String key = _createCacheKey(match: match, oddsData: oddsData);
     final MatchAnalysisResult? result = _cache[key];
-    if (result == null || result.isExpired) {
-      return null;
-    }
-    return result;
+    return (result == null || result.isExpired) ? null : result;
   }
 
-  bool hasCachedAnalysis(AppMatch match, {AiOddsData? oddsData}) {
-    return getCachedAnalysis(match, oddsData: oddsData) != null;
-  }
-
-  void clearMatchCache(String matchId) {
-    final List<String> keysToRemove = _cache.keys.where((String key) {
-      return key.startsWith('$matchId|');
-    }).toList(growable: false);
-
-    for (final String key in keysToRemove) {
-      _cache.remove(key);
-    }
-  }
-
-  void clearCache() {
-    _cache.clear();
-  }
-
-  int get cachedAnalysisCount {
-    _removeExpiredCacheEntries();
-    return _cache.length;
-  }
-}
+  bool hasCachedAnalysis(AppMatch match, {AiOddsData? oddsData}) => getCachedAnalysis(match, oddsData: oddsData) != null;
+  void clearMatchCache(String id) => _cache.removeWhere((k, _) => k.startsWith('$id|'));
+  void clearCache() => _cache.clear();
+  int get cachedAnalysisCount { _removeExpiredCacheEntries(); return _cache.length; }
+  void _removeExpiredCacheEntries() => _cache.removeWhere((_, r) => r.isExpired);
+  String _createCacheKey({required AppMatch match, AiOddsData? oddsData}) => '${match.id}|${oddsData?.hashCode ?? "no_odds"}';
 // ============================================================================
 // Zsolt Pro AI - Central Match Analysis Service - PART 2
 // ============================================================================
 
-extension MatchAnalysisServiceInternal on MatchAnalysisService {
   Future<MatchAnalysisResult> _performAnalysis({
     required AppMatch match,
     required AiOddsData? oddsData,
@@ -192,7 +140,6 @@ extension MatchAnalysisServiceInternal on MatchAnalysisService {
     required int h2hMatchCount,
   }) async {
     final DateTime startedAt = DateTime.now();
-
     try {
       final statisticsResult = await _statisticsRepository.loadStatistics(
         match,
@@ -202,21 +149,14 @@ extension MatchAnalysisServiceInternal on MatchAnalysisService {
       );
 
       final AiOddsData effectiveOddsData = oddsData ?? await _tryFetchOrEstimateOdds(match);
-
       final AiMatchAnalysis analysis = _aiEngine.analyzeMatch(
         match: match,
         statistics: statisticsResult.statistics,
         oddsData: effectiveOddsData,
       );
 
-      final AppMatch analyzedMatch = match.copyWith(
-        aiScore: analysis.aiScore,
-        hasStatistics: statisticsResult.hasRealStatistics,
-        hasOdds: true,
-      );
-
       final MatchAnalysisResult result = MatchAnalysisResult(
-        match: analyzedMatch,
+        match: match.copyWith(aiScore: analysis.aiScore, hasStatistics: statisticsResult.hasRealStatistics, hasOdds: true),
         originalMatch: match,
         statisticsResult: statisticsResult,
         analysis: analysis,
@@ -228,16 +168,20 @@ extension MatchAnalysisServiceInternal on MatchAnalysisService {
         completedAt: DateTime.now(),
       );
 
-      final String cacheKey = _createCacheKey(match: match, oddsData: effectiveOddsData);
-      _cache[cacheKey] = result;
-      
+      _cache[_createCacheKey(match: match, oddsData: effectiveOddsData)] = result;
       return result;
     } catch (error) {
-      return _analyzeWithEmergencyFallback(
+      final fallbackAnalysis = _aiEngine.analyzeWithFallbackData(match: match, oddsData: oddsData);
+      return MatchAnalysisResult(
         match: match,
-        oddsData: oddsData,
-        startedAt: startedAt,
+        originalMatch: match,
+        statisticsResult: MatchStatisticsResult.fallback(),
+        analysis: fallbackAnalysis,
+        success: false,
+        usedFallback: true,
         errorMessage: error.toString(),
+        startedAt: startedAt,
+        completedAt: DateTime.now(),
       );
     }
   }
@@ -261,40 +205,9 @@ extension MatchAnalysisServiceInternal on MatchAnalysisService {
     }
     return const AiOddsData();
   }
-
-  String _createCacheKey({required AppMatch match, AiOddsData? oddsData}) {
-    return '${match.id}|${oddsData?.hashCode ?? "no_odds"}';
-  }
-
-  void _removeExpiredCacheEntries() {
-    _cache.removeWhere((_, result) => result.isExpired);
-  }
-
-  MatchAnalysisResult _analyzeWithEmergencyFallback({
-    required AppMatch match,
-    AiOddsData? oddsData,
-    required DateTime startedAt,
-    required String errorMessage,
-  }) {
-    final fallbackAnalysis = _aiEngine.analyzeWithFallbackData(
-      match: match,
-      oddsData: oddsData,
-    );
-    return MatchAnalysisResult(
-      match: match,
-      originalMatch: match,
-      statisticsResult: MatchStatisticsResult.empty(errorMessage: errorMessage),
-      analysis: fallbackAnalysis,
-      success: false,
-      usedFallback: true,
-      errorMessage: errorMessage,
-      startedAt: startedAt,
-      completedAt: DateTime.now(),
-    );
-  }
 }
 
-/// Az elemzés eredményét és metaadatait csomagoló osztály.
+/// Az elemzés eredményét és metaadatait csomagoló osztály az eredeti getterekkel.
 class MatchAnalysisResult {
   final AppMatch match;
   final AppMatch originalMatch;
@@ -322,14 +235,9 @@ class MatchAnalysisResult {
 
   Duration get cacheLifetime {
     final DateTime now = DateTime.now();
-    final DateTime today = DateTime(now.year, now.month, now.day);
-    final DateTime matchDay = DateTime(
-      match.matchDate.year,
-      match.matchDate.month,
-      match.matchDate.day,
-    );
-
-    if (matchDay == today) return const Duration(minutes: 20);
+    if (match.matchDate.year == now.year && match.matchDate.month == now.month && match.matchDate.day == now.day) {
+      return const Duration(minutes: 20);
+    }
     return const Duration(hours: 6);
   }
 
@@ -352,10 +260,5 @@ class MatchAnalysisResult {
   String get qualityLabel => statisticsResult.qualityLabel;
   Duration get processingDuration => completedAt.difference(startedAt);
 
-  AppMatch get updatedMatch {
-    return match.copyWith(
-      aiScore: analysis.aiScore,
-      hasStatistics: hasRealStatistics,
-    );
-  }
+  AppMatch get updatedMatch => match.copyWith(aiScore: analysis.aiScore, hasStatistics: hasRealStatistics);
 }
