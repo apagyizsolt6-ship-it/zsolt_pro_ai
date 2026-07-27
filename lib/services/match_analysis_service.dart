@@ -198,21 +198,16 @@ class MatchAnalysisService {
   Future<AiOddsData> _tryFetchOrEstimateOdds(AppMatch match) async {
     if (_oddsService.hasApiKey) {
       try {
-        final event = await _oddsService.findMatchOdds(
-          homeTeam: match.homeTeam,
-          awayTeam: match.awayTeam,
-          matchDate: match.matchDate,
-          sportKey: match.dataSourceLabel,
-        );
+        final event = await _oddsService.findMatchOdds(match);
         if (event != null) {
           return AiOddsData(
-            homeWinOdds: event.homeOdds,
-            drawOdds: event.drawOdds,
-            awayWinOdds: event.awayOdds,
-            over15Odds: event.over15odds,
-            over25Odds: event.over25odds,
-            under25Odds: event.under25odds,
-            bttsYesOdds: event.bttsOdds,
+            homeWinOdds: event.homePrice,
+            drawOdds: event.drawPrice,
+            awayWinOdds: event.awayPrice,
+            over15Odds: event.over15Price,
+            over25Odds: event.over25Price,
+            under25Odds: event.under25Price,
+            bttsYesOdds: event.bttsYesPrice,
           );
         }
       } catch (_) {}
@@ -258,8 +253,8 @@ class MatchAnalysisResult {
   double get recommendationProbability => analysis.recommendation.probability;
   
   double get fairOdds => analysis.recommendation.fairOdds;
-  double get marketOdds => analysis.recommendation.marketOdds;
-  double get valueEdgePercentage => analysis.recommendation.edgePercentage;
+  double get marketOdds => analysis.recommendation.odds;
+  double get valueEdgePercentage => analysis.recommendation.edge;
 
   String get dataSourceLabel => statisticsResult.sourceLabel;
   String get qualityLabel => statisticsResult.qualityLabel;
