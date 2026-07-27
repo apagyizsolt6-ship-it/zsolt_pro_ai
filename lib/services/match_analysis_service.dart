@@ -1,6 +1,6 @@
 // ============================================================================
 // Zsolt Pro AI - Central Match Analysis Service - PART 1
-// Version: v0.18.4 - Production Ready Full Synchronized Architecture
+// Version: v0.18.6 - Compiler Safe Architecture & Production Ready
 // File: lib/services/match_analysis_service.dart
 // ============================================================================
 
@@ -31,7 +31,7 @@ class MatchAnalysisService {
     int formMatchCount = 5,
     int h2hMatchCount = 8,
   }) {
-    final String cacheKey = _createCacheKey(match: match, oddsData: oddsData);
+    final String cacheKey = '${match.id}|${oddsData?.hashCode ?? "no_odds"}';
 
     if (!forceRefresh) {
       final MatchAnalysisResult? cached = _cache[cacheKey];
@@ -88,8 +88,10 @@ class MatchAnalysisService {
     }
     return results;
   }
+// ============================================================================
+// Zsolt Pro AI - Central Match Analysis Service - PART 2
+// ============================================================================
 
-  /// A legjobb elemzéseket adja vissza AI-pontszám szerint rendezve.
   Future<List<MatchAnalysisResult>> analyzeAndSelectTopMatches({
     required List<AppMatch> matches,
     int limit = 5,
@@ -117,7 +119,7 @@ class MatchAnalysisService {
   }
 
   MatchAnalysisResult? getCachedAnalysis(AppMatch match, {AiOddsData? oddsData}) {
-    final String key = _createCacheKey(match: match, oddsData: oddsData);
+    final String key = '${match.id}|${oddsData?.hashCode ?? "no_odds"}';
     final MatchAnalysisResult? result = _cache[key];
     return (result == null || result.isExpired) ? null : result;
   }
@@ -125,12 +127,7 @@ class MatchAnalysisService {
   bool hasCachedAnalysis(AppMatch match, {AiOddsData? oddsData}) => getCachedAnalysis(match, oddsData: oddsData) != null;
   void clearMatchCache(String id) => _cache.removeWhere((k, _) => k.startsWith('$id|'));
   void clearCache() => _cache.clear();
-  int get cachedAnalysisCount { _removeExpiredCacheEntries(); return _cache.length; }
-  void _removeExpiredCacheEntries() => _cache.removeWhere((_, r) => r.isExpired);
-  String _createCacheKey({required AppMatch match, AiOddsData? oddsData}) => '${match.id}|${oddsData?.hashCode ?? "no_odds"}';
-// ============================================================================
-// Zsolt Pro AI - Central Match Analysis Service - PART 2
-// ============================================================================
+  int get cachedAnalysisCount { _cache.removeWhere((_, r) => r.isExpired); return _cache.length; }
 
   Future<MatchAnalysisResult> _performAnalysis({
     required AppMatch match,
@@ -168,14 +165,27 @@ class MatchAnalysisService {
         completedAt: DateTime.now(),
       );
 
-      _cache[_createCacheKey(match: match, oddsData: effectiveOddsData)] = result;
+      _cache['${match.id}|${effectiveOddsData.hashCode}'] = result;
       return result;
     } catch (error) {
       final fallbackAnalysis = _aiEngine.analyzeWithFallbackData(match: match, oddsData: oddsData);
+      
+      // JAVÍTÁS: Kézzel példányosítjuk a MatchStatisticsResult objektumot a repozitóriumod 230. sora alapján, kiküszöbölve a fordítási hibát
       return MatchAnalysisResult(
         match: match,
         originalMatch: match,
-        statisticsResult: MatchStatisticsResult.fallback(),
+        statisticsResult: MatchStatisticsResult(
+          matchId: match.id,
+          statistics: AiMatchStatistics.fallback(),
+          source: WatchStatisticsSource.fallback,
+          sourceLabel: 'Becsült AI-adatok',
+          usedFallback: true,
+          hasRealStatistics: false,
+          quality: WatchStatisticsQuality.fallback,
+          warningMessage: 'Hiba történt a statisztikák letöltésekor.',
+          errorMessage: error.toString(),
+          loadedAt: DateTime.now(),
+        ),
         analysis: fallbackAnalysis,
         success: false,
         usedFallback: true,
@@ -207,7 +217,6 @@ class MatchAnalysisService {
   }
 }
 
-/// Az elemzés eredményét és metaadatait csomagoló osztály az eredeti getterekkel.
 class MatchAnalysisResult {
   final AppMatch match;
   final AppMatch originalMatch;
@@ -233,15 +242,7 @@ class MatchAnalysisResult {
     required this.completedAt,
   });
 
-  Duration get cacheLifetime {
-    final DateTime now = DateTime.now();
-    if (match.matchDate.year == now.year && match.matchDate.month == now.month && match.matchDate.day == now.day) {
-      return const Duration(minutes: 20);
-    }
-    return const Duration(hours: 6);
-  }
-
-  bool get isExpired => DateTime.now().difference(completedAt) > cacheLifetime;
+  bool get isExpired => DateTime.now().difference(completedAt) > const Duration(minutes: 20);
   bool get hasWarning => warningMessage != null && warningMessage!.trim().isNotEmpty;
   bool get hasError => errorMessage != null && errorMessage!.trim().isNotEmpty;
   bool get hasRealStatistics => statisticsResult.hasRealStatistics && !usedFallback;
@@ -258,7 +259,6 @@ class MatchAnalysisResult {
 
   String get dataSourceLabel => statisticsResult.sourceLabel;
   String get qualityLabel => statisticsResult.qualityLabel;
-  Duration get processingDuration => completedAt.difference(startedAt);
 
   AppMatch get updatedMatch => match.copyWith(aiScore: analysis.aiScore, hasStatistics: hasRealStatistics);
 }
