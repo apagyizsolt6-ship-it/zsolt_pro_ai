@@ -170,7 +170,6 @@ class MatchAnalysisService {
     } catch (error) {
       final fallbackAnalysis = _aiEngine.analyzeWithFallbackData(match: match, oddsData: oddsData);
       
-      // JAVÍTÁS: Kézzel példányosítjuk a MatchStatisticsResult objektumot a repozitóriumod 230. sora alapján, kiküszöbölve a fordítási hibát
       return MatchAnalysisResult(
         match: match,
         originalMatch: match,
