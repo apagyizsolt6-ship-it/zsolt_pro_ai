@@ -201,18 +201,18 @@ class MatchAnalysisService {
         final event = await _oddsService.findMatchOdds(
           homeTeam: match.homeTeam,
           awayTeam: match.awayTeam,
-          matchDate: match.date,
-          sportKey: match.sportKey,
+          matchDate: match.matchDate,
+          sportKey: match.dataSourceLabel,
         );
         if (event != null) {
           return AiOddsData(
-            homeWinOdds: event.homeWinOdds,
+            homeWinOdds: event.homeOdds,
             drawOdds: event.drawOdds,
-            awayWinOdds: event.awayWinOdds,
-            over15Odds: event.over15Odds,
-            over25Odds: event.over25Odds,
-            under25Odds: event.under25Odds,
-            bttsYesOdds: event.bttsYesOdds,
+            awayWinOdds: event.awayOdds,
+            over15Odds: event.over15odds,
+            over25Odds: event.over25odds,
+            under25Odds: event.under25odds,
+            bttsYesOdds: event.bttsOdds,
           );
         }
       } catch (_) {}
