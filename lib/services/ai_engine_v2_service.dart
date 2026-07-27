@@ -1,15 +1,13 @@
-// ===========================================
-// Zsolt Pro AI Engine v2.0 - Professional Quant Edition
-// Version: v0.24.0 - Full Compatibility & Probability Precision Fix
+// ============================================================================
+// Zsolt Pro AI Engine v2.0 - Professional Quant Edition - PART 1
 // File: lib/services/ai_engine_v2_service.dart
-// ===========================================
+// ============================================================================
 
 import 'dart:math' as math;
 import '../models/app_match.dart';
 
 enum AiMatchResult { win, draw, loss }
 
-/// Statisztikai adatmodell az AI elemzéshez.
 class AiMatchStatistics {
   final List<AiMatchResult> homeForm;
   final List<AiMatchResult> awayForm;
@@ -77,16 +75,15 @@ class AiMatchStatistics {
     this.homeAdvantage = 1.12,
   });
 
-  /// Kompatibilitási getterek a többi szerviz számára
   int get totalSampleSize => homeSampleSize + awaySampleSize;
   int get h2hTotalMatches => h2hHomeWins + h2hDraws + h2hAwayWins;
 
   factory AiMatchStatistics.fallback({double leagueStrength = 65.0}) {
     return AiMatchStatistics(
-      homeForm: const,
-      awayForm: const,
-      homeVenueForm: const,
-      awayVenueForm: const,
+      homeForm: const [],
+      awayForm: const [],
+      homeVenueForm: const [],
+      awayVenueForm: const [],
       h2hHomeWins: 3,
       h2hDraws: 2,
       h2hAwayWins: 1,
@@ -172,74 +169,82 @@ class AiMatchAnalysis {
     required this.hasValueBet,
   });
 }
+// ============================================================================
+// Zsolt Pro AI Engine v2.0 - Professional Quant Edition - PART 2 (Engine)
+// ============================================================================
 
-/// A Zsolt Pro AI Kvantitatív Futballelemző Motorja
 class AiEngineV2Service {
   AiEngineV2Service._();
   static final AiEngineV2Service instance = AiEngineV2Service._();
 
-  /// Elemzés elvégzése Poisson-alapú xG és Súlyozott Forma mátrixszal
   AiMatchAnalysis analyzeMatch({
     required AppMatch match,
     required AiMatchStatistics statistics,
     AiOddsData? oddsData,
   }) {
-    final double leagueAvg = statistics.leagueAverageGoals > 0? statistics.leagueAverageGoals / 2.0 : 1.30;
+    final double leagueAvg = statistics.leagueAverageGoals > 0 ? statistics.leagueAverageGoals / 2.0 : 1.30;
 
-    // 1. Támadási és Védelmi Erősségek
-    final double homeAttack = (statistics.homeGoalsScoredAverage / leagueAvg).clamp(0.4, 2.5);
-    final double homeDefense = (statistics.homeGoalsConcededAverage / leagueAvg).clamp(0.4, 2.5);
-    final double awayAttack = (statistics.awayGoalsScoredAverage / leagueAvg).clamp(0.4, 2.5);
-    final double awayDefense = (statistics.awayGoalsConcededAverage / leagueAvg).clamp(0.4, 2.5);
+    double homeAttack = (statistics.homeGoalsScoredAverage / leagueAvg).clamp(0.4, 2.5);
+    double homeDefense = (statistics.homeGoalsConcededAverage / leagueAvg).clamp(0.4, 2.5);
+    double awayAttack = (statistics.awayGoalsScoredAverage / leagueAvg).clamp(0.4, 2.5);
+    double awayDefense = (statistics.awayGoalsConcededAverage / leagueAvg).clamp(0.4, 2.5);
 
-    // 2. Hazai pálya előnye
-    final double homeAdv = statistics.homeAdvantage > 0? statistics.homeAdvantage : 1.12;
+    final double homeFormWeight = _calculateWeightedForm(statistics.homeForm);
+    final double awayFormWeight = _calculateWeightedForm(statistics.awayForm);
+    final double formRatio = (homeFormWeight - awayFormWeight) / 100.0;
 
-    // 3. Várható gólok (xG)
+    if (formRatio > 0) {
+      homeAttack *= (1.0 + formRatio * 0.10);
+      awayDefense *= (1.0 + formRatio * 0.05);
+    } else {
+      awayAttack *= (1.0 - formRatio * 0.10);
+      homeDefense *= (1.0 - formRatio * 0.05);
+    }
+
+    final double homeAdv = statistics.homeAdvantage > 0 ? statistics.homeAdvantage : 1.12;
+
     final double homeXG = (homeAttack * awayDefense * leagueAvg * homeAdv).clamp(0.2, 4.5);
     final double awayXG = (awayAttack * homeDefense * leagueAvg).clamp(0.2, 4.5);
 
-    // 4. Súlyozott Forma
-    final double homeFormWeight = _calculateWeightedForm(statistics.homeForm);
-    final double awayFormWeight = _calculateWeightedForm(statistics.awayForm);
-
-    // 5. Poisson-mátrix generálása (valószínűségek 0.0 és 1.0 között)
     final Map<String, double> probabilities = _calculatePoissonProbabilities(homeXG, awayXG);
 
-    // Formakorrekció alkalmazása
-    final double formRatio = (homeFormWeight - awayFormWeight) / 100.0;
-    double pHome = (probabilities! + formRatio * 0.12).clamp(0.05, 0.90);
-    double pAway = (probabilities! - formRatio * 0.12).clamp(0.05, 0.90);
-    double pDraw = (1.0 - pHome - pAway).clamp(0.08, 0.40);
+    final double pHomePct = probabilities['homeWin']! * 100.0;
+    final double pAwayPct = probabilities['awayWin']! * 100.0;
+    final double pDrawPct = probabilities['draw']! * 100.0;
 
-    // Valószínűségek átkonvertálása százalékos formátumra (0 - 100) a UI részére
     final double pOver15 = probabilities['over15']! * 100.0;
     final double pOver25 = probabilities['over25']! * 100.0;
     final double pUnder35 = probabilities['under35']! * 100.0;
     final double pBtts = probabilities['btts']! * 100.0;
 
-    final double pHomePct = pHome * 100.0;
-    final double pAwayPct = pAway * 100.0;
-    final double pDrawPct = pDraw * 100.0;
+    final double p1X = (probabilities['homeWin']! + probabilities['draw']!).clamp(0.0, 1.0) * 100.0;
+    final double pX2 = (probabilities['awayWin']! + probabilities['draw']!).clamp(0.0, 1.0) * 100.0;
 
-    final double p1X = (pHome + pDraw).clamp(0.10, 0.96) * 100.0;
-    final double pX2 = (pAway + pDraw).clamp(0.10, 0.96) * 100.0;
-
-    // 6. Tippválasztó Algoritmus (százalékos értékekkel és korrigált Fair Odds osztással)
-    final List<AiRecommendation> candidates =;
+    final List<AiRecommendation> candidates = [
+      AiRecommendation(marketName: '1X2', selection: 'Hazai (1)', probability: pHomePct, fairOdds: 100.0 / (pHomePct > 0 ? pHomePct : 1)),
+      AiRecommendation(marketName: '1X2', selection: 'Vendég (2)', probability: pAwayPct, fairOdds: 100.0 / (pAwayPct > 0 ? pAwayPct : 1)),
+      AiRecommendation(marketName: 'Gólok', selection: '1.5 gól felett', probability: pOver15, fairOdds: 100.0 / (pOver15 > 0 ? pOver15 : 1)),
+      AiRecommendation(marketName: 'Gólok', selection: '2.5 gól felett', probability: pOver25, fairOdds: 100.0 / (pOver25 > 0 ? pOver25 : 1)),
+      AiRecommendation(marketName: 'Mindkét csapat szerez gólt', selection: 'Igen (BTTS)', probability: pBtts, fairOdds: 100.0 / (pBtts > 0 ? pBtts : 1)),
+      AiRecommendation(marketName: 'Dupla esély', selection: 'Hazai vagy Döntetlen (1X)', probability: p1X, fairOdds: 100.0 / (p1X > 0 ? p1X : 1)),
+      AiRecommendation(marketName: 'Dupla esély', selection: 'Vendég vagy Döntetlen (X2)', probability: pX2, fairOdds: 100.0 / (pX2 > 0 ? pX2 : 1)),
+    ];
 
     final List<AiRecommendation> validCandidates = candidates.where((c) => c.probability >= 58.0 && c.fairOdds <= 3.20).toList();
     validCandidates.sort((a, b) => b.probability.compareTo(a.probability));
 
-    final AiRecommendation bestRecommendation = validCandidates.isNotEmpty? validCandidates.first : candidates.first;
+    final AiRecommendation bestRecommendation = validCandidates.isNotEmpty ? validCandidates.first : candidates.first;
 
-    // 7. Dinamikus AI Pontszám (72% – 97% skálán)
     final double confidenceBonus = (statistics.homeSampleSize + statistics.awaySampleSize) * 0.4;
     final double leagueBonus = statistics.leagueStrength * 0.1;
     final int finalAiScore = (bestRecommendation.probability * 0.75 + confidenceBonus + leagueBonus).round().clamp(72, 97);
 
-    // 8. Adatmegbízhatóság
     final int reliability = ((statistics.homeSampleSize + statistics.awaySampleSize) * 4.0 + statistics.leagueStrength * 0.25).round().clamp(65, 96);
+
+    bool isValueBetDetected = false;
+    if (oddsData != null) {
+      isValueBetDetected = _checkForValue(bestRecommendation, oddsData);
+    }
 
     return AiMatchAnalysis(
       aiScore: finalAiScore,
@@ -247,11 +252,10 @@ class AiEngineV2Service {
       recommendation: bestRecommendation,
       homeXG: double.parse(homeXG.toStringAsFixed(2)),
       awayXG: double.parse(awayXG.toStringAsFixed(2)),
-      hasValueBet: oddsData!= null,
+      hasValueBet: isValueBetDetected,
     );
   }
 
-  /// Kompatibilitási metódus a match_repository számára
   AiMatchAnalysis analyzeWithFallbackData({
     required AppMatch match,
     AiOddsData? oddsData,
@@ -331,5 +335,19 @@ class AiEngineV2Service {
       result *= i;
     }
     return result;
+  }
+
+  bool _checkForValue(AiRecommendation rec, AiOddsData odds) {
+    double? marketOdds;
+    if (rec.selection.contains('Hazai (1)')) marketOdds = odds.homeWinOdds;
+    if (rec.selection.contains('Vendég (2)')) marketOdds = odds.awayWinOdds;
+    if (rec.selection.contains('2.5 gól felett')) marketOdds = odds.over25Odds;
+    if (rec.selection.contains('1.5 gól felett')) marketOdds = odds.over15Odds;
+    if (rec.selection.contains('Igen (BTTS)')) marketOdds = odds.bttsYesOdds;
+    if (rec.selection.contains('1X')) marketOdds = odds.homeOrDrawOdds;
+    if (rec.selection.contains('X2')) marketOdds = odds.awayOrDrawOdds;
+
+    if (marketOdds == null || marketOdds == 0) return false;
+    return marketOdds > rec.fairOdds;
   }
 }
