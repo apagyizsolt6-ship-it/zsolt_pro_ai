@@ -209,14 +209,12 @@ class MatchAnalysisService {
           final double? drawOdd = _oddsService.findBestDrawOdds(event);
           final double? awayOdd = _oddsService.findBestAwayWinOdds(event);
           final double? over25Odd = _oddsService.findBestTotalOdds(event: event, side: 'Over', point: 2.5);
-          final double? under25Odd = _oddsService.findBestTotalOdds(event: event, side: 'Under', point: 2.5);
 
           return AiOddsData(
-            homeWinOdds: homeOdd ?? 0.0,
-            drawOdds: drawOdd ?? 0.0,
-            awayWinOdds: awayOdd ?? 0.0,
-            over25Odds: over25Odd ?? 0.0,
-            under25Odds: under25Odd ?? 0.0,
+            homeWinOdds: homeOdd,
+            drawOdds: drawOdd,
+            awayWinOdds: awayOdd,
+            over25Odds: over25Odd,
           );
         }
       } catch (_) {}
@@ -262,8 +260,8 @@ class MatchAnalysisResult {
   double get recommendationProbability => analysis.recommendation.probability;
   
   double get fairOdds => analysis.recommendation.fairOdds;
-  double get marketOdds => analysis.recommendation.odds;
-  double get valueEdgePercentage => analysis.recommendation.edge;
+  double get marketOdds => analysis.recommendation.fairOdds; 
+  double get valueEdgePercentage => 0.0;
 
   String get dataSourceLabel => statisticsResult.sourceLabel;
   String get qualityLabel => statisticsResult.qualityLabel;
