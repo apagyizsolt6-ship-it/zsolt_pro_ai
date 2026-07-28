@@ -168,20 +168,20 @@ class _MatchCardState extends State<MatchCard> {
     );
   }
 
-  /// Státusz kódok átalakítása percekre
+  /// Tiszta játékperc formázás (ha van szám, azt mutatja, ha nincs, kezeli)
   String _formatLiveMinute(String rawMinute) {
     final String clean = rawMinute.trim().toUpperCase();
 
-    // Ha félidő van, jelöljük szünetként vagy 45. perc környékeként
+    if (clean.isEmpty) return 'ÉLŐ';
     if (clean == 'HT') return '45\'';
-    if (clean == '1H') return '1.f';
-    if (clean == '2H') return '90\''; // vagy ha nincs pontos perc, átmeneti jelölés
     if (clean == 'ET') return 'Hossz.';
     if (clean == 'PEN') return 'Tizi';
 
-    if (clean.isEmpty) return 'ÉLŐ';
+    // Ha az API csak 1H vagy 2H kódot küld perc nélkül, jelölhetjük ÉLŐ-ként vagy félidőként,
+    // de ha tiszta percre törekszünk és van benne szám, azt írja ki:
+    if (clean == '1H' || clean == '2H') return 'ÉLŐ';
 
-    // Ha már szám vagy pl. "45+2", tegyük rá a perc jelet
+    // Ha szám vagy pl. "45+2", megkapja a perc jelet
     return clean.endsWith('\'') ? clean : '$clean\'';
   }
 
