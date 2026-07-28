@@ -1015,11 +1015,11 @@ class MatchTopResult {
       repositoryResult;
 
   const MatchTopResult({
-    required DateTime? date,
+    required this.date,
     required this.matches,
     required this.checkedDays,
     required this.repositoryResult,
-  }) : date = date;
+  });
 
   bool get hasMatches {
     return date != null &&
