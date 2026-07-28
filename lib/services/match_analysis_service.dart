@@ -262,8 +262,8 @@ class MatchAnalysisResult {
   double get recommendationProbability => analysis.recommendation.probability;
   
   double get fairOdds => analysis.recommendation.fairOdds;
-  double get marketOdds => analysis.recommendation.price;
-  double get valueEdgePercentage => analysis.recommendation.valueEdge;
+  double get marketOdds => analysis.recommendation.odds;
+  double get valueEdgePercentage => analysis.recommendation.edge;
 
   String get dataSourceLabel => statisticsResult.sourceLabel;
   String get qualityLabel => statisticsResult.qualityLabel;
