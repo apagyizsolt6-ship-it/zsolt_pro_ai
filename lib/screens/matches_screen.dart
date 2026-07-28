@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.16.5 - Hide Both Info Bars
+// Version: v0.16.6 - Live Matches Toggle & Filter
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
@@ -34,6 +34,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   String _searchText = '';
 
   bool _favoritesOnly = false;
+  bool _liveOnly = false; // ÚJ: Csak az élő meccsek szűrő
   bool _isLoading = false;
   bool _isSearchingNextDate = false;
   bool _showDataStatus = false; // ALAPÉRTELMEZETTEN MINDKÉT INFÓ SÁV REJTVE
@@ -89,7 +90,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
       final bool favoriteMatches =
           !_favoritesOnly || FavoritesService.isFavorite(match.id);
 
-      return searchMatches && favoriteMatches;
+      // Élő szűrés feltétel: match.isLive vagy status=='LIVE' vagy aktív játékidő
+      final bool liveMatches =
+          !_liveOnly || match.isLive || match.status.toUpperCase() == 'LIVE';
+
+      return searchMatches && favoriteMatches && liveMatches;
     }).toList();
 
     result.sort((AppMatch first, AppMatch second) {
@@ -148,7 +153,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // 1. ÁRAMVONALASÍTOTT KERESŐ + INFÓ + KEDVENCEK + NYITÁS/CSUKÁS
+            // 1. ÁRAMVONALASÍTOTT KERESŐ + ÉLŐ GOMB + INFÓ + KEDVENCEK + NYITÁS/CSUKÁS
             _buildStreamlinedHeader(groupedMatches),
 
             const SizedBox(height: 6),
@@ -197,7 +202,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  /// Áramvonalasított felső sor: Kereső + Infó kapcsoló + Kedvencek + Nyitás/Csukás
+  /// Áramvonalasított felső sor: Kereső + Élő ikon + Infó kapcsoló + Kedvencek + Nyitás/Csukás
   Widget _buildStreamlinedHeader(Map<String, List<AppMatch>> groupedMatches) {
     final ColorScheme colors = Theme.of(context).colorScheme;
 
@@ -240,6 +245,60 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     borderSide: BorderSide.none,
                   ),
                 ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          // ÉLŐ MECCSEK GYORSGOMB (LIVE ICON)
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              setState(() {
+                _liveOnly = !_liveOnly;
+                if (_liveOnly) {
+                  // Ha bekapcsoljuk az élő szűrést, automatikusan nyissuk ki az összes ligát, hogy jól látszódjanak
+                  for (final String key in groupedMatches.keys) {
+                    _leagueExpansionState[key] = true;
+                  }
+                }
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: _liveOnly
+                    ? Colors.red.withValues(alpha: 0.2)
+                    : colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _liveOnly ? Colors.redAccent : Colors.transparent,
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.live_tv,
+                    color: _liveOnly ? Colors.redAccent : colors.onSurfaceVariant,
+                    size: 18,
+                  ),
+                  if (_liveOnly) ...[
+                    const SizedBox(width: 4),
+                    const Text(
+                      'ÉLŐ',
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
@@ -414,7 +473,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       _leagueExpansionState.putIfAbsent(
         entry.key,
-        () => _isTopLeague(entry.key) || _searchText.trim().isNotEmpty,
+        () => _liveOnly || _isTopLeague(entry.key) || _searchText.trim().isNotEmpty,
       );
     }
 
@@ -724,7 +783,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   Widget _buildEmptyState({required BuildContext context}) {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final bool filterActive =
-        _searchText.trim().isNotEmpty || _favoritesOnly;
+        _searchText.trim().isNotEmpty || _favoritesOnly || _liveOnly;
 
     return RefreshIndicator(
       onRefresh: _loadMatches,
@@ -754,7 +813,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           const SizedBox(height: 8),
           Text(
             filterActive
-                ? 'Módosítsd a keresést, vagy kapcsold ki a kedvencek szűrését.'
+                ? 'Módosítsd a keresést, vagy kapcsold ki az aktív szűrőket (kedvencek / élő).'
                 : _nextAvailableDate != null
                     ? 'A következő elérhető mérkőzésnap: ${_formatDate(_nextAvailableDate!)}'
                     : 'A következő 30 napban egyik adatforrás sem talált mérkőzést.',
@@ -1007,6 +1066,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     setState(() {
       _searchText = '';
       _favoritesOnly = false;
+      _liveOnly = false;
     });
   }
 }
