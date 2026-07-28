@@ -59,7 +59,7 @@ class _MatchCardState extends State<MatchCard> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(
               children: [
-                // 1. IDŐPONT / ÉLŐ PERC / FT STÁTUSZ
+                // 1. IDŐPONT / JÁTÉKPERC / FT STÁTUSZ
                 _buildTimeOrStatus(colors),
 
                 const SizedBox(width: 8),
@@ -108,13 +108,13 @@ class _MatchCardState extends State<MatchCard> {
     );
   }
 
-  /// Időpont / Élő perc / Vége státusz
+  /// Időpont / Játékperc / Vége státusz
   Widget _buildTimeOrStatus(ColorScheme colors) {
     final bool isLive = widget.match.isLive;
     final bool isFinished = widget.match.isFinished;
 
     return SizedBox(
-      width: 42,
+      width: 45,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -132,9 +132,7 @@ class _MatchCardState extends State<MatchCard> {
                 ),
                 const SizedBox(width: 3),
                 Text(
-                  widget.match.minute.trim().isNotEmpty
-                      ? widget.match.minute
-                      : 'ÉLŐ',
+                  _formatLiveMinute(widget.match.minute),
                   style: const TextStyle(
                     color: Colors.redAccent,
                     fontSize: 10,
@@ -168,6 +166,23 @@ class _MatchCardState extends State<MatchCard> {
         ],
       ),
     );
+  }
+
+  /// Státusz kódok átalakítása percekre
+  String _formatLiveMinute(String rawMinute) {
+    final String clean = rawMinute.trim().toUpperCase();
+
+    // Ha félidő van, jelöljük szünetként vagy 45. perc környékeként
+    if (clean == 'HT') return '45\'';
+    if (clean == '1H') return '1.f';
+    if (clean == '2H') return '90\''; // vagy ha nincs pontos perc, átmeneti jelölés
+    if (clean == 'ET') return 'Hossz.';
+    if (clean == 'PEN') return 'Tizi';
+
+    if (clean.isEmpty) return 'ÉLŐ';
+
+    // Ha már szám vagy pl. "45+2", tegyük rá a perc jelet
+    return clean.endsWith('\'') ? clean : '$clean\'';
   }
 
   /// Csapat sora + Élő/Végső gólok száma
@@ -291,16 +306,14 @@ class _MatchCardState extends State<MatchCard> {
     );
   }
 
-  /// Egyszerű, automatikus AI ajánlás kiértékelő a meccs góljai alapján
   bool _evaluateAiRecommendation() {
     final int totalGoals = widget.match.homeScore + widget.match.awayScore;
     final int score = widget.match.aiScore;
 
-    // Ha az AI gól-alapú tippeket adott
-    if (score >= 90 && totalGoals > 2) return true; // Több mint 2,5 gól
-    if (score >= 87 && widget.match.homeScore > 0 && widget.match.awayScore > 0) return true; // BTTS
-    if (score >= 78 && totalGoals < 5) return true; // Kevesebb mint 4,5 gól
-    if (score < 78 && totalGoals < 6) return true; // Kevesebb mint 5,5 gól
+    if (score >= 90 && totalGoals > 2) return true;
+    if (score >= 87 && widget.match.homeScore > 0 && widget.match.awayScore > 0) return true;
+    if (score >= 78 && totalGoals < 5) return true;
+    if (score < 78 && totalGoals < 6) return true;
 
     return false;
   }
