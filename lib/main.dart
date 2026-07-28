@@ -1,12 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.4.4
+// Version: v0.4.5 - Persistent Favorites Init
 // File: lib/main.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'services/favorites_service.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
 
@@ -14,6 +15,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await ThemeService.instance.loadTheme();
+  await FavoritesService.init(); // Kedvencek betöltése indításkor
 
   runApp(const ZsoltProAI());
 }
