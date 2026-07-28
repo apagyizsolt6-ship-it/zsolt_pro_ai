@@ -1,11 +1,3 @@
-status: _readString(json, <String>['strStatus', 'strProgress']),
-```[span_0](start_span)[span_0](end_span)
-
-Ahhoz, hogy ez a perc megjelenjen a képernyőn, a **`match_repository.dart`** fájlban lévő `_theSportsDbEventToAppMatch` metódusnál kell átadnunk ezt a státuszt/percet az `AppMatch`-nek, hogy az `AppMatch.minute` mezője megkapja az értéket.
-
-Íme a **teljes, hibátlan, zöld buildot garantáló** `lib/services/match_repository.dart` fájl. Ebbe beletettem a perc átadását is:
-
-```dart
 // ===========================================
 // Zsolt Pro AI
 // Version: v0.15.4
@@ -19,17 +11,6 @@ import 'sportmonks_service.dart';
 import 'the_sports_db_service.dart';
 
 /// A Zsolt Pro AI központi mérkőzés-adatkezelője.
-///
-/// Feladatai:
-/// - SportMonks-mérkőzések lekérése;
-/// - TheSportsDB-mérkőzések lekérése;
-/// - a két adatforrás eredményeinek egyesítése;
-/// - azonos mérkőzések kiszűrése;
-/// - egységes AppMatch objektumok létrehozása;
-/// - az eredeti API-azonosítók eltárolása;
-/// - AI Engine 2.0 pontszám hozzárendelése;
-/// - következő elérhető mérkőzésnap megkeresése;
-/// - AI Top lista előállítása.
 class MatchRepository {
   MatchRepository._();
 
@@ -786,7 +767,7 @@ class MatchRepository {
           event.venue.trim(),
       status:
           event.status.trim(),
-      minute: event.status.trim(), // Itt kapja meg a percet/státuszt a TheSportsDB-ből
+      minute: event.status.trim(),
       homeScore: parsedHomeScore,
       awayScore: parsedAwayScore,
       hasStatistics: false,
@@ -1034,11 +1015,11 @@ class MatchTopResult {
       repositoryResult;
 
   const MatchTopResult({
-    date,
+    required DateTime? date,
     required this.matches,
     required this.checkedDays,
     required this.repositoryResult,
-  });
+  }) : date = date;
 
   bool get hasMatches {
     return date != null &&
