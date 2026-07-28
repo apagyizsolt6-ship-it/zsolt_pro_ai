@@ -1,12 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.16.6 - Live Matches Toggle & Filter
+// Version: v0.17.0 - Favorite Leagues on Top
 // File: lib/screens/matches_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
+import '../services/favorite_leagues_service.dart';
 import '../services/favorites_service.dart';
 import '../services/match_repository.dart';
 import '../utils/league_translator.dart';
@@ -458,6 +459,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final List<MapEntry<String, List<AppMatch>>> sortedEntries =
         grouped.entries.toList()
           ..sort((first, second) {
+            final bool firstIsFav = FavoriteLeaguesService.isFavorite(first.key);
+            final bool secondIsFav = FavoriteLeaguesService.isFavorite(second.key);
+
+            if (firstIsFav && !secondIsFav) return -1;
+            if (!firstIsFav && secondIsFav) return 1;
+
             final bool firstIsTop = _isTopLeague(first.key);
             final bool secondIsTop = _isTopLeague(second.key);
 
@@ -473,7 +480,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       _leagueExpansionState.putIfAbsent(
         entry.key,
-        () => _liveOnly || _isTopLeague(entry.key) || _searchText.trim().isNotEmpty,
+        () => FavoriteLeaguesService.isFavorite(entry.key) || _liveOnly || _isTopLeague(entry.key) || _searchText.trim().isNotEmpty,
       );
     }
 
@@ -603,6 +610,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           final List<AppMatch> leagueMatches = entry.value;
           final bool isExpanded = _leagueExpansionState[leagueName] ?? false;
           final bool isTop = _isTopLeague(leagueName);
+          final bool isFavLeague = FavoriteLeaguesService.isFavorite(leagueName);
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -613,10 +621,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: isTop
-                      ? colors.primary.withValues(alpha: 0.3)
-                      : colors.outlineVariant.withValues(alpha: 0.2),
-                  width: isTop ? 1.2 : 1,
+                  color: isFavLeague
+                      ? Colors.amber.withValues(alpha: 0.5)
+                      : isTop
+                          ? colors.primary.withValues(alpha: 0.3)
+                          : colors.outlineVariant.withValues(alpha: 0.2),
+                  width: isFavLeague ? 1.5 : (isTop ? 1.2 : 1),
                 ),
               ),
               child: Column(
