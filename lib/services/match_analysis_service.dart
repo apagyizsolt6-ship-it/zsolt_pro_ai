@@ -198,16 +198,25 @@ class MatchAnalysisService {
   Future<AiOddsData> _tryFetchOrEstimateOdds(AppMatch match) async {
     if (_oddsService.hasApiKey) {
       try {
-        final event = await _oddsService.findMatchOdds(match);
+        final OddsEvent? event = await _oddsService.findMatchOdds(
+          sportKey: match.sportKey,
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
+          matchDate: match.matchDate,
+        );
         if (event != null) {
+          final double? homeOdd = _oddsService.findBestHomeWinOdds(event);
+          final double? drawOdd = _oddsService.findBestDrawOdds(event);
+          final double? awayOdd = _oddsService.findBestAwayWinOdds(event);
+          final double? over25Odd = _oddsService.findBestTotalOdds(event: event, side: 'Over', point: 2.5);
+          final double? under25Odd = _oddsService.findBestTotalOdds(event: event, side: 'Under', point: 2.5);
+
           return AiOddsData(
-            homeWinOdds: event.homePrice,
-            drawOdds: event.drawPrice,
-            awayWinOdds: event.awayPrice,
-            over15Odds: event.over15Price,
-            over25Odds: event.over25Price,
-            under25Odds: event.under25Price,
-            bttsYesOdds: event.bttsYesPrice,
+            homeWinOdds: homeOdd ?? 0.0,
+            drawOdds: drawOdd ?? 0.0,
+            awayWinOdds: awayOdd ?? 0.0,
+            over25Odds: over25Odd ?? 0.0,
+            under25Odds: under25Odd ?? 0.0,
           );
         }
       } catch (_) {}
