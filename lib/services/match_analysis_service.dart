@@ -198,7 +198,12 @@ class MatchAnalysisService {
   Future<AiOddsData> _tryFetchOrEstimateOdds(AppMatch match) async {
     if (_oddsService.hasApiKey) {
       try {
-        final event = await _oddsService.findMatchOdds(match);
+        final event = await _oddsService.findMatchOdds(
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
+          matchDate: match.matchDate,
+          sportKey: match.sportKey,
+        );
         if (event != null) {
           return AiOddsData(
             homeWinOdds: event.homePrice,
