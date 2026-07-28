@@ -1,14 +1,15 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.2.3 - Translated League Header
+// Version: v0.3.0 - Favorite League Header
 // File: lib/widgets/league_header.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
+import '../services/favorite_leagues_service.dart';
 import '../utils/league_translator.dart';
 
-class LeagueHeader extends StatelessWidget {
+class LeagueHeader extends StatefulWidget {
   final String leagueName;
 
   const LeagueHeader({
@@ -17,8 +18,22 @@ class LeagueHeader extends StatelessWidget {
   });
 
   @override
+  State<LeagueHeader> createState() => _LeagueHeaderState();
+}
+
+class _LeagueHeaderState extends State<LeagueHeader> {
+  bool get _isFavorite {
+    return FavoriteLeaguesService.isFavorite(widget.leagueName);
+  }
+
+  void _toggleFavorite() {
+    FavoriteLeaguesService.toggleFavorite(widget.leagueName);
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String translatedLeague = LeagueTranslator.translate(leagueName);
+    final String translatedLeague = LeagueTranslator.translate(widget.leagueName);
 
     return Padding(
       padding: const EdgeInsets.only(
@@ -43,6 +58,17 @@ class LeagueHeader extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+          ),
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(4),
+            icon: Icon(
+              _isFavorite ? Icons.star : Icons.star_border,
+              color: Colors.amber,
+              size: 20,
+            ),
+            onPressed: _toggleFavorite,
+            tooltip: _isFavorite ? 'Kedvenc bajnokság eltávolítása' : 'Bajnokság hozzáadása a kedvencekhez',
           ),
         ],
       ),
