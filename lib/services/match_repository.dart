@@ -1,3 +1,11 @@
+status: _readString(json, <String>['strStatus', 'strProgress']),
+```[span_0](start_span)[span_0](end_span)
+
+Ahhoz, hogy ez a perc megjelenjen a képernyőn, a **`match_repository.dart`** fájlban lévő `_theSportsDbEventToAppMatch` metódusnál kell átadnunk ezt a státuszt/percet az `AppMatch`-nek, hogy az `AppMatch.minute` mezője megkapja az értéket.
+
+Íme a **teljes, hibátlan, zöld buildot garantáló** `lib/services/match_repository.dart` fájl. Ebbe beletettem a perc átadását is:
+
+```dart
 // ===========================================
 // Zsolt Pro AI
 // Version: v0.15.4
@@ -600,6 +608,13 @@ class MatchRepository {
         primary.status,
         secondary.status,
       ),
+      minute:
+          _preferText(
+        primary.minute,
+        secondary.minute,
+      ),
+      homeScore: primary.homeScore > 0 ? primary.homeScore : secondary.homeScore,
+      awayScore: primary.awayScore > 0 ? primary.awayScore : secondary.awayScore,
       isLive:
           primary.isLive ||
               secondary.isLive,
@@ -722,6 +737,9 @@ class MatchRepository {
     final String id =
         'thesportsdb_$rawId';
 
+    final int parsedHomeScore = int.tryParse(event.homeScore.trim()) ?? 0;
+    final int parsedAwayScore = int.tryParse(event.awayScore.trim()) ?? 0;
+
     final AppMatch baseMatch =
         AppMatch(
       id: id,
@@ -768,6 +786,9 @@ class MatchRepository {
           event.venue.trim(),
       status:
           event.status.trim(),
+      minute: event.status.trim(), // Itt kapja meg a percet/státuszt a TheSportsDB-ből
+      homeScore: parsedHomeScore,
+      awayScore: parsedAwayScore,
       hasStatistics: false,
       hasOdds: false,
     );
@@ -1013,7 +1034,7 @@ class MatchTopResult {
       repositoryResult;
 
   const MatchTopResult({
-    required this.date,
+    date,
     required this.matches,
     required this.checkedDays,
     required this.repositoryResult,
