@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.25.0 - Pre-analyzed Match Detail Integration
+// Version: v0.26.0 - Monte Carlo Simulation UI Integration
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
@@ -64,6 +64,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     return _analysisResult?.statisticsResult.statistics;
   }
 
+  MonteCarloSimulationResult? get _monteCarloResult {
+    return _analysisResult?.analysis.monteCarloResult;
+  }
+
   bool get _isBuilderMode {
     return _builderSelections.isNotEmpty;
   }
@@ -115,7 +119,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     super.initState();
     _restoreSavedSelection();
 
-    // Ha kapott előzetes elemzést, azt állítjuk be alapértelmezettként
     if (widget.initialAnalysis != null) {
       final rec = widget.initialAnalysis!.recommendation;
       _selectedSingleBet = BetSelection(
@@ -156,7 +159,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
 
-    // Ha van initialAnalysis, de még nincs letöltött _analysisResult, kinyerjük abból a szövegeket
     final String? displayMarket = widget.initialAnalysis != null && _analysisResult == null
         ? widget.initialAnalysis!.recommendation.marketName
         : _analysisResult?.recommendationMarket;
@@ -210,6 +212,19 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
               isLoading: _isLoadingAnalysis,
               errorMessage: _analysisError,
               onRefresh: () => _loadAnalysis(forceRefresh: true),
+            ),
+            const SizedBox(height: 22),
+            // 🚀 ÚJ: Monte Carlo Szimulációs Kártya (10 000 futtatás eredménye)
+            const _SectionTitle(
+              icon: Icons.science_outlined,
+              title: 'Monte Carlo AI Szimulátor (10k)',
+            ),
+            const SizedBox(height: 10),
+            _MonteCarloSimulationCard(
+              result: _monteCarloResult,
+              isLoading: _isLoadingAnalysis,
+              homeTeam: match.homeTeam,
+              awayTeam: match.awayTeam,
             ),
             const SizedBox(height: 22),
             const _SectionTitle(
@@ -1058,6 +1073,168 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     if (value.contains('ai')) return Icons.psychology;
 
     return Icons.sports_soccer;
+  }
+}
+
+// 🚀 ÚJ WIDGET: Monte Carlo Szimuláció Eredményeinek Megjelenítése
+class _MonteCarloSimulationCard extends StatelessWidget {
+  final MonteCarloSimulationResult? result;
+  final bool isLoading;
+  final String homeTeam;
+  final String awayTeam;
+
+  const _MonteCarloSimulationCard({
+    required this.result,
+    required this.isLoading,
+    required this.homeTeam,
+    required this.awayTeam,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+
+    if (isLoading && result == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(22),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.7),
+              ),
+              SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  '10 000 iterációs Monte Carlo szimuláció futtatása...',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (result == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(18),
+          child: Text('A szimulációs adatok nem érhetők el.'),
+        ),
+      );
+    }
+
+    final double homePct = result!.homeWinPercent;
+    final double drawPct = result!.drawPercent;
+    final double awayPct = result!.awayWinPercent;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.science_outlined, color: colors.primary),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Monte Carlo Szimuláció (10 000 meccs)',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Szimulált 1X2 esélyek:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _SimulationBar(label: homeTeam, percent: homePct, color: Colors.green)),
+                const SizedBox(width: 6),
+                Expanded(child: _SimulationBar(label: 'Döntetlen', percent: drawPct, color: Colors.orange)),
+                const SizedBox(width: 6),
+                Expanded(child: _SimulationBar(label: awayTeam, percent: awayPct, color: Colors.redAccent)),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Várható átlagos mutatók (szimulált):',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            _StatusInformationRow(label: 'Várható összes gól', value: result!.averageTotalGoals.toStringAsFixed(2)),
+            const SizedBox(height: 6),
+            _StatusInformationRow(label: 'Várható szögletek száma', value: result!.averageTotalCorners.toStringAsFixed(1)),
+            const SizedBox(height: 6),
+            _StatusInformationRow(label: 'Várható sárga lapok', value: result!.averageTotalCards.toStringAsFixed(1)),
+            const SizedBox(height: 6),
+            _StatusInformationRow(label: 'Várható szabálytalanságok', value: result!.averageTotalFouls.toStringAsFixed(1)),
+            const SizedBox(height: 16),
+            const Text(
+              'Leggyakoribb pontos eredmények:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: result!.mostCommonScores.entries.map((entry) {
+                return Chip(
+                  label: Text('${entry.key} (${entry.value}x)'),
+                  backgroundColor: colors.surfaceContainerHighest,
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SimulationBar extends StatelessWidget {
+  final String label;
+  final double percent;
+  final Color color;
+
+  const _SimulationBar({
+    required this.label,
+    required this.percent,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${percent.toStringAsFixed(1)}%',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+        ],
+      ),
+    );
   }
 }
 
