@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.20.4
+// Version: v0.21.0 - Home Integration
 // File: lib/screens/home_screen.dart
 // ===========================================
 
@@ -64,9 +64,9 @@ class HomeScreen extends StatelessWidget {
             ),
             _MenuCard(
               icon: Icons.sports_soccer,
-              title: 'Meccsek',
+              title: 'Meccsek és Kedvencek',
               subtitle:
-                  'Mai és következő mérkőzések',
+                  'Mai meccsek, élő eredmények és kedvenc ligák',
               onTap: () {
                 _openScreen(
                   context: context,
@@ -246,7 +246,7 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 7),
                 Text(
-                  'OCR + Parser V5 + Vonalkód',
+                  'OCR + Parser V5 + Kedvencek',
                   style: TextStyle(
                     color: colors.onPrimary,
                     fontWeight: FontWeight.bold,
