@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.23.0 - AI Engine V2 Integration
+// Version: v0.24.0 - AI Top 5 Diversified Integration
 // File: lib/screens/ai_top5_screen.dart
 // ===========================================
 
@@ -551,14 +551,17 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         return;
       }
 
-      // Futtatjuk az AiEngineV2Service elemzését minden egyes letöltött meccsre
+      // Futtatjuk az AiEngineV2Service elemzését diverzifikált módban
       final Map<String, AiMatchAnalysis> newAnalyses = {};
       for (final match in result.matches) {
-        final analysis = _aiEngine.analyzeWithFallbackData(match: match);
+        final analysis = _aiEngine.analyzeWithFallbackData(
+          match: match,
+          diversify: true,
+        );
         newAnalyses[match.id] = analysis;
       }
 
-      // Sorbajátsszuk a meccseket az AI score alapján, hogy a legerősebbek kerüljenek előre
+      // Sorbajátsszuk a meccseket az AI score alapján
       final sortedMatches = List<AppMatch>.from(result.matches);
       sortedMatches.sort((a, b) {
         final scoreA = newAnalyses[a.id]?.aiScore ?? a.aiScore;
