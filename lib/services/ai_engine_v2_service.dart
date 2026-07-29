@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI Engine v2.9 - Fixed Repository Compatibility Edition
+// Zsolt Pro AI Engine v2.10 - On-Demand Monte Carlo Edition
 // File: lib/services/ai_engine_v2_service.dart
 // ============================================================================
 
@@ -20,8 +20,6 @@ class AiMatchStatistics {
   final double h2hAverageGoals;
   final double h2hBttsPercent;
   final double h2hOver25Percent;
-
-  // 🛠️ Itt a hiányzó getter/mező a repository számára
   final int h2hTotalMatches;
 
   final double leagueAverageGoals;
@@ -220,7 +218,7 @@ class AiMatchAnalysis {
   final double homeXG;
   final double awayXG;
   final bool hasValueBet;
-  final MonteCarloSimulationResult monteCarloResult;
+  final MonteCarloSimulationResult? monteCarloResult;
 
   const AiMatchAnalysis({
     required this.aiScore,
@@ -229,7 +227,7 @@ class AiMatchAnalysis {
     required this.homeXG,
     required this.awayXG,
     required this.hasValueBet,
-    required this.monteCarloResult,
+    this.monteCarloResult,
   });
 }
 
@@ -244,6 +242,7 @@ class AiEngineV2Service {
     required AiMatchStatistics statistics,
     AiOddsData? oddsData,
     bool diversify = false,
+    bool runSimulation = false,
   }) {
     final double leagueAvg = statistics.leagueAverageGoals > 0 ? statistics.leagueAverageGoals / 2.0 : 1.30;
 
@@ -268,33 +267,43 @@ class AiEngineV2Service {
     final double homeXG = (homeAttack * awayDefense * leagueAvg * homeAdv).clamp(0.2, 4.5);
     final double awayXG = (awayAttack * homeDefense * leagueAvg).clamp(0.2, 4.5);
 
-    final MonteCarloSimulationResult mcResult = _runAdvancedMonteCarloSimulation(
-      homeLambda: homeXG,
-      awayLambda: awayXG,
-      homeCorners: statistics.homeCornersAverage,
-      awayCorners: statistics.awayCornersAverage,
-      homeCards: statistics.homeYellowCardsAverage,
-      awayCards: statistics.awayYellowCardsAverage,
-      homeOffsides: statistics.homeOffsidesAverage,
-      awayOffsides: statistics.awayOffsidesAverage,
-      homeFouls: statistics.homeFoulsAverage,
-      awayFouls: statistics.awayFoulsAverage,
-      iterations: 10000,
-    );
-
-    final double pHomePct = mcResult.homeWinPercent;
-    final double pAwayPct = mcResult.awayWinPercent;
-    final double pDrawPct = mcResult.drawPercent;
+    MonteCarloSimulationResult? mcResult;
+    double pHomePct = 0;
+    double pAwayPct = 0;
+    double pDrawPct = 0;
 
     final Map<String, double> poissonProbs = _calculatePoissonProbabilities(homeXG, awayXG);
+    pHomePct = poissonProbs['homeWin']! * 100.0;
+    pDrawPct = poissonProbs['draw']! * 100.0;
+    pAwayPct = poissonProbs['awayWin']! * 100.0;
+
+    if (runSimulation) {
+      mcResult = _runAdvancedMonteCarloSimulation(
+        homeLambda: homeXG,
+        awayLambda: awayXG,
+        homeCorners: statistics.homeCornersAverage,
+        awayCorners: statistics.awayCornersAverage,
+        homeCards: statistics.homeYellowCardsAverage,
+        awayCards: statistics.awayYellowCardsAverage,
+        homeOffsides: statistics.homeOffsidesAverage,
+        awayOffsides: statistics.awayOffsidesAverage,
+        homeFouls: statistics.homeFoulsAverage,
+        awayFouls: statistics.awayFoulsAverage,
+        iterations: 10000,
+      );
+      pHomePct = mcResult.homeWinPercent;
+      pDrawPct = mcResult.drawPercent;
+      pAwayPct = mcResult.awayWinPercent;
+    }
+
     final double pOver15 = poissonProbs['over15']! * 100.0;
     final double pOver25 = poissonProbs['over25']! * 100.0;
     final double pBtts = poissonProbs['btts']! * 100.0;
     final double p1X = (pHomePct + pDrawPct).clamp(0.0, 100.0);
     final double pX2 = (pAwayPct + pDrawPct).clamp(0.0, 100.0);
 
-    final double pOver95Corners = (mcResult.averageTotalCorners > 9.5 ? 58.0 : 45.0);
-    final double pOver35Cards = (mcResult.averageTotalCards > 3.5 ? 62.0 : 42.0);
+    final double pOver95Corners = (statistics.homeCornersAverage + statistics.awayCornersAverage > 9.5 ? 58.0 : 45.0);
+    final double pOver35Cards = (statistics.homeYellowCardsAverage + statistics.awayYellowCardsAverage > 3.5 ? 62.0 : 42.0);
 
     final List<AiRecommendation> candidates = [
       AiRecommendation(marketName: '1X2', selection: 'Hazai győzelem (1)', probability: pHomePct, fairOdds: 100.0 / (pHomePct > 0 ? pHomePct : 1)),
@@ -351,6 +360,7 @@ class AiEngineV2Service {
     required AppMatch match,
     AiOddsData? oddsData,
     bool diversify = false,
+    bool runSimulation = false,
   }) {
     final int hashSeed = match.id.hashCode.abs() % 20;
     final double dynamicStrength = 62.0 + (hashSeed.toDouble());
@@ -360,6 +370,7 @@ class AiEngineV2Service {
       statistics: AiMatchStatistics.fallback(leagueStrength: dynamicStrength),
       oddsData: oddsData,
       diversify: diversify,
+      runSimulation: runSimulation,
     );
   }
 
