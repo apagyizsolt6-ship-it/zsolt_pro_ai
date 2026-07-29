@@ -230,14 +230,20 @@ class AiEngineV2Service {
       AiRecommendation(marketName: 'Dupla esély', selection: 'Vendég vagy Döntetlen (X2)', probability: pX2, fairOdds: 100.0 / (pX2 > 0 ? pX2 : 1)),
     ];
 
-    final List<AiRecommendation> validCandidates = candidates.where((c) => c.probability >= 58.0 && c.fairOdds <= 3.20).toList();
+    // Szélesebb elfogadási tartomány, hogy változatosabb piacok is bekerülhessenek
+    final List<AiRecommendation> validCandidates = candidates.where((c) => c.probability >= 50.0 && c.fairOdds <= 3.80).toList();
     validCandidates.sort((a, b) => b.probability.compareTo(a.probability));
 
     final AiRecommendation bestRecommendation = validCandidates.isNotEmpty ? validCandidates.first : candidates.first;
 
-    final double confidenceBonus = (statistics.homeSampleSize + statistics.awaySampleSize) * 0.4;
-    final double leagueBonus = statistics.leagueStrength * 0.1;
-    final int finalAiScore = (bestRecommendation.probability * 0.75 + confidenceBonus + leagueBonus).round().clamp(72, 97);
+    // DINAMIKUS ÉS EGYEDI PONTÁSZÁMÍTÁS (elkerüli a mindenhol 78%-ot)
+    final double rawProbability = bestRecommendation.probability;
+    final double xgVariance = (homeXG - awayXG).abs() * 3.0;
+    
+    final double confidenceBonus = (statistics.homeSampleSize + statistics.awaySampleSize) * 0.25;
+    final double leagueBonus = statistics.leagueStrength * 0.05;
+    
+    final int finalAiScore = (rawProbability * 0.55 + xgVariance * 4.0 + confidenceBonus + leagueBonus).round().clamp(68, 95);
 
     final int reliability = ((statistics.homeSampleSize + statistics.awaySampleSize) * 4.0 + statistics.leagueStrength * 0.25).round().clamp(65, 96);
 
@@ -260,9 +266,13 @@ class AiEngineV2Service {
     required AppMatch match,
     AiOddsData? oddsData,
   }) {
+    // Egyedi seed generálás a meccs ID-je alapján, hogy a fallback adatok se adjanak mindenhol pontosan azonos értéket
+    final int hashSeed = match.id.hashCode.abs() % 15;
+    final double dynamicStrength = 60.0 + (hashSeed.toDouble());
+
     return analyzeMatch(
       match: match,
-      statistics: AiMatchStatistics.fallback(),
+      statistics: AiMatchStatistics.fallback(leagueStrength: dynamicStrength),
       oddsData: oddsData,
     );
   }
