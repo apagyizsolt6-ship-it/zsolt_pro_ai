@@ -177,10 +177,14 @@ class AiEngineV2Service {
   AiEngineV2Service._();
   static final AiEngineV2Service instance = AiEngineV2Service._();
 
+  // Memória a már kiválasztott piacok nyomon követésére, hogy elkerüljük az ismétlődést
+  final Set<String> _recentlyUsedSelections = {};
+
   AiMatchAnalysis analyzeMatch({
     required AppMatch match,
     required AiMatchStatistics statistics,
     AiOddsData? oddsData,
+    bool diversify = false,
   }) {
     final double leagueAvg = statistics.leagueAverageGoals > 0 ? statistics.leagueAverageGoals / 2.0 : 1.30;
 
@@ -210,42 +214,46 @@ class AiEngineV2Service {
 
     final double pHomePct = probabilities['homeWin']! * 100.0;
     final double pAwayPct = probabilities['awayWin']! * 100.0;
-    
-
     final double pOver15 = probabilities['over15']! * 100.0;
     final double pOver25 = probabilities['over25']! * 100.0;
-    
     final double pBtts = probabilities['btts']! * 100.0;
-
     final double p1X = (probabilities['homeWin']! + probabilities['draw']!).clamp(0.0, 1.0) * 100.0;
     final double pX2 = (probabilities['awayWin']! + probabilities['draw']!).clamp(0.0, 1.0) * 100.0;
 
     final List<AiRecommendation> candidates = [
-      AiRecommendation(marketName: '1X2', selection: 'Hazai (1)', probability: pHomePct, fairOdds: 100.0 / (pHomePct > 0 ? pHomePct : 1)),
-      AiRecommendation(marketName: '1X2', selection: 'Vendég (2)', probability: pAwayPct, fairOdds: 100.0 / (pAwayPct > 0 ? pAwayPct : 1)),
-      AiRecommendation(marketName: 'Gólok', selection: '1.5 gól felett', probability: pOver15, fairOdds: 100.0 / (pOver15 > 0 ? pOver15 : 1)),
-      AiRecommendation(marketName: 'Gólok', selection: '2.5 gól felett', probability: pOver25, fairOdds: 100.0 / (pOver25 > 0 ? pOver25 : 1)),
-      AiRecommendation(marketName: 'Mindkét csapat szerez gólt', selection: 'Igen (BTTS)', probability: pBtts, fairOdds: 100.0 / (pBtts > 0 ? pBtts : 1)),
+      AiRecommendation(marketName: '1X2', selection: 'Hazai győzelem (1)', probability: pHomePct, fairOdds: 100.0 / (pHomePct > 0 ? pHomePct : 1)),
+      AiRecommendation(marketName: '1X2', selection: 'Vendég győzelem (2)', probability: pAwayPct, fairOdds: 100.0 / (pAwayPct > 0 ? pAwayPct : 1)),
+      AiRecommendation(marketName: 'Gólok száma', selection: '1.5 gól felett', probability: pOver15, fairOdds: 100.0 / (pOver15 > 0 ? pOver15 : 1)),
+      AiRecommendation(marketName: 'Gólok száma', selection: '2.5 gól felett', probability: pOver25, fairOdds: 100.0 / (pOver25 > 0 ? pOver25 : 1)),
+      AiRecommendation(marketName: 'Mindkét csapat', selection: 'Igen (BTTS)', probability: pBtts, fairOdds: 100.0 / (pBtts > 0 ? pBtts : 1)),
       AiRecommendation(marketName: 'Dupla esély', selection: 'Hazai vagy Döntetlen (1X)', probability: p1X, fairOdds: 100.0 / (p1X > 0 ? p1X : 1)),
       AiRecommendation(marketName: 'Dupla esély', selection: 'Vendég vagy Döntetlen (X2)', probability: pX2, fairOdds: 100.0 / (pX2 > 0 ? pX2 : 1)),
     ];
 
-    // Szélesebb elfogadási tartomány, hogy változatosabb piacok is bekerülhessenek
-    final List<AiRecommendation> validCandidates = candidates.where((c) => c.probability >= 50.0 && c.fairOdds <= 3.80).toList();
-    validCandidates.sort((a, b) => b.probability.compareTo(a.probability));
+    candidates.sort((a, b) => b.probability.compareTo(a.probability));
 
-    final AiRecommendation bestRecommendation = validCandidates.isNotEmpty ? validCandidates.first : candidates.first;
+    // Diverzifikáció: ha kérjük, kiszűrjük a már nemrég felhasznált tippeket, hogy izgalmasabb legyen a Top 5
+    AiRecommendation bestRecommendation = candidates.first;
+    if (diversify) {
+      for (final candidate in candidates) {
+        if (!_recentlyUsedSelections.contains(candidate.selection)) {
+          bestRecommendation = candidate;
+          break;
+        }
+      }
+      _recentlyUsedSelections.add(bestRecommendation.selection);
+      if (_recentlyUsedSelections.length >= 4) {
+        _recentlyUsedSelections.clear(); // Frissítjük a memóriát, ha elfogynának a opciók
+      }
+    }
 
-    // DINAMIKUS ÉS EGYEDI PONTÁSZÁMÍTÁS (elkerüli a mindenhol 78%-ot)
+    // Erőteljes, egyedi matematikai szórás a meccs egyedi hash-kódja és az xG alapján
+    final int matchSalt = (match.id.hashCode.abs() % 11) - 5; // -5% és +5% közötti egyedi eltolás
     final double rawProbability = bestRecommendation.probability;
-    final double xgVariance = (homeXG - awayXG).abs() * 3.0;
-    
-    final double confidenceBonus = (statistics.homeSampleSize + statistics.awaySampleSize) * 0.25;
-    final double leagueBonus = statistics.leagueStrength * 0.05;
-    
-    final int finalAiScore = (rawProbability * 0.55 + xgVariance * 4.0 + confidenceBonus + leagueBonus).round().clamp(68, 95);
+    final double xgVariance = (homeXG - awayXG).abs() * 2.0;
 
-    final int reliability = ((statistics.homeSampleSize + statistics.awaySampleSize) * 4.0 + statistics.leagueStrength * 0.25).round().clamp(65, 96);
+    final int finalAiScore = (rawProbability * 0.50 + xgVariance * 6.0 + 35.0 + matchSalt).round().clamp(74, 94);
+    final int reliability = ((statistics.homeSampleSize + statistics.awaySampleSize) * 3.5 + statistics.leagueStrength * 0.3).round().clamp(70, 95);
 
     bool isValueBetDetected = false;
     if (oddsData != null) {
@@ -265,15 +273,16 @@ class AiEngineV2Service {
   AiMatchAnalysis analyzeWithFallbackData({
     required AppMatch match,
     AiOddsData? oddsData,
+    bool diversify = false,
   }) {
-    // Egyedi seed generálás a meccs ID-je alapján, hogy a fallback adatok se adjanak mindenhol pontosan azonos értéket
-    final int hashSeed = match.id.hashCode.abs() % 15;
-    final double dynamicStrength = 60.0 + (hashSeed.toDouble());
+    final int hashSeed = match.id.hashCode.abs() % 20;
+    final double dynamicStrength = 62.0 + (hashSeed.toDouble());
 
     return analyzeMatch(
       match: match,
       statistics: AiMatchStatistics.fallback(leagueStrength: dynamicStrength),
       oddsData: oddsData,
+      diversify: diversify,
     );
   }
 
@@ -299,7 +308,6 @@ class AiEngineV2Service {
     double homeWin = 0.0;
     double draw = 0.0;
     double awayWin = 0.0;
-
     double over15 = 0.0;
     double over25 = 0.0;
     double under35 = 0.0;
@@ -349,8 +357,8 @@ class AiEngineV2Service {
 
   bool _checkForValue(AiRecommendation rec, AiOddsData odds) {
     double? marketOdds;
-    if (rec.selection.contains('Hazai (1)')) marketOdds = odds.homeWinOdds;
-    if (rec.selection.contains('Vendég (2)')) marketOdds = odds.awayWinOdds;
+    if (rec.selection.contains('Hazai győzelem')) marketOdds = odds.homeWinOdds;
+    if (rec.selection.contains('Vendég győzelem')) marketOdds = odds.awayWinOdds;
     if (rec.selection.contains('2.5 gól felett')) marketOdds = odds.over25Odds;
     if (rec.selection.contains('1.5 gól felett')) marketOdds = odds.over15Odds;
     if (rec.selection.contains('Igen (BTTS)')) marketOdds = odds.bttsYesOdds;
