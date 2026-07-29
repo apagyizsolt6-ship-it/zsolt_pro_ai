@@ -1,6 +1,6 @@
 // ============================================================================
 // Zsolt Pro AI - Central Match Analysis Service - PART 1
-// Version: v0.18.6 - Compiler Safe Architecture & Production Ready
+// Version: v0.19.1 - Simulation Enabled & Production Ready
 // File: lib/services/match_analysis_service.dart
 // ============================================================================
 
@@ -146,10 +146,14 @@ class MatchAnalysisService {
       );
 
       final AiOddsData effectiveOddsData = oddsData ?? await _tryFetchOrEstimateOdds(match);
+      
+      // 🚀 Itt kapcsoljuk be a Monte Carlo szimulációt (runSimulation: true), 
+      // így a meccs részletes nézetben számoláskor lefut a 10 000 iteráció, fagyás nélkül!
       final AiMatchAnalysis analysis = _aiEngine.analyzeMatch(
         match: match,
         statistics: statisticsResult.statistics,
         oddsData: effectiveOddsData,
+        runSimulation: true,
       );
 
       final MatchAnalysisResult result = MatchAnalysisResult(
@@ -168,7 +172,11 @@ class MatchAnalysisService {
       _cache['${match.id}|${effectiveOddsData.hashCode}'] = result;
       return result;
     } catch (error) {
-      final fallbackAnalysis = _aiEngine.analyzeWithFallbackData(match: match, oddsData: oddsData);
+      final fallbackAnalysis = _aiEngine.analyzeWithFallbackData(
+        match: match, 
+        oddsData: oddsData,
+        runSimulation: true,
+      );
       
       return MatchAnalysisResult(
         match: match,
