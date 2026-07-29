@@ -76,12 +76,53 @@ jobs:
               content,
               encoding="utf-8",
           )
+          PY
 
-          print(
-              manifest_path.read_text(
-                  encoding="utf-8"
-              )
-          )
+      - name: Core Library Desugaring engedélyezése (Értesítésekhez)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          gradle_kts_path = Path("android/app/build.gradle.kts")
+          gradle_path = Path("android/app/build.gradle")
+
+          if gradle_path.exists():
+              content = gradle_path.read_text(encoding="utf-8")
+              
+              # Compile options bekapcsolása
+              if "coreLibraryDesugaringEnabled" not in content:
+                  compile_options_target = "compileOptions {"
+                  replacement = "compileOptions {\n        coreLibraryDesugaringEnabled true"
+                  if compile_options_target in content:
+                      content = content.replace(compile_options_target, replacement, 1)
+                  else:
+                      # Ha nincs, beszúrjuk az android blokk elejére
+                      android_target = "android {"
+                      content = content.replace(android_target, android_target + "\n    compileOptions {\n        coreLibraryDesugaringEnabled true\n    }", 1)
+
+              # Desugar dependency hozzáadása
+              dep_target = "dependencies {"
+              if "desugar_jdk_libs" not in content:
+                  replacement_dep = "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'"
+                  content = content.replace(dep_target, replacement_dep, 1)
+
+              gradle_path.write_text(content, encoding="utf-8")
+              print("Android build.gradle sikeresen frissítve desugaring-gal.")
+
+          elif gradle_kts_path.exists():
+              content = gradle_kts_path.read_text(encoding="utf-8")
+              if "coreLibraryDesugaringEnabled" not in content:
+                  compile_options_target = "compileOptions {"
+                  replacement = "compileOptions {\n        isCoreLibraryDesugaringEnabled = true"
+                  content = content.replace(compile_options_target, replacement, 1)
+
+              dep_target = "dependencies {"
+              if "desugar_jdk_libs" not in content:
+                  replacement_dep = "dependencies {\n    add(\"coreLibraryDesugaring\", \"com.android.tools:desugar_jdk_libs:2.0.4\")"
+                  content = content.replace(dep_target, replacement_dep, 1)
+
+              gradle_kts_path.write_text(content, encoding="utf-8")
+              print("Android build.gradle.kts sikeresen frissítve desugaring-gal.")
           PY
 
       - name: ML Kit R8 szabályok létrehozása
@@ -92,23 +133,10 @@ jobs:
           # Google ML Kit OCR - R8 szabályok
           # ===========================================
 
-          # A Zsolt Pro AI jelenleg latin betűs
-          # szövegfelismerést használ.
-          #
-          # A Google ML Kit plugin opcionálisan hivatkozik
-          # a kínai, japán, koreai és dévanágari
-          # szövegfelismerő modulokra is.
-          #
-          # Ezek nincsenek telepítve, ezért az R8 számára
-          # jelezzük, hogy a hiányuk szándékos.
-
           -dontwarn com.google.mlkit.vision.text.chinese.**
           -dontwarn com.google.mlkit.vision.text.devanagari.**
           -dontwarn com.google.mlkit.vision.text.japanese.**
           -dontwarn com.google.mlkit.vision.text.korean.**
-
-          # ML Kit és Google Play Services osztályok
-          # megőrzése a release buildben.
 
           -keep class com.google.mlkit.** { *; }
           -keep interface com.google.mlkit.** { *; }
@@ -121,9 +149,6 @@ jobs:
           -keepattributes InnerClasses
           -keepattributes EnclosingMethod
           EOF
-
-          echo "A proguard-rules.pro elkészült:"
-          cat android/app/proguard-rules.pro
 
       - name: ProGuard bekötése az Android release buildbe
         run: |
@@ -140,91 +165,21 @@ jobs:
 
           if gradle_kts_path.exists():
               path = gradle_kts_path
-
-              content = path.read_text(
-                  encoding="utf-8"
-              )
-
+              content = path.read_text(encoding="utf-8")
               if '"proguard-rules.pro"' not in content:
-                  release_marker = """release {
-          """
-
-                  replacement = """release {
-                      proguardFiles(
-                          getDefaultProguardFile(
-                              "proguard-android-optimize.txt"
-                          ),
-                          "proguard-rules.pro"
-                      )
-          """
-
-                  if release_marker not in content:
-                      raise RuntimeError(
-                          "A release buildType nem található "
-                          "az android/app/build.gradle.kts fájlban."
-                      )
-
-                  content = content.replace(
-                      release_marker,
-                      replacement,
-                      1,
-                  )
-
-                  path.write_text(
-                      content,
-                      encoding="utf-8",
-                  )
-
-              print(
-                  path.read_text(
-                      encoding="utf-8"
-                  )
-              )
+                  release_marker = "release {\n"
+                  replacement = "release {\n                      proguardFiles(\n                          getDefaultProguardFile(\n                              \"proguard-android-optimize.txt\"\n                          ),\n                          \"proguard-rules.pro\"\n                      )\n"
+                  content = content.replace(release_marker, replacement, 1)
+                  path.write_text(content, encoding="utf-8")
 
           elif gradle_path.exists():
               path = gradle_path
-
-              content = path.read_text(
-                  encoding="utf-8"
-              )
-
+              content = path.read_text(encoding="utf-8")
               if "proguard-rules.pro" not in content:
-                  release_marker = """release {
-          """
-
-                  replacement = """release {
-                      proguardFiles getDefaultProguardFile(
-                          'proguard-android-optimize.txt'
-                      ), 'proguard-rules.pro'
-          """
-
-                  if release_marker not in content:
-                      raise RuntimeError(
-                          "A release buildType nem található "
-                          "az android/app/build.gradle fájlban."
-                      )
-
-                  content = content.replace(
-                      release_marker,
-                      replacement,
-                      1,
-                  )
-
-                  path.write_text(
-                      content,
-                      encoding="utf-8",
-                  )
-
-              print(
-                  path.read_text(
-                      encoding="utf-8"
-                  )
-              )
-
-          else:
-              raise FileNotFoundError(
-                  "Nem található Android app Gradle fájl."
-              )
+                  release_marker = "release {\n"
+                  replacement = "release {\n                      proguardFiles getDefaultProguardFile(\n                          'proguard-android-optimize.txt'\n                      ), 'proguard-rules.pro'\n"
+                  content = content.replace(release_marker, replacement, 1)
+                  path.write_text(content, encoding="utf-8")
           PY
 
       - name: Automatikus tesztfájl törlése
