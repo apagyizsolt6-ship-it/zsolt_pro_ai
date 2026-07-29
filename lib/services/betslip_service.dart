@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.8.2
+// Version: v0.9.0 - Betslip & Bankroll Integration
 // File: lib/services/betslip_service.dart
 // ===========================================
 
@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../models/app_match.dart';
 import '../models/bet_builder_selection.dart';
 import '../models/betslip_item.dart';
+import 'bankroll_history_service.dart';
 
 class BetslipService extends ChangeNotifier {
   BetslipService._();
@@ -62,6 +63,15 @@ class BetslipService extends ChangeNotifier {
     }
 
     _items.add(item);
+    
+    // 🚀 Automatikus rögzítés a Bankroll & ROI előzmények között is
+    BankrollHistoryService.instance.addBetRecord(
+      matchTitle: '${item.match.homeTeam} – ${item.match.awayTeam}',
+      selection: item.selection,
+      odds: item.isBetBuilder ? item.builderOdds : (item.odds > 0 ? item.odds : 2.0),
+      stake: 5000.0, // Alapértelmezett virtuális tét (5000 Ft)
+    );
+
     notifyListeners();
 
     return true;
