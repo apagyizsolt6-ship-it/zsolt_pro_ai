@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI Engine v2.8 - Ultimate Quant & Expanded Markets Edition
+// Zsolt Pro AI Engine v2.9 - Fixed Repository Compatibility Edition
 // File: lib/services/ai_engine_v2_service.dart
 // ============================================================================
 
@@ -21,6 +21,9 @@ class AiMatchStatistics {
   final double h2hBttsPercent;
   final double h2hOver25Percent;
 
+  // 🛠️ Itt a hiányzó getter/mező a repository számára
+  final int h2hTotalMatches;
+
   final double leagueAverageGoals;
   final double over15Percent;
   final double over25Percent;
@@ -37,7 +40,6 @@ class AiMatchStatistics {
   final double homeFailedToScorePercent;
   final double awayFailedToScorePercent;
 
-  // Új statisztikai mutatók a bővített piacokhoz (szöglet, lap, les, szabálytalanság)
   final double homeCornersAverage;
   final double awayCornersAverage;
   final double homeYellowCardsAverage;
@@ -65,6 +67,7 @@ class AiMatchStatistics {
     required this.h2hAverageGoals,
     required this.h2hBttsPercent,
     required this.h2hOver25Percent,
+    this.h2hTotalMatches = 5,
     required this.leagueAverageGoals,
     required this.over15Percent,
     required this.over25Percent,
@@ -107,6 +110,7 @@ class AiMatchStatistics {
       h2hAverageGoals: 2.70,
       h2hBttsPercent: 60.0,
       h2hOver25Percent: 55.0,
+      h2hTotalMatches: 6,
       leagueAverageGoals: 2.60,
       over15Percent: 78.0,
       over25Percent: 54.0,
@@ -264,7 +268,6 @@ class AiEngineV2Service {
     final double homeXG = (homeAttack * awayDefense * leagueAvg * homeAdv).clamp(0.2, 4.5);
     final double awayXG = (awayAttack * homeDefense * leagueAvg).clamp(0.2, 4.5);
 
-    // 🚀 MONTE CARLO SZIMULÁCIÓ BŐVÍTETT PIACOkkal (10 000 ITERÁCIÓ)
     final MonteCarloSimulationResult mcResult = _runAdvancedMonteCarloSimulation(
       homeLambda: homeXG,
       awayLambda: awayXG,
@@ -290,7 +293,6 @@ class AiEngineV2Service {
     final double p1X = (pHomePct + pDrawPct).clamp(0.0, 100.0);
     final double pX2 = (pAwayPct + pDrawPct).clamp(0.0, 100.0);
 
-    // Szöglet és lap piacok valószínűsége a Monte Carlo átlagokból
     final double pOver95Corners = (mcResult.averageTotalCorners > 9.5 ? 58.0 : 45.0);
     final double pOver35Cards = (mcResult.averageTotalCards > 3.5 ? 62.0 : 42.0);
 
@@ -361,7 +363,6 @@ class AiEngineV2Service {
     );
   }
 
-  // 🎲 Fejlett Monte Carlo Szimuláció (Gólok, Szögletek, Lapok, Lesek, Szabálytalanságok)
   MonteCarloSimulationResult _runAdvancedMonteCarloSimulation({
     required double homeLambda,
     required double awayLambda,
