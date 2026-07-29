@@ -1,12 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.14.7 - Compact Layout & League Translation
+// Version: v0.23.0 - AI Engine V2 Integration
 // File: lib/screens/ai_top5_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import '../models/app_match.dart';
+import '../services/ai_engine_v2_service.dart';
 import '../services/match_repository.dart';
 import '../utils/league_translator.dart';
 import 'match_detail_screen.dart';
@@ -25,6 +26,8 @@ class AITop5Screen extends StatefulWidget {
 class _AITop5ScreenState extends State<AITop5Screen> {
   final MatchRepository _matchRepository =
       MatchRepository.instance;
+  final AiEngineV2Service _aiEngine =
+      AiEngineV2Service.instance;
 
   bool _isLoading = false;
 
@@ -37,6 +40,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
   MatchRepositoryResult? _repositoryResult;
 
   List<AppMatch> _topMatches = <AppMatch>[];
+  final Map<String, AiMatchAnalysis> _analyses = {};
 
   @override
   void initState() {
@@ -142,18 +146,27 @@ class _AITop5ScreenState extends State<AITop5Screen> {
           ) {
             final AppMatch match =
                 _topMatches[index];
+            
+            final AiMatchAnalysis? analysis =
+                _analyses[match.id];
+
+            final int displayScore =
+                analysis?.aiScore ?? match.aiScore;
+
+            final String recommendationText =
+                analysis != null
+                    ? '${analysis.recommendation.marketName}: ${analysis.recommendation.selection}'
+                    : 'Elemzés folyamatban...';
+
+            final String confidenceText =
+                _confidenceText(displayScore);
 
             return _TopMatchCard(
               position: index + 1,
               match: match,
-              recommendation:
-                  _recommendation(
-                match.aiScore,
-              ),
-              confidenceText:
-                  _confidenceText(
-                match.aiScore,
-              ),
+              displayScore: displayScore,
+              recommendation: recommendationText,
+              confidenceText: confidenceText,
               onTap: () {
                 _openMatchDetails(
                   context,
@@ -240,7 +253,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$sourceLabel • ideiglenes AI-pontszám',
+                  '$sourceLabel • AI Engine v2.0 Quant',
                   style: TextStyle(
                     color: colors.onPrimary
                         .withValues(
@@ -369,7 +382,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         ),
         const SizedBox(height: 20),
         const Text(
-          'AI Top 5 betöltése...',
+          'AI Top 5 elemzése...',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 18,
@@ -378,10 +391,9 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'A SportMonks és a TheSportsDB '
-          'mérkőzéseit egyesítjük, majd '
-          'kiválasztjuk a legmagasabb '
-          'AI-pontszámú meccseket.',
+          'A Poisson-eloszáson alapuló '
+          'AI Engine v2.0 elemzi a mérkőzéseket '
+          'és kiszámolja a legértékesebb tippeket.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.onSurfaceVariant,
@@ -539,11 +551,25 @@ class _AITop5ScreenState extends State<AITop5Screen> {
         return;
       }
 
+      // Futtatjuk az AiEngineV2Service elemzését minden egyes letöltött meccsre
+      final Map<String, AiMatchAnalysis> newAnalyses = {};
+      for (final match in result.matches) {
+        final analysis = _aiEngine.analyzeWithFallbackData(match: match);
+        newAnalyses[match.id] = analysis;
+      }
+
+      // Sorbajátsszuk a meccseket az AI score alapján, hogy a legerősebbek kerüljenek előre
+      final sortedMatches = List<AppMatch>.from(result.matches);
+      sortedMatches.sort((a, b) {
+        final scoreA = newAnalyses[a.id]?.aiScore ?? a.aiScore;
+        final scoreB = newAnalyses[b.id]?.aiScore ?? b.aiScore;
+        return scoreB.compareTo(scoreA);
+      });
+
       setState(() {
-        _topMatches =
-            List<AppMatch>.from(
-          result.matches,
-        );
+        _topMatches = sortedMatches;
+        _analyses.clear();
+        _analyses.addAll(newAnalyses);
 
         _loadedDate =
             result.date;
@@ -656,56 +682,26 @@ class _AITop5ScreenState extends State<AITop5Screen> {
     );
   }
 
-  String _recommendation(
-    int aiScore,
-  ) {
-    if (aiScore >= 93) {
-      return '1X és több mint 1,5 gól';
-    }
-
-    if (aiScore >= 90) {
-      return 'Több mint 2,5 gól';
-    }
-
-    if (aiScore >= 87) {
-      return 'Mindkét csapat szerez gólt';
-    }
-
-    if (aiScore >= 84) {
-      return 'Hazai csapat nem kap ki';
-    }
-
-    if (aiScore >= 78) {
-      return 'Kevesebb mint 4,5 gól';
-    }
-
-    return 'Kevesebb mint 5,5 gól';
-  }
-
   String _confidenceText(
     int aiScore,
   ) {
-    if (aiScore >= 93) {
-      return 'Kiemelt AI tipp';
+    if (aiScore >= 90) {
+      return 'Kiemelt AI tipp (Quant V2)';
     }
 
-    if (aiScore >= 90) {
+    if (aiScore >= 85) {
       return 'Nagyon erős tipp';
     }
 
-    if (aiScore >= 87) {
-      return 'Erős tipp';
-    }
-
-    if (aiScore >= 84) {
-      return 'Jó tipp';
+    if (aiScore >= 80) {
+      return 'Erős elemzés';
     }
 
     if (aiScore >= 75) {
-      return 'Közepes tipp';
+      return 'Jó esélyű tipp';
     }
 
-    return 'Óvatos tipp';
+    return 'Közepes konfidencia';
   }
 
   String _formatDate(
@@ -746,6 +742,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
 class _TopMatchCard extends StatelessWidget {
   final int position;
   final AppMatch match;
+  final int displayScore;
   final String recommendation;
   final String confidenceText;
   final VoidCallback onTap;
@@ -753,6 +750,7 @@ class _TopMatchCard extends StatelessWidget {
   const _TopMatchCard({
     required this.position,
     required this.match,
+    required this.displayScore,
     required this.recommendation,
     required this.confidenceText,
     required this.onTap,
@@ -772,11 +770,11 @@ class _TopMatchCard extends StatelessWidget {
   }
 
   Color _aiColor() {
-    if (match.aiScore >= 85) {
+    if (displayScore >= 85) {
       return Colors.greenAccent;
     }
 
-    if (match.aiScore >= 70) {
+    if (displayScore >= 75) {
       return Colors.orangeAccent;
     }
 
@@ -789,7 +787,7 @@ class _TopMatchCard extends StatelessWidget {
         Theme.of(context).colorScheme;
 
     final double progress =
-        match.aiScore.clamp(
+        displayScore.clamp(
               0,
               100,
             ) /
@@ -874,7 +872,7 @@ class _TopMatchCard extends StatelessWidget {
                           BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '${match.aiScore}%',
+                      '$displayScore%',
                       style: TextStyle(
                         color: aiColor,
                         fontSize: 12,
