@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.19.0 - Dynamic AI Fair Odds Engine
+// Version: v0.25.0 - Pre-analyzed Match Detail Integration
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
@@ -19,10 +19,12 @@ import '../widgets/bet_market_selector.dart';
 
 class MatchDetailScreen extends StatefulWidget {
   final AppMatch match;
+  final AiMatchAnalysis? initialAnalysis;
 
   const MatchDetailScreen({
     super.key,
     required this.match,
+    this.initialAnalysis,
   });
 
   @override
@@ -67,10 +69,16 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   }
 
   int get _displayedAiScore {
+    if (widget.initialAnalysis != null && _analysisResult == null) {
+      return widget.initialAnalysis!.aiScore;
+    }
     return _analysisResult?.analysis.aiScore ?? match.aiScore;
   }
 
   int get _recommendedProbability {
+    if (widget.initialAnalysis != null && _analysisResult == null) {
+      return widget.initialAnalysis!.recommendation.probability.round().clamp(0, 100);
+    }
     final double? probability =
         _analysisResult?.analysis.recommendation.probability;
 
@@ -89,8 +97,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     }
 
     final String normalizedSelected = _normalizeText(selected.selection);
-    final String normalizedRecommendation =
-        _normalizeText(_analysisResult?.recommendation ?? '');
+    final String currentRec = widget.initialAnalysis != null && _analysisResult == null
+        ? widget.initialAnalysis!.recommendation.selection
+        : (_analysisResult?.recommendation ?? '');
+    final String normalizedRecommendation = _normalizeText(currentRec);
 
     if (normalizedRecommendation.isNotEmpty &&
         normalizedSelected == normalizedRecommendation) {
@@ -104,6 +114,16 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   void initState() {
     super.initState();
     _restoreSavedSelection();
+
+    // Ha kapott előzetes elemzést, azt állítjuk be alapértelmezettként
+    if (widget.initialAnalysis != null) {
+      final rec = widget.initialAnalysis!.recommendation;
+      _selectedSingleBet = BetSelection(
+        market: rec.marketName.isEmpty ? 'AI ajánlott piac' : rec.marketName,
+        selection: rec.selection,
+        icon: _iconForMarket(rec.marketName.isEmpty ? rec.selection : rec.marketName),
+      );
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAll();
@@ -136,6 +156,19 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   Widget build(BuildContext context) {
     final ColorScheme colors = Theme.of(context).colorScheme;
 
+    // Ha van initialAnalysis, de még nincs letöltött _analysisResult, kinyerjük abból a szövegeket
+    final String? displayMarket = widget.initialAnalysis != null && _analysisResult == null
+        ? widget.initialAnalysis!.recommendation.marketName
+        : _analysisResult?.recommendationMarket;
+    
+    final String? displayRec = widget.initialAnalysis != null && _analysisResult == null
+        ? widget.initialAnalysis!.recommendation.selection
+        : _analysisResult?.recommendation;
+
+    final int? displayReliability = widget.initialAnalysis != null && _analysisResult == null
+        ? widget.initialAnalysis!.dataReliability
+        : _analysisResult?.dataReliability;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -163,11 +196,11 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
             const SizedBox(height: 16),
             _AiRecommendationCard(
               aiScore: _displayedAiScore,
-              recommendation: _analysisResult?.recommendation,
-              recommendationMarket: _analysisResult?.recommendationMarket,
+              recommendation: displayRec,
+              recommendationMarket: displayMarket,
               recommendationProbability:
-                  _analysisResult == null ? null : _recommendedProbability,
-              dataReliability: _analysisResult?.dataReliability,
+                  widget.initialAnalysis == null && _analysisResult == null ? null : _recommendedProbability,
+              dataReliability: displayReliability,
               isLoading: _isLoadingAnalysis,
             ),
             const SizedBox(height: 14),
@@ -639,7 +672,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
         final BetslipItem? savedItem = _betslipService.getItem(widget.match.id);
 
-        if (savedItem == null) {
+        if (savedItem == null && widget.initialAnalysis == null) {
           final String market = result.recommendationMarket.trim();
           final String selection = result.recommendation.trim();
 
@@ -1241,7 +1274,6 @@ class _RealOddsCard extends StatelessWidget {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final bool hasRealOdds = event != null;
 
-    // Dinamikus AI Odds Számítás a csapatok statisztikáiból!
     final double homeForm = statistics?.homeForm.isNotEmpty == true 
         ? (statistics!.homeForm.where((r) => r == AiMatchResult.win).length * 3 + statistics!.homeForm.where((r) => r == AiMatchResult.draw).length) / (statistics!.homeForm.length * 3)
         : 0.50;
