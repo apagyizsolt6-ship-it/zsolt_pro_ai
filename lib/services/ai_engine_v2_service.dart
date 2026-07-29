@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI Engine v2.0 - Professional Quant Edition - PART 1
+// Zsolt Pro AI Engine v2.8 - Ultimate Quant & Expanded Markets Edition
 // File: lib/services/ai_engine_v2_service.dart
 // ============================================================================
 
@@ -37,6 +37,16 @@ class AiMatchStatistics {
   final double homeFailedToScorePercent;
   final double awayFailedToScorePercent;
 
+  // Új statisztikai mutatók a bővített piacokhoz (szöglet, lap, les, szabálytalanság)
+  final double homeCornersAverage;
+  final double awayCornersAverage;
+  final double homeYellowCardsAverage;
+  final double awayYellowCardsAverage;
+  final double homeOffsidesAverage;
+  final double awayOffsidesAverage;
+  final double homeFoulsAverage;
+  final double awayFoulsAverage;
+
   final int homeSampleSize;
   final int awaySampleSize;
 
@@ -68,6 +78,14 @@ class AiMatchStatistics {
     required this.awayCleanSheetPercent,
     required this.homeFailedToScorePercent,
     required this.awayFailedToScorePercent,
+    this.homeCornersAverage = 5.2,
+    this.awayCornersAverage = 4.5,
+    this.homeYellowCardsAverage = 2.1,
+    this.awayYellowCardsAverage = 2.3,
+    this.homeOffsidesAverage = 1.8,
+    this.awayOffsidesAverage = 1.6,
+    this.homeFoulsAverage = 11.5,
+    this.awayFoulsAverage = 12.0,
     required this.homeSampleSize,
     required this.awaySampleSize,
     required this.leagueStrength,
@@ -76,7 +94,6 @@ class AiMatchStatistics {
   });
 
   int get totalSampleSize => homeSampleSize + awaySampleSize;
-  int get h2hTotalMatches => h2hHomeWins + h2hDraws + h2hAwayWins;
 
   factory AiMatchStatistics.fallback({double leagueStrength = 65.0}) {
     return AiMatchStatistics(
@@ -103,6 +120,14 @@ class AiMatchStatistics {
       awayCleanSheetPercent: 22.0,
       homeFailedToScorePercent: 15.0,
       awayFailedToScorePercent: 32.0,
+      homeCornersAverage: 5.4,
+      awayCornersAverage: 4.6,
+      homeYellowCardsAverage: 2.2,
+      awayYellowCardsAverage: 2.4,
+      homeOffsidesAverage: 1.9,
+      awayOffsidesAverage: 1.7,
+      homeFoulsAverage: 11.8,
+      awayFoulsAverage: 12.2,
       homeSampleSize: 10,
       awaySampleSize: 10,
       leagueStrength: leagueStrength,
@@ -119,10 +144,11 @@ class AiOddsData {
   final double? over15Odds;
   final double? over25Odds;
   final double? over35Odds;
-  final double? under45Odds;
   final double? bttsYesOdds;
   final double? homeOrDrawOdds;
   final double? awayOrDrawOdds;
+  final double? over95CornersOdds;
+  final double? over35CardsOdds;
 
   const AiOddsData({
     this.homeWinOdds,
@@ -131,10 +157,11 @@ class AiOddsData {
     this.over15Odds,
     this.over25Odds,
     this.over35Odds,
-    this.under45Odds,
     this.bttsYesOdds,
     this.homeOrDrawOdds,
     this.awayOrDrawOdds,
+    this.over95CornersOdds,
+    this.over35CardsOdds,
   });
 }
 
@@ -152,6 +179,36 @@ class AiRecommendation {
   });
 }
 
+class MonteCarloSimulationResult {
+  final int totalSimulations;
+  final int homeWins;
+  final int draws;
+  final int awayWins;
+  final Map<String, int> mostCommonScores;
+  final double averageTotalGoals;
+  final double averageTotalCorners;
+  final double averageTotalCards;
+  final double averageTotalOffsides;
+  final double averageTotalFouls;
+
+  const MonteCarloSimulationResult({
+    required this.totalSimulations,
+    required this.homeWins,
+    required this.draws,
+    required this.awayWins,
+    required this.mostCommonScores,
+    required this.averageTotalGoals,
+    required this.averageTotalCorners,
+    required this.averageTotalCards,
+    required this.averageTotalOffsides,
+    required this.averageTotalFouls,
+  });
+
+  double get homeWinPercent => (homeWins / totalSimulations) * 100.0;
+  double get drawPercent => (draws / totalSimulations) * 100.0;
+  double get awayWinPercent => (awayWins / totalSimulations) * 100.0;
+}
+
 class AiMatchAnalysis {
   final int aiScore;
   final int dataReliability;
@@ -159,6 +216,7 @@ class AiMatchAnalysis {
   final double homeXG;
   final double awayXG;
   final bool hasValueBet;
+  final MonteCarloSimulationResult monteCarloResult;
 
   const AiMatchAnalysis({
     required this.aiScore,
@@ -167,17 +225,14 @@ class AiMatchAnalysis {
     required this.homeXG,
     required this.awayXG,
     required this.hasValueBet,
+    required this.monteCarloResult,
   });
 }
-// ============================================================================
-// Zsolt Pro AI Engine v2.0 - Professional Quant Edition - PART 2 (Engine)
-// ============================================================================
 
 class AiEngineV2Service {
   AiEngineV2Service._();
   static final AiEngineV2Service instance = AiEngineV2Service._();
 
-  // Memória a már kiválasztott piacok nyomon követésére, hogy elkerüljük az ismétlődést
   final Set<String> _recentlyUsedSelections = {};
 
   AiMatchAnalysis analyzeMatch({
@@ -206,19 +261,38 @@ class AiEngineV2Service {
     }
 
     final double homeAdv = statistics.homeAdvantage > 0 ? statistics.homeAdvantage : 1.12;
-
     final double homeXG = (homeAttack * awayDefense * leagueAvg * homeAdv).clamp(0.2, 4.5);
     final double awayXG = (awayAttack * homeDefense * leagueAvg).clamp(0.2, 4.5);
 
-    final Map<String, double> probabilities = _calculatePoissonProbabilities(homeXG, awayXG);
+    // 🚀 MONTE CARLO SZIMULÁCIÓ BŐVÍTETT PIACOkkal (10 000 ITERÁCIÓ)
+    final MonteCarloSimulationResult mcResult = _runAdvancedMonteCarloSimulation(
+      homeLambda: homeXG,
+      awayLambda: awayXG,
+      homeCorners: statistics.homeCornersAverage,
+      awayCorners: statistics.awayCornersAverage,
+      homeCards: statistics.homeYellowCardsAverage,
+      awayCards: statistics.awayYellowCardsAverage,
+      homeOffsides: statistics.homeOffsidesAverage,
+      awayOffsides: statistics.awayOffsidesAverage,
+      homeFouls: statistics.homeFoulsAverage,
+      awayFouls: statistics.awayFoulsAverage,
+      iterations: 10000,
+    );
 
-    final double pHomePct = probabilities['homeWin']! * 100.0;
-    final double pAwayPct = probabilities['awayWin']! * 100.0;
-    final double pOver15 = probabilities['over15']! * 100.0;
-    final double pOver25 = probabilities['over25']! * 100.0;
-    final double pBtts = probabilities['btts']! * 100.0;
-    final double p1X = (probabilities['homeWin']! + probabilities['draw']!).clamp(0.0, 1.0) * 100.0;
-    final double pX2 = (probabilities['awayWin']! + probabilities['draw']!).clamp(0.0, 1.0) * 100.0;
+    final double pHomePct = mcResult.homeWinPercent;
+    final double pAwayPct = mcResult.awayWinPercent;
+    final double pDrawPct = mcResult.drawPercent;
+
+    final Map<String, double> poissonProbs = _calculatePoissonProbabilities(homeXG, awayXG);
+    final double pOver15 = poissonProbs['over15']! * 100.0;
+    final double pOver25 = poissonProbs['over25']! * 100.0;
+    final double pBtts = poissonProbs['btts']! * 100.0;
+    final double p1X = (pHomePct + pDrawPct).clamp(0.0, 100.0);
+    final double pX2 = (pAwayPct + pDrawPct).clamp(0.0, 100.0);
+
+    // Szöglet és lap piacok valószínűsége a Monte Carlo átlagokból
+    final double pOver95Corners = (mcResult.averageTotalCorners > 9.5 ? 58.0 : 45.0);
+    final double pOver35Cards = (mcResult.averageTotalCards > 3.5 ? 62.0 : 42.0);
 
     final List<AiRecommendation> candidates = [
       AiRecommendation(marketName: '1X2', selection: 'Hazai győzelem (1)', probability: pHomePct, fairOdds: 100.0 / (pHomePct > 0 ? pHomePct : 1)),
@@ -226,13 +300,14 @@ class AiEngineV2Service {
       AiRecommendation(marketName: 'Gólok száma', selection: '1.5 gól felett', probability: pOver15, fairOdds: 100.0 / (pOver15 > 0 ? pOver15 : 1)),
       AiRecommendation(marketName: 'Gólok száma', selection: '2.5 gól felett', probability: pOver25, fairOdds: 100.0 / (pOver25 > 0 ? pOver25 : 1)),
       AiRecommendation(marketName: 'Mindkét csapat', selection: 'Igen (BTTS)', probability: pBtts, fairOdds: 100.0 / (pBtts > 0 ? pBtts : 1)),
+      AiRecommendation(marketName: 'Szögletek', selection: '9.5 szöglet felett', probability: pOver95Corners, fairOdds: 100.0 / pOver95Corners),
+      AiRecommendation(marketName: 'Sárga lapok', selection: '3.5 sárga lap felett', probability: pOver35Cards, fairOdds: 100.0 / pOver35Cards),
       AiRecommendation(marketName: 'Dupla esély', selection: 'Hazai vagy Döntetlen (1X)', probability: p1X, fairOdds: 100.0 / (p1X > 0 ? p1X : 1)),
       AiRecommendation(marketName: 'Dupla esély', selection: 'Vendég vagy Döntetlen (X2)', probability: pX2, fairOdds: 100.0 / (pX2 > 0 ? pX2 : 1)),
     ];
 
     candidates.sort((a, b) => b.probability.compareTo(a.probability));
 
-    // Diverzifikáció: ha kérjük, kiszűrjük a már nemrég felhasznált tippeket, hogy izgalmasabb legyen a Top 5
     AiRecommendation bestRecommendation = candidates.first;
     if (diversify) {
       for (final candidate in candidates) {
@@ -242,17 +317,16 @@ class AiEngineV2Service {
         }
       }
       _recentlyUsedSelections.add(bestRecommendation.selection);
-      if (_recentlyUsedSelections.length >= 4) {
-        _recentlyUsedSelections.clear(); // Frissítjük a memóriát, ha elfogynának a opciók
+      if (_recentlyUsedSelections.length >= 6) {
+        _recentlyUsedSelections.clear();
       }
     }
 
-    // Erőteljes, egyedi matematikai szórás a meccs egyedi hash-kódja és az xG alapján
-    final int matchSalt = (match.id.hashCode.abs() % 11) - 5; // -5% és +5% közötti egyedi eltolás
+    final int matchSalt = (match.id.hashCode.abs() % 9) - 4;
     final double rawProbability = bestRecommendation.probability;
     final double xgVariance = (homeXG - awayXG).abs() * 2.0;
 
-    final int finalAiScore = (rawProbability * 0.50 + xgVariance * 6.0 + 35.0 + matchSalt).round().clamp(74, 94);
+    final int finalAiScore = (rawProbability * 0.45 + xgVariance * 5.0 + 40.0 + matchSalt).round().clamp(75, 95);
     final int reliability = ((statistics.homeSampleSize + statistics.awaySampleSize) * 3.5 + statistics.leagueStrength * 0.3).round().clamp(70, 95);
 
     bool isValueBetDetected = false;
@@ -267,6 +341,7 @@ class AiEngineV2Service {
       homeXG: double.parse(homeXG.toStringAsFixed(2)),
       awayXG: double.parse(awayXG.toStringAsFixed(2)),
       hasValueBet: isValueBetDetected,
+      monteCarloResult: mcResult,
     );
   }
 
@@ -284,6 +359,92 @@ class AiEngineV2Service {
       oddsData: oddsData,
       diversify: diversify,
     );
+  }
+
+  // 🎲 Fejlett Monte Carlo Szimuláció (Gólok, Szögletek, Lapok, Lesek, Szabálytalanságok)
+  MonteCarloSimulationResult _runAdvancedMonteCarloSimulation({
+    required double homeLambda,
+    required double awayLambda,
+    required double homeCorners,
+    required double awayCorners,
+    required double homeCards,
+    required double awayCards,
+    required double homeOffsides,
+    required double awayOffsides,
+    required double homeFouls,
+    required double awayFouls,
+    int iterations = 10000,
+  }) {
+    int homeWins = 0;
+    int draws = 0;
+    int awayWins = 0;
+    double totalGoalsSum = 0;
+    double totalCornersSum = 0;
+    double totalCardsSum = 0;
+    double totalOffsidesSum = 0;
+    double totalFoulsSum = 0;
+
+    final Map<String, int> scoreCounts = {};
+    final math.Random rng = math.Random();
+
+    for (int i = 0; i < iterations; i++) {
+      final int homeGoals = _poissonRandom(homeLambda, rng);
+      final int awayGoals = _poissonRandom(awayLambda, rng);
+
+      final double corners = _poissonRandom((homeCorners + awayCorners), rng).toDouble();
+      final double cards = _poissonRandom((homeCards + awayCards), rng).toDouble();
+      final double offsides = _poissonRandom((homeOffsides + awayOffsides), rng).toDouble();
+      final double fouls = _poissonRandom((homeFouls + awayFouls), rng).toDouble();
+
+      totalGoalsSum += (homeGoals + awayGoals);
+      totalCornersSum += corners;
+      totalCardsSum += cards;
+      totalOffsidesSum += offsides;
+      totalFoulsSum += fouls;
+
+      if (homeGoals > awayGoals) {
+        homeWins++;
+      } else if (homeGoals == awayGoals) {
+        draws++;
+      } else {
+        awayWins++;
+      }
+
+      final String scoreKey = '$homeGoals-$awayGoals';
+      scoreCounts[scoreKey] = (scoreCounts[scoreKey] ?? 0) + 1;
+    }
+
+    final sortedScores = scoreCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final Map<String, int> topScores = {};
+    for (int i = 0; i < math.min(3, sortedScores.length); i++) {
+      topScores[sortedScores[i].key] = sortedScores[i].value;
+    }
+
+    return MonteCarloSimulationResult(
+      totalSimulations: iterations,
+      homeWins: homeWins,
+      draws: draws,
+      awayWins: awayWins,
+      mostCommonScores: topScores,
+      averageTotalGoals: totalGoalsSum / iterations,
+      averageTotalCorners: totalCornersSum / iterations,
+      averageTotalCards: totalCardsSum / iterations,
+      averageTotalOffsides: totalOffsidesSum / iterations,
+      averageTotalFouls: totalFoulsSum / iterations,
+    );
+  }
+
+  int _poissonRandom(double lambda, math.Random rng) {
+    double L = math.exp(-lambda);
+    double p = 1.0;
+    int k = 0;
+    do {
+      k++;
+      p *= rng.nextDouble();
+    } while (p > L);
+    return k - 1;
   }
 
   double _calculateWeightedForm(List<AiMatchResult> form) {
@@ -310,13 +471,12 @@ class AiEngineV2Service {
     double awayWin = 0.0;
     double over15 = 0.0;
     double over25 = 0.0;
-    double under35 = 0.0;
     double btts = 0.0;
 
     for (int h = 0; h <= 6; h++) {
       for (int a = 0; a <= 6; a++) {
-        final double pHomeG = _poisson(h, homeXG);
-        final double pAwayG = _poisson(a, awayXG);
+        final double pHomeG = _poissonExact(h, homeXG);
+        final double pAwayG = _poissonExact(a, awayXG);
         final double cellProb = pHomeG * pAwayG;
 
         if (h > a) homeWin += cellProb;
@@ -326,7 +486,6 @@ class AiEngineV2Service {
         final int totalG = h + a;
         if (totalG > 1) over15 += cellProb;
         if (totalG > 2) over25 += cellProb;
-        if (totalG < 4) under35 += cellProb;
         if (h > 0 && a > 0) btts += cellProb;
       }
     }
@@ -337,12 +496,11 @@ class AiEngineV2Service {
       'awayWin': awayWin,
       'over15': over15,
       'over25': over25,
-      'under35': under35,
       'btts': btts,
     };
   }
 
-  double _poisson(int k, double lambda) {
+  double _poissonExact(int k, double lambda) {
     return (math.pow(lambda, k) * math.exp(-lambda)) / _factorial(k);
   }
 
@@ -362,8 +520,8 @@ class AiEngineV2Service {
     if (rec.selection.contains('2.5 gól felett')) marketOdds = odds.over25Odds;
     if (rec.selection.contains('1.5 gól felett')) marketOdds = odds.over15Odds;
     if (rec.selection.contains('Igen (BTTS)')) marketOdds = odds.bttsYesOdds;
-    if (rec.selection.contains('1X')) marketOdds = odds.homeOrDrawOdds;
-    if (rec.selection.contains('X2')) marketOdds = odds.awayOrDrawOdds;
+    if (rec.selection.contains('9.5 szöglet')) marketOdds = odds.over95CornersOdds;
+    if (rec.selection.contains('3.5 sárga lap')) marketOdds = odds.over35CardsOdds;
 
     if (marketOdds == null || marketOdds == 0) return false;
     return marketOdds > rec.fairOdds;
