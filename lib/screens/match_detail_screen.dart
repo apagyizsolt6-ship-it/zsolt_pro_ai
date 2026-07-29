@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.26.0 - Monte Carlo Simulation UI Integration
+// Version: v0.27.0 - Kelly Bankroll Integration
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
@@ -11,6 +11,7 @@ import '../models/bet_builder_selection.dart';
 import '../models/betslip_item.dart';
 import '../services/ai_engine_v2_service.dart';
 import '../services/betslip_service.dart';
+import '../services/kelly_bankroll_service.dart';
 import '../services/match_analysis_service.dart';
 import '../services/the_odds_api_service.dart';
 import '../utils/league_translator.dart';
@@ -214,7 +215,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
               onRefresh: () => _loadAnalysis(forceRefresh: true),
             ),
             const SizedBox(height: 22),
-            // 🚀 ÚJ: Monte Carlo Szimulációs Kártya (10 000 futtatás eredménye)
             const _SectionTitle(
               icon: Icons.science_outlined,
               title: 'Monte Carlo AI Szimulátor (10k)',
@@ -1076,7 +1076,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   }
 }
 
-// 🚀 ÚJ WIDGET: Monte Carlo Szimuláció Eredményeinek Megjelenítése
 class _MonteCarloSimulationCard extends StatelessWidget {
   final MonteCarloSimulationResult? result;
   final bool isLoading;
@@ -1696,6 +1695,14 @@ class _ValueBetPanel extends StatelessWidget {
     final double value = _valuePercent;
     final bool isValue = value >= 0;
 
+    final double probDecimal = (aiProbability / 100.0).clamp(0.01, 0.99);
+    final KellyBankrollResult kellyResult = KellyBankrollService.instance.calculateOptimalStake(
+      bankroll: 100000.0, 
+      probability: probDecimal, 
+      odds: _effectivePrice,
+      fraction: 0.25,
+    );
+
     final Color statusColor = isValue ? Colors.greenAccent : Colors.orangeAccent;
 
     return Card(
@@ -1713,7 +1720,7 @@ class _ValueBetPanel extends StatelessWidget {
                 const SizedBox(width: 9),
                 const Expanded(
                   child: Text(
-                    'AI Value Bet elemzés',
+                    'AI Value Bet & Kelly Tőke',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -1759,8 +1766,14 @@ class _ValueBetPanel extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _ValueLine(
-              label: 'Forrás',
-              value: quote?.bookmaker ?? 'Zsolt Pro AI Engine',
+              label: 'Ajánlott tét (Kelly %)',
+              value: isValue ? '${kellyResult.recommendedStakePercent}% (${kellyResult.recommendedStakeAmount} Ft / 100k)' : '0% (Nem ajánlott)',
+              valueColor: Colors.greenAccent,
+            ),
+            const SizedBox(height: 10),
+            _ValueLine(
+              label: 'Kockázati szint',
+              value: kellyResult.riskLevel,
             ),
             const SizedBox(height: 15),
             Container(
@@ -1773,7 +1786,7 @@ class _ValueBetPanel extends StatelessWidget {
               ),
               child: Text(
                 isValue
-                    ? '🔥 VALUE BET – a szorzó optimális értékelőnyt biztosít.'
+                    ? '🔥 VALUE BET – optimális értékelőny és biztonságos Kelly tétajánlás.'
                     : 'NEM VALUE BET – kiegyensúlyozott piaci érték.',
                 style: TextStyle(
                   color: statusColor,
