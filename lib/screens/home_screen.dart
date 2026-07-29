@@ -1,14 +1,13 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.21.0 - Home Integration
+// Version: v0.30.0 - Clean Home with Bankroll Integration
 // File: lib/screens/home_screen.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
 
 import 'ai_top5_screen.dart';
-import 'barcode_scanner_screen.dart';
-import 'betslip_scanner_screen.dart';
+import 'bankroll_screen.dart';
 import 'betslip_screen.dart';
 import 'matches_screen.dart';
 import 'settings_screen.dart';
@@ -87,35 +86,21 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const _SectionHeader(
-              icon: Icons.auto_awesome,
-              title: 'AI szelvényeszközök',
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'Tőke & Menedzsment',
             ),
             const SizedBox(height: 12),
             _MenuCard(
-              icon: Icons.document_scanner_outlined,
-              title: 'AI Szelvény Felismerő',
+              icon: Icons.savings_outlined,
+              title: 'Smart Bankroll & ROI',
               subtitle:
-                  'Teljes szelvény beolvasása OCR-rel, Parser V5-tel és vonalkóddal',
+                  'Virtuális egyenleg, fogadási előzmények és ROI statisztikák',
               badgeText: 'PRO',
-              badgeColor: colors.primary,
+              badgeColor: Colors.green,
               onTap: () {
                 _openScreen(
                   context: context,
-                  screen:
-                      const BetslipScannerScreen(),
-                );
-              },
-            ),
-            _MenuCard(
-              icon: Icons.qr_code_scanner,
-              title: 'Vonalkód beolvasása',
-              subtitle:
-                  'Vonalkód beolvasása és továbbítás az AI felismerőnek',
-              badgeText: 'ÚJ',
-              badgeColor: Colors.green,
-              onTap: () {
-                _openBarcodeScanner(
-                  context,
+                  screen: const BankrollScreen(),
                 );
               },
             ),
@@ -212,7 +197,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Magyar nyelvű AI sportfogadási '
-            'elemző- és szelvényfelismerő rendszer',
+            'elemző- és tőkekezelő rendszer',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.onPrimary.withValues(
@@ -246,7 +231,7 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 7),
                 Text(
-                  'OCR + Parser V5 + Kedvencek',
+                  'Smart Bankroll + ROI + Kedvencek',
                   style: TextStyle(
                     color: colors.onPrimary,
                     fontWeight: FontWeight.bold,
@@ -270,44 +255,6 @@ class HomeScreen extends StatelessWidget {
           BuildContext context,
         ) {
           return screen;
-        },
-      ),
-    );
-  }
-
-  Future<void> _openBarcodeScanner(
-    BuildContext context,
-  ) async {
-    final String? barcode =
-        await Navigator.of(context).push<String>(
-      MaterialPageRoute<String>(
-        builder: (
-          BuildContext context,
-        ) {
-          return const BarcodeScannerScreen();
-        },
-      ),
-    );
-
-    if (!context.mounted) {
-      return;
-    }
-
-    final String barcodeValue =
-        barcode?.trim() ?? '';
-
-    if (barcodeValue.isEmpty) {
-      return;
-    }
-
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (
-          BuildContext context,
-        ) {
-          return BetslipScannerScreen(
-            initialBarcode: barcodeValue,
-          );
         },
       ),
     );
