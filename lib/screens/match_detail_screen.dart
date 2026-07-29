@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.27.0 - Kelly Bankroll Integration
+// Version: v0.28.0 - Sharp Money Tracker Integration
 // File: lib/screens/match_detail_screen.dart
 // ===========================================
 
@@ -13,6 +13,7 @@ import '../services/ai_engine_v2_service.dart';
 import '../services/betslip_service.dart';
 import '../services/kelly_bankroll_service.dart';
 import '../services/match_analysis_service.dart';
+import '../services/sharp_money_tracker_service.dart';
 import '../services/the_odds_api_service.dart';
 import '../utils/league_translator.dart';
 import '../widgets/bet_builder_selector.dart';
@@ -254,8 +255,13 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                 isLoading: _isLoadingOdds || _isLoadingAnalysis,
                 statistics: _statistics,
               ),
-            if (!_isBuilderMode && _selectedSingleBet != null)
-              const SizedBox(height: 22),
+            const SizedBox(height: 14),
+            // 🚀 ÚJ: Sharp Money & Arbitrázs Panel
+            _SharpMoneyPanel(
+              quote: _selectedBetQuote,
+              aiProbability: _selectedBetProbability,
+            ),
+            const SizedBox(height: 22),
             const _SectionTitle(
               icon: Icons.auto_graph,
               title: 'Forma – utolsó mérkőzések',
@@ -1791,6 +1797,89 @@ class _ValueBetPanel extends StatelessWidget {
                 style: TextStyle(
                   color: statusColor,
                   fontWeight: FontWeight.bold,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 🚀 ÚJ WIDGET: Sharp Money & Arbitrázs Panel
+class _SharpMoneyPanel extends StatelessWidget {
+  final _OddsQuote? quote;
+  final int aiProbability;
+
+  const _SharpMoneyPanel({
+    required this.quote,
+    required this.aiProbability,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    final double currentOdds = quote?.price ?? (aiProbability > 0 ? 100 / aiProbability : 2.0);
+    final double openingOdds = currentOdds * 1.06; // Szimulált nyitó odds a mozgás méréséhez
+    final double fairOdds = aiProbability > 0 ? 100 / aiProbability : 2.0;
+
+    final SharpMoneySignal signal = SharpMoneyTrackerService.instance.analyzeMarketFlow(
+      openingOdds: openingOdds,
+      currentOdds: currentOdds,
+      bestBookmakerOdds: currentOdds,
+      aiFairOdds: fairOdds,
+    );
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.show_chart, color: Colors.blueAccent),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Sharp Money & Arbitrázs Monitor',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _ValueLine(
+              label: 'Piaci mozgás státusz',
+              value: signal.hasSharpMovement ? '🔥 Sharp Money Észlelve' : 'Stabil piac',
+              valueColor: signal.hasSharpMovement ? Colors.greenAccent : colors.primary,
+            ),
+            const SizedBox(height: 8),
+            _ValueLine(
+              label: 'Odds változás',
+              value: '${signal.oddsDropPercent}%',
+            ),
+            const SizedBox(height: 8),
+            _ValueLine(
+              label: 'Arbitrázs lehetőség',
+              value: signal.isArbitrageOpportunity ? 'Igen (+${signal.arbitrageProfitPercent}%)' : 'Nincs',
+              valueColor: signal.isArbitrageOpportunity ? Colors.greenAccent : colors.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                signal.description,
+                style: TextStyle(
+                  color: colors.onSurfaceVariant,
+                  fontSize: 13,
                   height: 1.35,
                 ),
               ),
