@@ -83,46 +83,26 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          gradle_kts_path = Path("android/app/build.gradle.kts")
           gradle_path = Path("android/app/build.gradle")
-
           if gradle_path.exists():
               content = gradle_path.read_text(encoding="utf-8")
               
-              # Compile options bekapcsolása
+              # 1. compileOptions hozzáadása/módosítása
               if "coreLibraryDesugaringEnabled" not in content:
-                  compile_options_target = "compileOptions {"
-                  replacement = "compileOptions {\n        coreLibraryDesugaringEnabled true"
-                  if compile_options_target in content:
-                      content = content.replace(compile_options_target, replacement, 1)
+                  if "compileOptions {" in content:
+                      content = content.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true", 1)
                   else:
-                      # Ha nincs, beszúrjuk az android blokk elejére
-                      android_target = "android {"
-                      content = content.replace(android_target, android_target + "\n    compileOptions {\n        coreLibraryDesugaringEnabled true\n    }", 1)
+                      content = content.replace("android {", "android {\n    compileOptions {\n        coreLibraryDesugaringEnabled true\n    }", 1)
 
-              # Desugar dependency hozzáadása
-              dep_target = "dependencies {"
+              # 2. dependency hozzáadása a dependencies blokkba
               if "desugar_jdk_libs" not in content:
-                  replacement_dep = "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'"
-                  content = content.replace(dep_target, replacement_dep, 1)
+                  if "dependencies {" in content:
+                      content = content.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'", 1)
+                  else:
+                      content += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
 
               gradle_path.write_text(content, encoding="utf-8")
-              print("Android build.gradle sikeresen frissítve desugaring-gal.")
-
-          elif gradle_kts_path.exists():
-              content = gradle_kts_path.read_text(encoding="utf-8")
-              if "coreLibraryDesugaringEnabled" not in content:
-                  compile_options_target = "compileOptions {"
-                  replacement = "compileOptions {\n        isCoreLibraryDesugaringEnabled = true"
-                  content = content.replace(compile_options_target, replacement, 1)
-
-              dep_target = "dependencies {"
-              if "desugar_jdk_libs" not in content:
-                  replacement_dep = "dependencies {\n    add(\"coreLibraryDesugaring\", \"com.android.tools:desugar_jdk_libs:2.0.4\")"
-                  content = content.replace(dep_target, replacement_dep, 1)
-
-              gradle_kts_path.write_text(content, encoding="utf-8")
-              print("Android build.gradle.kts sikeresen frissítve desugaring-gal.")
+              print("Build.gradle sikeresen frissítve desugaring-gal.")
           PY
 
       - name: ML Kit R8 szabályok létrehozása
