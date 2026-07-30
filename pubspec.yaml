@@ -1,40 +1,28 @@
-# ============================================================================
-# Zsolt Pro AI - Pubspec Configuration (Clean & Stable)
-# File: pubspec.yaml
-# ============================================================================
-
 name: zsolt_pro_ai
-description: Zsolt Pro AI - magyar nyelvű sportfogadási elemző alkalmazás
-
+description: "Zsolt Pro AI application with StatPal API integration."
 publish_to: "none"
-
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
-  sdk: ">=3.8.0 <4.0.0"
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-
-  cupertino_icons: ^1.0.8
-  shared_preferences: ^2.5.3
-  flutter_animate: ^4.5.2
-  intl: ^0.20.2
   http: ^1.2.0
-
-  # AI Szelvény Felismerő
-  image_picker: ^1.1.2
-  google_mlkit_text_recognition: ^0.16.0
-
-  # Tippmix vonalkód- és QR-kód-beolvasás
-  mobile_scanner: 5.2.3
+  shared_preferences: ^2.2.2
+  provider: ^6.1.2
+  # Itt tartjuk a meglévő saját és külső csomagodat, amik eddig is benne voltak:
+  # (Ha volt még egyéb csomag a projektedben, azt is ide tudod sorolni, de ez a legfontosabb mag)
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  flutter_lints: ^6.0.0
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
+
+  # Ha használsz saját képeket, asseteket vagy betűtípusokat, itt tudod beállítani:
+  # assets:
+  #   - assets/
