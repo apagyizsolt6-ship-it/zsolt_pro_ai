@@ -91,7 +91,7 @@ class AiMatchStatistics {
     required this.awaySampleSize,
     required this.leagueStrength,
     required this.dataQualityBonus,
-    this.homeAdvantage = 1.12,
+    this.homeAdvantage = 1.08,
   });
 
   int get totalSampleSize => homeSampleSize + awaySampleSize;
@@ -134,7 +134,7 @@ class AiMatchStatistics {
       awaySampleSize: 10,
       leagueStrength: leagueStrength,
       dataQualityBonus: 6.0,
-      homeAdvantage: 1.12,
+      homeAdvantage: 1.08,
     );
   }
 }
@@ -263,9 +263,11 @@ class AiEngineV2Service {
       homeDefense *= (1.0 - formRatio * 0.05);
     }
 
-    final double homeAdv = statistics.homeAdvantage > 0 ? statistics.homeAdvantage : 1.12;
-    final double homeXG = (homeAttack * awayDefense * leagueAvg * homeAdv).clamp(0.2, 4.5);
-    final double awayXG = (awayAttack * homeDefense * leagueAvg).clamp(0.2, 4.5);
+    final double homeAdv = statistics.homeAdvantage > 0 ? statistics.homeAdvantage : 1.08;
+    
+    // Realisztikus xG korlátok beállítása, elkerülve az irreális 5-6 gólos átlagokat
+    final double homeXG = (homeAttack * awayDefense * leagueAvg * homeAdv).clamp(0.4, 2.8);
+    final double awayXG = (awayAttack * homeDefense * leagueAvg).clamp(0.3, 2.5);
 
     MonteCarloSimulationResult? mcResult;
     double pHomePct = 0;
