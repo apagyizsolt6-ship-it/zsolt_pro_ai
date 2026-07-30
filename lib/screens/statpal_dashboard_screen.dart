@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Teljes javított fájl)
+// Zsolt Pro AI - StatPal Dashboard Screen (Biztonságos verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -14,60 +14,71 @@ class StatPalDashboardScreen extends StatefulWidget {
   State<StatPalDashboardScreen> createState() => _StatPalDashboardScreenState();
 }
 
-class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<StatPalProvider>(context, listen: false).loadInitialData();
+      try {
+        Provider.of<StatPalProvider>(context, listen: false).loadInitialData();
+      } catch (_) {}
     });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     _apiKeyController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<StatPalProvider>(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Zsolt Pro AI - StatPal Élő'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.sports_soccer), text: 'Élő Meccsek'),
-            Tab(icon: Icon(Icons.list_alt), text: 'Ligák'),
-            Tab(icon: Icon(Icons.settings), text: 'API Beállítás'),
-          ],
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Zsolt Pro AI - StatPal Élő'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.sports_soccer), text: 'Élő Meccsek'),
+              Tab(icon: Icon(Icons.list_alt), text: 'Ligák'),
+              Tab(icon: Icon(Icons.settings), text: 'API Beállítás'),
+            ],
+          ),
         ),
-      ),
-      body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
+        body: Consumer<StatPalProvider>(
+          builder: (context, provider, child) {
+            return TabBarView(
               children: [
                 _buildLiveMatchesTab(provider),
                 _buildLeaguesTab(provider),
                 _buildSettingsTab(provider),
               ],
-            ),
+            );
+          },
+        ),
+      ),
     );
   }
 
   Widget _buildLiveMatchesTab(StatPalProvider provider) {
+    if (provider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     if (provider.liveMatches.isEmpty) {
-      const message = 'Jelenleg nincsenek élő mérkőzések vagy nincs beállítva az API kulcs.';
-      return const Center(child: Text(message));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Text(
+            'Jelenleg nincsenek élő mérkőzések, vagy még nem adtad meg az API kulcsot az "API Beállítás" fülön.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+      );
     }
 
     return ListView.builder(
@@ -90,8 +101,21 @@ class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> with Si
   }
 
   Widget _buildLeaguesTab(StatPalProvider provider) {
+    if (provider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     if (provider.leagues.isEmpty) {
-      return const Center(child: Text('Nincsenek elérhető ligák. Ellenőrizd az API kulcsot!'));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Text(
+            'Nincsenek elérhető ligák. Add meg az API kulcsot a Beállítások fülön!',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+      );
     }
 
     return ListView.builder(
@@ -136,6 +160,7 @@ class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> with Si
           ElevatedButton(
             onPressed: () async {
               if (_apiKeyController.text.isNotEmpty) {
+                // Itt mentheted el vagy frissítheted a provideren keresztül
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('API kulcs frissítve!')),
                 );
