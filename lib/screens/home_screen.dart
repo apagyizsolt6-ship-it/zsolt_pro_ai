@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.30.0 - Clean Home with Bankroll Integration
+// Version: v0.31.0 - Clean Home with StatPal Integration
 // File: lib/screens/home_screen.dart
 // ===========================================
 
@@ -11,6 +11,7 @@ import 'bankroll_screen.dart';
 import 'betslip_screen.dart';
 import 'matches_screen.dart';
 import 'settings_screen.dart';
+import 'statpal_dashboard_screen.dart'; // <--- StatPal import hozzáadva
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -81,6 +82,25 @@ class HomeScreen extends StatelessWidget {
                 _openScreen(
                   context: context,
                   screen: const BetslipScreen(),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            const _SectionHeader(
+              icon: Icons.sports,
+              title: 'StatPal Élő & Elemzések',
+            ),
+            const SizedBox(height: 12),
+            _MenuCard(
+              icon: Icons.sports_score,
+              title: 'StatPal Élő & Ligák',
+              subtitle: 'Élő meccsek, tabellák és mérkőzés előrejelzések',
+              badgeText: 'LIVE',
+              badgeColor: Colors.blueAccent,
+              onTap: () {
+                _openScreen(
+                  context: context,
+                  screen: const StatPalDashboardScreen(),
                 );
               },
             ),
@@ -231,7 +251,7 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 7),
                 Text(
-                  'Smart Bankroll + ROI + Kedvencek',
+                  'Smart Bankroll + ROI + StatPal',
                   style: TextStyle(
                     color: colors.onPrimary,
                     fontWeight: FontWeight.bold,
