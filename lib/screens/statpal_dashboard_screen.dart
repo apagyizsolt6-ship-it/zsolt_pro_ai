@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Biztosított Layout Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Önálló Provider Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -8,25 +8,32 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/statpal_provider.dart';
 
-class StatPalDashboardScreen extends StatefulWidget {
+class StatPalDashboardScreen extends StatelessWidget {
   const StatPalDashboardScreen({super.key});
 
   @override
-  State<StatPalDashboardScreen> createState() => _StatPalDashboardScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => StatPalProvider()..loadInitialData(),
+      child: const _StatPalDashboardView(),
+    );
+  }
 }
 
-class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> {
+class _StatPalDashboardView extends StatefulWidget {
+  const _StatPalDashboardView();
+
+  @override
+  State<_StatPalDashboardView> createState() => _StatPalDashboardViewState();
+}
+
+class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   final TextEditingController _apiKeyController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadSavedApiKey();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        Provider.of<StatPalProvider>(context, listen: false).loadInitialData();
-      } catch (_) {}
-    });
   }
 
   Future<void> _loadSavedApiKey() async {
@@ -128,7 +135,10 @@ class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> {
                 ),
                 const SizedBox(height: 10),
                 provider.isLoading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const Center(child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: CircularProgressIndicator(),
+                      ))
                     : provider.liveMatches.isEmpty
                         ? const Card(
                             child: Padding(
