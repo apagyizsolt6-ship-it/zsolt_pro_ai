@@ -12,8 +12,9 @@ dependencies:
   http: ^1.2.0
   shared_preferences: ^2.2.2
   provider: ^6.1.2
-  # Itt tartjuk a meglévő saját és külső csomagodat, amik eddig is benne voltak:
-  # (Ha volt még egyéb csomag a projektedben, azt is ide tudod sorolni, de ez a legfontosabb mag)
+  mobile_scanner: ^5.1.1
+  image_picker: ^1.0.7
+  google_mlkit_text_recognition: ^0.13.0
 
 dev_dependencies:
   flutter_test:
@@ -22,7 +23,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
-  # Ha használsz saját képeket, asseteket vagy betűtípusokat, itt tudod beállítani:
-  # assets:
-  #   - assets/
