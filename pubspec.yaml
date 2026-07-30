@@ -1,5 +1,5 @@
 # ============================================================================
-# Zsolt Pro AI - Pubspec Configuration with Updated Notifications
+# Zsolt Pro AI - Pubspec Configuration (Stable Notifications)
 # File: pubspec.yaml
 # ============================================================================
 
@@ -22,8 +22,8 @@ dependencies:
   flutter_animate: ^4.5.2
   intl: ^0.20.2
 
-  # 🚀 Frissítve stabilabb verzióra a Java fordítási hiba elkerülésére
-  flutter_local_notifications: ^17.2.4
+  # 🚀 Visszalépés a stabil, desugaring-et nem igénylő verzióra
+  flutter_local_notifications: ^16.3.1
 
   # AI Szelvény Felismerő
   image_picker: ^1.1.2
