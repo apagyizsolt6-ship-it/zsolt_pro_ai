@@ -505,22 +505,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     }
 
     return _StatisticsCard(
-      rows: const [
-        // Javítva const konstruktorokra
-      ],
-      // Visszaállítva dinamikus sorokkra const nélkül a listában:
-      // (A linter itt a belső konstruktorokat kéri const-nak)
-    );
-  }
-
-  // Megjegyzés: A _buildHeadToHeadSection, _buildGoalStatisticsSection, _buildAdvancedStatisticsSection
-  // sorai helyesen így épülnek fel const listával:
-  Widget _buildHeadToHeadSectionFixed() {
-    final AiMatchStatistics? statistics = _statistics;
-    if (statistics == null) return const SizedBox.shrink();
-    final int total = statistics.h2hHomeWins + statistics.h2hDraws + statistics.h2hAwayWins;
-
-    return _StatisticsCard(
       rows: <_StatisticRowData>[
         _StatisticRowData(label: '${match.homeTeam} győzelem', value: statistics.h2hHomeWins.toString()),
         _StatisticRowData(label: 'Döntetlen', value: statistics.h2hDraws.toString()),
@@ -535,7 +519,16 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   Widget _buildGoalStatisticsSection() {
     final AiMatchStatistics? statistics = _statistics;
-    if (statistics == null) return const SizedBox.shrink();
+
+    if (_isLoadingAnalysis && statistics == null) {
+      return const _StatisticsLoadingCard(message: 'Gólstatisztikák betöltése...');
+    }
+
+    if (statistics == null) {
+      return _StatisticsUnavailableCard(
+        message: _analysisError ?? 'Nem érhető el gólstatisztika.',
+      );
+    }
 
     return _StatisticsCard(
       rows: <_StatisticRowData>[
@@ -550,7 +543,16 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   Widget _buildAdvancedStatisticsSection() {
     final AiMatchStatistics? statistics = _statistics;
-    if (statistics == null) return const SizedBox.shrink();
+
+    if (_isLoadingAnalysis && statistics == null) {
+      return const _StatisticsLoadingCard(message: 'Részletes statisztikák betöltése...');
+    }
+
+    if (statistics == null) {
+      return _StatisticsUnavailableCard(
+        message: _analysisError ?? 'Nem érhető el részletes statisztika.',
+      );
+    }
 
     return Column(
       children: [
@@ -2376,21 +2378,21 @@ class _StatisticsLoadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return const Card(
       child: Padding(
-        padding: const EdgeInsets.all(22),
+        padding: EdgeInsets.all(22),
         child: Row(
           children: [
-            const SizedBox(
+            SizedBox(
               width: 24,
               height: 24,
               child: CircularProgressIndicator(strokeWidth: 2.7),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14),
             Expanded(
               child: Text(
-                message,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                'Statisztikák betöltése...',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ],
