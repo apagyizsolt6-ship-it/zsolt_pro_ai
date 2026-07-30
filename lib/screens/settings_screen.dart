@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Settings Screen (Clean & Stable)
+// Zsolt Pro AI - Settings Screen (Compatible & Clean)
 // File: lib/screens/settings_screen.dart
 // ============================================================================
 
@@ -67,12 +67,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   value: _settings.sharpMoneyEnabled,
-                  activeColor: Colors.blueAccent,
+                  activeThumbColor: Colors.blueAccent,
                   onChanged: (bool value) async {
-                    setState(() {
-                      _settings.sharpMoneyEnabled = value;
-                    });
-                    await _settings.saveSettings();
+                    await _settings.setSharpMoneyEnabled(value);
+                    setState(() {});
                   },
                 ),
                 SwitchListTile(
@@ -85,12 +83,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   value: _settings.highAiEnabled,
-                  activeColor: Colors.blueAccent,
+                  activeThumbColor: Colors.blueAccent,
                   onChanged: (bool value) async {
-                    setState(() {
-                      _settings.highAiEnabled = value;
-                    });
-                    await _settings.saveSettings();
+                    await _settings.setHighAiEnabled(value);
+                    setState(() {});
                   },
                 ),
                 SwitchListTile(
@@ -103,12 +99,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   value: _settings.favoritesOnly,
-                  activeColor: Colors.blueAccent,
+                  activeThumbColor: Colors.blueAccent,
                   onChanged: (bool value) async {
-                    setState(() {
-                      _settings.favoritesOnly = value;
-                    });
-                    await _settings.saveSettings();
+                    await _settings.setFavoritesOnly(value);
+                    setState(() {});
                   },
                 ),
                 const Divider(color: Colors.white24, height: 32),
