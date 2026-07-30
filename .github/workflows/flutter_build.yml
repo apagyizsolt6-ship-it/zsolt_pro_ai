@@ -34,48 +34,43 @@ jobs:
       - name: Flutter verzió ellenőrzése
         run: flutter --version
 
-      - name: Android mappa és konfigurációk biztosítása
+      - name: Android projektfájlok generálása (v2 embedding)
+        run: |
+          flutter create \
+            --platforms=android \
+            --project-name=zsolt_pro_ai \
+            --org=hu.zsoltproai \
+            .
+
+      - name: Android engedélyek és Desugaring beillesztése
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          # Biztosítjuk, hogy létezzen az android/app mappa
-          app_dir = Path("android/app")
-          app_dir.mkdir(parents=True, exist_ok=True)
+          manifest_path = Path("android/app/src/main/AndroidManifest.xml")
+          if manifest_path.exists():
+              content = manifest_path.read_text(encoding="utf-8")
+              permissions = [
+                  '<uses-permission android:name="android.permission.INTERNET" />',
+                  '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
+                  '<uses-permission android:name="android.permission.CAMERA" />',
+                  '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+                  '<uses-permission android:name="android.permission.WAKE_LOCK" />',
+                  '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
+              ]
+              manifest_end = content.find(">")
+              if manifest_end != -1:
+                  for permission in permissions:
+                      if permission not in content:
+                          content = (
+                              content[:manifest_end + 1]
+                              + "\n    "
+                              + permission
+                              + content[manifest_end + 1:]
+                          )
+                  manifest_path.write_text(content, encoding="utf-8")
 
-          manifest_dir = Path("android/app/src/main")
-          manifest_dir.mkdir(parents=True, exist_ok=True)
-
-          manifest_path = manifest_dir / "AndroidManifest.xml"
-          
-          if not manifest_path.exists():
-              manifest_path.write_text(
-                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <application>\n    </application>\n</manifest>',
-                  encoding="utf-8"
-              )
-
-          content = manifest_path.read_text(encoding="utf-8")
-          permissions = [
-              '<uses-permission android:name="android.permission.INTERNET" />',
-              '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
-              '<uses-permission android:name="android.permission.CAMERA" />',
-              '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
-              '<uses-permission android:name="android.permission.WAKE_LOCK" />',
-              '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
-          ]
-          manifest_end = content.find(">")
-          if manifest_end != -1:
-              for permission in permissions:
-                  if permission not in content:
-                      content = (
-                          content[:manifest_end + 1]
-                          + "\n    "
-                          + permission
-                          + content[manifest_end + 1:]
-                      )
-              manifest_path.write_text(content, encoding="utf-8")
-
-          gradle_path = app_dir / "build.gradle"
+          gradle_path = Path("android/app/build.gradle")
           if gradle_path.exists():
               g_content = gradle_path.read_text(encoding="utf-8")
               if "coreLibraryDesugaringEnabled" not in g_content:
@@ -91,7 +86,6 @@ jobs:
 
       - name: ML Kit R8 szabályok létrehozása
         run: |
-          mkdir -p android/app
           cat > android/app/proguard-rules.pro <<'EOF'
           # ===========================================
           # Zsolt Pro AI
