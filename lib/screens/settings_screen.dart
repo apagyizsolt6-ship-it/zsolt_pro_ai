@@ -1,11 +1,11 @@
 // ============================================================================
-// Zsolt Pro AI - Settings Screen (Working Theme Toggle)
+// Zsolt Pro AI - Settings Screen (Connected ThemeService)
 // File: lib/screens/settings_screen.dart
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import '../services/notification_settings_service.dart';
-import '../services/theme_notifier.dart';
+import '../services/theme_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -16,7 +16,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final NotificationSettingsService _settings = NotificationSettingsService.instance;
-  final ThemeNotifier _themeNotifier = ThemeNotifier.instance;
 
   bool _isLoading = true;
 
@@ -28,7 +27,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     await _settings.initialize();
-    await _themeNotifier.initialize();
     setState(() {
       _isLoading = false;
     });
@@ -36,8 +34,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = _themeNotifier.isDarkMode;
-    
+    final isDark = ThemeService.instance.isDarkMode;
+
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       appBar: AppBar(
@@ -80,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: isDark,
                   activeThumbColor: Colors.blueAccent,
                   onChanged: (bool value) async {
-                    await _themeNotifier.toggleTheme(value);
+                    await ThemeService.instance.toggleTheme();
                     setState(() {});
                   },
                 ),
@@ -167,7 +165,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   ),
                   trailing: const Text(
-                    '0.1.0+1 (Release)',
+                    '0.4.5 (Release)',
                     style: TextStyle(color: Colors.white70),
                   ),
                 ),
