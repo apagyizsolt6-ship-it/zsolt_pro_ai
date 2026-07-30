@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Settings Screen (Compatible & Clean)
+// Zsolt Pro AI - Settings Screen (With Theme Toggle)
 // File: lib/screens/settings_screen.dart
 // ============================================================================
 
@@ -17,6 +17,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final NotificationSettingsService _settings = NotificationSettingsService.instance;
 
   bool _isLoading = true;
+  bool _isDarkMode = true; // Alapértelmezetten sötét mód
 
   @override
   void initState() {
@@ -48,6 +49,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
+                const Text(
+                  'Megjelenés',
+                  style: TextStyle(
+                    color: Colors.blueAccent,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text(
+                    'Sötét Mód',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  subtitle: const Text(
+                    'Sötét vizuális téma használata az alkalmazásban',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  value: _isDarkMode,
+                  activeThumbColor: Colors.blueAccent,
+                  onChanged: (bool value) {
+                    setState(() {
+                      _isDarkMode = value;
+                    });
+                  },
+                ),
+                const Divider(color: Colors.white24, height: 32),
                 const Text(
                   'Értesítési és Riasztási Beállítások',
                   style: TextStyle(
