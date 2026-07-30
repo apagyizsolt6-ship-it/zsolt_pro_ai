@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Teljes fájl)
+// Zsolt Pro AI - StatPal Dashboard Screen (Teljes javított fájl)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import '../providers/statpal_provider.dart';
 
 class StatPalDashboardScreen extends StatefulWidget {
-  const StatPalDashboardScreen({Key? key}) : super(key: key);
+  const StatPalDashboardScreen({super.key});
 
   @override
   State<StatPalDashboardScreen> createState() => _StatPalDashboardScreenState();
@@ -23,7 +23,6 @@ class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> with Si
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     
-    // Adatok betöltése induláskor
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<StatPalProvider>(context, listen: false).loadInitialData();
     });
@@ -57,11 +56,8 @@ class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> with Si
           : TabBarView(
               controller: _tabController,
               children: [
-                // 1. Élő meccsek fül
                 _buildLiveMatchesTab(provider),
-                // 2. Ligák fül
                 _buildLeaguesTab(provider),
-                // 3. Beállítások fül
                 _buildSettingsTab(provider),
               ],
             ),
@@ -107,7 +103,6 @@ class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> with Si
           title: Text(league.name),
           subtitle: Text('Ország: ${league.country.toUpperCase()}'),
           onTap: () {
-            // Itt majd betölthetjük a tabella adatokat adott ID alapján
             provider.loadStandings(league.id);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Tabella lekérése: ${league.name}')),
@@ -141,8 +136,6 @@ class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> with Si
           ElevatedButton(
             onPressed: () async {
               if (_apiKeyController.text.isNotEmpty) {
-                // Mentés és újratöltés
-                // (Használhatod a StatPalService.instance.setApiKey-t is)
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('API kulcs frissítve!')),
                 );
