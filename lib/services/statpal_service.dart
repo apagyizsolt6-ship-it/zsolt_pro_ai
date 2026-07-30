@@ -1,168 +1,113 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Data Models (Teljes fájl)
-// File: lib/models/statpal_models.dart
+// Zsolt Pro AI - StatPal API Integration Service
+// File: lib/services/statpal_service.dart
 // ============================================================================
 
-class StatLeague {
-  final String id;
-  final String country;
-  final String name;
-  final String? season;
-  final String? dateStart;
-  final String? dateEnd;
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
-  StatLeague({
-    required this.id,
-    required this.country,
-    required this.name,
-    this.season,
-    this.dateStart,
-    this.dateEnd,
-  });
+class StatPalService {
+  StatPalService._();
+  static final StatPalService instance = StatPalService._();
 
-  factory StatLeague.fromJson(Map<String, dynamic> json) {
-    return StatLeague(
-      id: json['id']?.toString() ?? '',
-      country: json['country']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      season: json['season']?.toString(),
-      dateStart: json['date_start']?.toString(),
-      dateEnd: json['date_end']?.toString(),
-    );
+  String? _apiKey;
+  bool get hasApiKey => _apiKey != null && _apiKey!.trim().isNotEmpty;
+
+  // StatPal v2 alap URL soccer sporthoz
+  static const String _baseUrl = 'https://statpal.io/api/v2/soccer';
+
+  /// API kulcs inicializálása a tárhelyről
+  Future<void> initialize() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    _apiKey = prefs.getString('statpal_api_key');
   }
-}
 
-class StatTeamInfo {
-  final String id;
-  final String name;
-  final String? goals;
-  final String? score;
-
-  StatTeamInfo({
-    required this.id,
-    required this.name,
-    this.goals,
-    this.score,
-  });
-
-  factory StatTeamInfo.fromJson(Map<String, dynamic> json) {
-    return StatTeamInfo(
-      id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      goals: json['goals']?.toString(),
-      score: json['score']?.toString(),
-    );
+  /// API kulcs mentése
+  Future<void> setApiKey(String key) async {
+    _apiKey = key.trim();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('statpal_api_key', _apiKey!);
   }
-}
 
-class StatMatch {
-  final String mainId;
-  final String status;
-  final String date;
-  final String time;
-  final String? venue;
-  final StatTeamInfo home;
-  final StatTeamInfo away;
-
-  StatMatch({
-    required this.mainId,
-    required this.status,
-    required this.date,
-    required this.time,
-    this.venue,
-    required this.home,
-    required this.away,
-  });
-
-  factory StatMatch.fromJson(Map<String, dynamic> json) {
-    return StatMatch(
-      mainId: json['main_id']?.toString() ?? '',
-      status: json['status']?.toString() ?? '',
-      date: json['date']?.toString() ?? '',
-      time: json['time']?.toString() ?? '',
-      venue: json['venue']?.toString(),
-      home: StatTeamInfo.fromJson(json['home'] ?? {}),
-      away: StatTeamInfo.fromJson(json['away'] ?? {}),
-    );
+  /// 1. Ligák lekérése (Get Leagues)
+  Future<List<Map<String, dynamic>>> fetchLeagues() async {
+    if (!hasApiKey) return [];
+    try {
+      final Uri uri = Uri.parse('$_baseUrl/leagues?access_key=$_apiKey');
+      final response = await http.get(uri, headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final leaguesObj = data['leagues'];
+        if (leaguesObj != null && leaguesObj['league'] is List) {
+          return List<Map<String, dynamic>>.from(leaguesObj['league']);
+        }
+      }
+    } catch (_) {}
+    return [];
   }
-}
 
-class StatStandingTeam {
-  final String position;
-  final String name;
-  final String id;
-  final String recentForm;
-  final int gamesPlayed;
-  final int wins;
-  final int draws;
-  final int losses;
-  final int goalsScored;
-  final int goalsAllowed;
-  final int goalDifference;
-  final int points;
-  final String? description;
-
-  StatStandingTeam({
-    required this.position,
-    required this.name,
-    required this.id,
-    required this.recentForm,
-    required this.gamesPlayed,
-    required this.wins,
-    required this.draws,
-    required this.losses,
-    required this.goalsScored,
-    required this.goalsAllowed,
-    required this.goalDifference,
-    required this.points,
-    this.description,
-  });
-
-  factory StatStandingTeam.fromJson(Map<String, dynamic> json) {
-    final overall = json['overall'] ?? {};
-    final total = json['total'] ?? {};
-    final descObj = json['description'];
-
-    return StatStandingTeam(
-      position: json['position']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      id: json['id']?.toString() ?? '',
-      recentForm: json['recent_form']?.toString() ?? '',
-      gamesPlayed: int.tryParse(overall['games_played']?.toString() ?? '0') ?? 0,
-      wins: int.tryParse(overall['wins']?.toString() ?? '0') ?? 0,
-      draws: int.tryParse(overall['draws']?.toString() ?? '0') ?? 0,
-      losses: int.tryParse(overall['losses']?.toString() ?? '0') ?? 0,
-      goalsScored: int.tryParse(overall['goals_scored']?.toString() ?? '0') ?? 0,
-      goalsAllowed: int.tryParse(overall['goals_allowed']?.toString() ?? '0') ?? 0,
-      goalDifference: int.tryParse(total['goal_difference']?.toString() ?? '0') ?? 0,
-      points: int.tryParse(total['points']?.toString() ?? '0') ?? 0,
-      description: descObj is Map ? descObj['value']?.toString() : descObj?.toString(),
-    );
+  /// 2. Élő mérkőzések lekérése (Get Matches Today / Live)
+  Future<List<Map<String, dynamic>>> fetchLiveMatches() async {
+    if (!hasApiKey) return [];
+    try {
+      final Uri uri = Uri.parse('$_baseUrl/matches/live?access_key=$_apiKey');
+      final response = await http.get(uri, headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final liveMatchesObj = data['live_matches'];
+        if (liveMatchesObj != null && liveMatchesObj['league'] is List) {
+          return List<Map<String, dynamic>>.from(liveMatchesObj['league']);
+        }
+      }
+    } catch (_) {}
+    return [];
   }
-}
 
-class StatPrediction {
-  final String choice;
-  final String reasoning;
-  final String market;
-  final String odd;
+  /// 3. Tabella lekérése adott ligához (Get Standings By League / Season)
+  Future<Map<String, dynamic>?> fetchStandings({required String leagueId, String? season}) async {
+    if (!hasApiKey) return null;
+    try {
+      String url = '$_baseUrl/leagues/$leagueId/standings?access_key=$_apiKey';
+      if (season != null && season.isNotEmpty) {
+        url += '&season=$season';
+      }
+      final response = await http.get(Uri.parse(url), headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['standings'] as Map<String, dynamic>?;
+      }
+    } catch (_) {}
+    return null;
+  }
 
-  StatPrediction({
-    required this.choice,
-    required this.reasoning,
-    required this.market,
-    required this.odd,
-  });
+  /// 4. Sérülések és eltiltások lekérése (Get Injuries & Suspensions)
+  Future<List<Map<String, dynamic>>> fetchInjuriesAndSuspensions() async {
+    if (!hasApiKey) return [];
+    try {
+      final Uri uri = Uri.parse('$_baseUrl/injuries-suspensions?access_key=$_apiKey');
+      final response = await http.get(uri, headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final obj = data['injuries_suspensions'];
+        if (obj != null && obj['league'] is List) {
+          return List<Map<String, dynamic>>.from(obj['league']);
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
 
-  factory StatPrediction.fromJson(Map<String, dynamic> json) {
-    final predictionObj = json['prediction'] ?? {};
-    final oddsObj = predictionObj['prematch_odds'] ?? {};
-
-    return StatPrediction(
-      choice: predictionObj['choice']?.toString() ?? '',
-      reasoning: predictionObj['reasoning']?.toString() ?? '',
-      market: oddsObj['market']?.toString() ?? '',
-      odd: oddsObj['odd']?.toString() ?? '',
-    );
+  /// 5. Meccs előrejelzés lekérése (Get Match Prediction)
+  Future<Map<String, dynamic>?> fetchMatchPrediction({required String matchId}) async {
+    if (!hasApiKey) return null;
+    try {
+      final Uri uri = Uri.parse('$_baseUrl/predictions?match_id=$matchId&access_key=$_apiKey');
+      final response = await http.get(uri, headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>?;
+      }
+    } catch (_) {}
+    return null;
   }
 }
