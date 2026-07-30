@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Android App Build Gradle (Stable Groovy)
+// Zsolt Pro AI - Android App Build Gradle (SDK 36 Update)
 // File: android/app/build.gradle
 // ============================================================================
 
@@ -11,7 +11,7 @@ plugins {
 
 android {
     namespace "hu.zsoltproai.zsolt_pro_ai"
-    compileSdkVersion 34
+    compileSdkVersion 36
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -26,7 +26,7 @@ android {
     defaultConfig {
         applicationId "hu.zsoltproai.zsolt_pro_ai"
         minSdkVersion 21
-        targetSdkVersion 34
+        targetSdkVersion 36
         versionCode 1
         versionName "1.0.0"
         multiDexEnabled true
