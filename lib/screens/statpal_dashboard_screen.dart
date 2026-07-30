@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (API Dokumentáció Alapú PRO Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (100% Modell-Kompatibilis PRO Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -193,7 +193,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // --- 1. ÉLŐ MECCSEK FÜL (Bajnokságonkénti lenyíló csoportosítással) ---
+                      // --- 1. ÉLŐ MECCSEK FÜL ---
                       Column(
                         children: [
                           Padding(
@@ -224,12 +224,11 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                         child: ListView.builder(
                                           padding: const EdgeInsets.symmetric(horizontal: 10),
                                           itemCount: provider.liveMatches.length,
-                                          itemBuilder: (context, leagueIndex) {
-                                            final leagueGroup = provider.liveMatches[leagueIndex];
-                                            final leagueName = leagueGroup.name ?? 'Ismeretlen Liga';
-                                            final matches = leagueGroup.matches ?? [];
+                                          itemBuilder: (context, index) {
+                                            final leagueGroup = provider.liveMatches[index];
+                                            final leagueName = leagueGroup.name;
+                                            final matches = leagueGroup.matches;
 
-                                            // Meccsek szűrése a kereső alapján
                                             final filteredMatches = matches.where((match) {
                                               if (_matchSearchQuery.isEmpty) return true;
                                               final home = match.home.name.toLowerCase();
@@ -250,7 +249,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   leagueName,
                                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.amber),
                                                 ),
-                                                subtitle: Text('Ország: ${leagueGroup.country?.toUpperCase() ?? ""} | ${filteredMatches.length} meccs', style: const TextStyle(fontSize: 12)),
+                                                subtitle: Text('Ország: ${leagueGroup.country.toUpperCase()} | ${filteredMatches.length} meccs', style: const TextStyle(fontSize: 12)),
                                                 children: filteredMatches.map((match) {
                                                   final bool isLive = match.status != 'FT' && match.status != 'NS';
                                                   final homeGoals = match.home.goals?.toString() ?? '0';
