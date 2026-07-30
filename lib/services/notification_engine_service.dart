@@ -1,12 +1,11 @@
 // ============================================================================
-// Zsolt Pro AI - Notification Engine Service (Véglegesen Javítva)
+// Zsolt Pro AI - Notification Engine Service (Kedvencek támogatással)
 // File: lib/services/notification_engine_service.dart
 // ============================================================================
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/app_match.dart';
-import 'ai_engine_v2_service.dart';
 import 'sharp_money_tracker_service.dart';
 import 'favorites_service.dart';
 import 'notification_settings_service.dart';
@@ -30,6 +29,7 @@ class NotificationEngineService {
 
     await _localNotificationsPlugin.initialize(initializationSettings);
     await NotificationSettingsService.instance.initialize();
+    await FavoritesService.init();
     
     _isInitialized = true;
     debugPrint('NotificationEngineService initialized successfully.');
@@ -68,16 +68,13 @@ class NotificationEngineService {
     final settings = NotificationSettingsService.instance;
 
     for (final AppMatch match in matches) {
-      // 1. Meccs státusz ellenőrzés biztonságos feltétellel
       if (match.isFinished) continue;
 
       if (!settings.sharpMoneyEnabled && !settings.highAiEnabled) continue;
 
-      // 2. Kedvenc ligák ellenőrzése (metódus hívás helyett közvetlen lista vagy adaptált ellenőrzés)
-      // Feltételezve, hogy a FavoritesService-ben van kedvenc ellenőrző metódus
-      final bool isFavorite = FavoritesService.instance.isFavorite(match.league);
-      
-      if (settings.favoritesOnly && !isFavorite) continue;
+      // Kedvenc ellenőrzés a helyes statikus metódussal[span_2](start_span)[span_2](end_span)
+      final bool isFav = FavoritesService.isFavorite(match.id);
+      if (settings.favoritesOnly && !isFav) continue;
 
       final int hashSeed = match.id.hashCode.abs();
       final double dynamicDrop = 2.0 + (hashSeed % 80) / 10.0;
