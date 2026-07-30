@@ -42,7 +42,7 @@ jobs:
             --org=hu.zsoltproai \
             .
 
-      - name: Android engedélyek hozzáadása
+      - name: Android engedélyek és Desugaring beállítása
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -66,24 +66,33 @@ jobs:
 
           manifest_end = content.find(">")
 
-          if manifest_end == -1:
-              raise RuntimeError(
-                  "Az AndroidManifest.xml hibás formátumú."
-              )
+          if manifest_end != -1:
+              for permission in permissions:
+                  if permission not in content:
+                      content = (
+                          content[:manifest_end + 1]
+                          + "\n    "
+                          + permission
+                          + content[manifest_end + 1:]
+                      )
+              manifest_path.write_text(content, encoding="utf-8")
 
-          for permission in permissions:
-              if permission not in content:
-                  content = (
-                      content[:manifest_end + 1]
-                      + "\n    "
-                      + permission
-                      + content[manifest_end + 1:]
-                  )
+          # 🚀 Automatikus desugaring beillesztése a build.gradle-be
+          gradle_path = Path("android/app/build.gradle")
+          if gradle_path.exists():
+              g_content = gradle_path.read_text(encoding="utf-8")
+              
+              # compileOptions bekapcsolása
+              if "coreLibraryDesugaringEnabled" not in g_content:
+                  target_str = "compileOptions {"
+                  replacement = "compileOptions {\n        coreLibraryDesugaringEnabled true"
+                  g_content = g_content.replace(target_str, replacement, 1)
 
-          manifest_path.write_text(
-              content,
-              encoding="utf-8",
-          )
+              # dependencies hozzáadása
+              if "desugar_jdk_libs" not in g_content:
+                  g_content += "\n\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
+
+              gradle_path.write_text(g_content, encoding="utf-8")
           PY
 
       - name: ML Kit R8 szabályok létrehozása
