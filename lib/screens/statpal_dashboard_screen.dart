@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Eredmények.com Stílus & Full Dizájn)
+// Zsolt Pro AI - StatPal Dashboard Screen (Eredmények.com Stílus & Helyes Import)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/statpal_provider.dart';
-import '../models/stat_standing_team.dart';
+import '../models/statpal_models.dart';
 
 class StatPalDashboardScreen extends StatelessWidget {
   const StatPalDashboardScreen({super.key});
@@ -127,7 +127,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
           builder: (context, provider, child) {
             return Column(
               children: [
-                // Okos API beállító sáv (ha szükséges)
                 if (_showSettings || !_hasKey)
                   Container(
                     padding: const EdgeInsets.all(16.0),
@@ -168,11 +167,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                     ),
                   ),
 
-                // Fő Tartalom Fülek
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // --- 1. ÉLŐ MECCSEK FÜL (Eredmények.com stílus) ---
                       provider.isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : provider.liveMatches.isEmpty
@@ -196,7 +193,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                           child: Row(
                                             children: [
-                                              // Státusz / Idő / Élő jelző
                                               SizedBox(
                                                 width: 65,
                                                 child: Column(
@@ -233,7 +229,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                 ),
                                               ),
                                               const VerticalDivider(width: 15),
-                                              // Csapatnevek
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,7 +257,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   ],
                                                 ),
                                               ),
-                                              // Eredmények
                                               Column(
                                                 crossAxisAlignment: CrossAxisAlignment.end,
                                                 children: [
@@ -285,7 +279,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                   ),
                                 ),
 
-                      // --- 2. LIGÁK FÜL ---
                       provider.leagues.isEmpty
                           ? const Center(child: Text('Nincsenek elérhető ligák.'))
                           : ListView.builder(
@@ -309,7 +302,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                     subtitle: Text('Ország: ${league.country.toUpperCase()}'),
                                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                     onTap: () async {
-                                      // Betöltjük és megnyitjuk a részletes tabellát!
                                       showDialog(
                                         context: context,
                                         barrierDismissible: false,
@@ -319,9 +311,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                       await provider.loadStandings(league.id);
 
                                       if (!context.mounted) return;
-                                      Navigator.pop(context); // Bezárja a loader dialógust
+                                      Navigator.pop(context);
 
-                                      // Megnyitjuk a Tabella képernyőt
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
@@ -348,9 +339,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   }
 }
 
-// ============================================================================
-// ÚJ: Dizájnos Tabella (Standings) Képernyő
-// ============================================================================
 class LeagueStandingsScreen extends StatelessWidget {
   final String leagueName;
   final List<StatStandingTeam> standings;
@@ -372,7 +360,6 @@ class LeagueStandingsScreen extends StatelessWidget {
           ? const Center(child: Text('Nincs elérhető tabella ehhez a ligához.'))
           : Column(
               children: [
-                // Fejléc
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
