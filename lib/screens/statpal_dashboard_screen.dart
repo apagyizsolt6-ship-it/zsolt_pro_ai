@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Biztosított Adatkezelés)
+// Zsolt Pro AI - StatPal Dashboard Screen (Végleges hibajavított verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -378,9 +378,9 @@ class LeagueStandingsScreen extends StatelessWidget {
                     itemCount: standings.length,
                     itemBuilder: (context, index) {
                       final team = standings[index];
-                      // Dinamikus és biztonságos adatolvasás a modell mezőinek eltérései ellen
+                      // Javítva: team.played helyes mezőhasználat
                       final int pos = int.tryParse(team.position.toString()) ?? (index + 1);
-                      final int played = int.tryParse(team.matchesPlayed.toString()) ?? 0;
+                      final int played = int.tryParse(team.played.toString()) ?? 0;
                       final int gd = int.tryParse(team.goalDifference.toString()) ?? 0;
                       final int points = int.tryParse(team.points.toString()) ?? 0;
 
