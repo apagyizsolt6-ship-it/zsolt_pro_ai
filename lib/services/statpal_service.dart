@@ -6,7 +6,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'api_rate_limiter.dart';
 
 class StatPalService {
   StatPalService._();
@@ -16,25 +15,22 @@ class StatPalService {
   bool get hasApiKey => _apiKey != null && _apiKey!.trim().isNotEmpty;
 
   static const String _baseUrl = 'https://api.statpal.io/v1';
-  final ApiRateLimiter _rateLimiter = ApiRateLimiter(maxRequests: 5, period: const Duration(seconds: 1));
 
-  /// Kulcs betöltése indításkor (pl. a main.dart-ból vagy service init-kor)
+  /// Kulcs betöltése indításkor
   Future<void> initialize() async {
-    final prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
     _apiKey = prefs.getString('statpal_api_key');
   }
 
   /// Kulcs mentése és beállítása
   Future<void> setApiKey(String key) async {
     _apiKey = key.trim();
-    final prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('statpal_api_key', _apiKey!);
   }
 
   Future<List<Map<String, dynamic>>> fetchLiveMatches() async {
     if (!hasApiKey) return [];
-
-    await _rateLimiter.acquire();
 
     try {
       final Uri uri = Uri.parse('$_baseUrl/matches/live');
@@ -58,8 +54,6 @@ class StatPalService {
 
   Future<Map<String, dynamic>?> fetchTeamStatistics({required String teamId}) async {
     if (!hasApiKey) return null;
-
-    await _rateLimiter.acquire();
 
     try {
       final Uri uri = Uri.parse('$_baseUrl/teams/$teamId/statistics');
