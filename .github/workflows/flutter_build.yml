@@ -34,15 +34,7 @@ jobs:
       - name: Flutter verzió ellenőrzése
         run: flutter --version
 
-      - name: Android projektfájlok létrehozása
-        run: |
-          flutter create \
-            --platforms=android \
-            --project-name=zsolt_pro_ai \
-            --org=hu.zsoltproai \
-            .
-
-      - name: Android engedélyek és Desugaring beállítása
+      - name: Android engedélyek és Desugaring biztosítása
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -51,47 +43,39 @@ jobs:
               "android/app/src/main/AndroidManifest.xml"
           )
 
-          content = manifest_path.read_text(
-              encoding="utf-8"
-          )
+          if manifest_path.exists():
+              content = manifest_path.read_text(encoding="utf-8")
+              permissions = [
+                  '<uses-permission android:name="android.permission.INTERNET" />',
+                  '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
+                  '<uses-permission android:name="android.permission.CAMERA" />',
+                  '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+                  '<uses-permission android:name="android.permission.WAKE_LOCK" />',
+                  '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
+              ]
+              manifest_end = content.find(">")
+              if manifest_end != -1:
+                  for permission in permissions:
+                      if permission not in content:
+                          content = (
+                              content[:manifest_end + 1]
+                              + "\n    "
+                              + permission
+                              + content[manifest_end + 1:]
+                          )
+                  manifest_path.write_text(content, encoding="utf-8")
 
-          permissions = [
-              '<uses-permission android:name="android.permission.INTERNET" />',
-              '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
-              '<uses-permission android:name="android.permission.CAMERA" />',
-              '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
-              '<uses-permission android:name="android.permission.WAKE_LOCK" />',
-              '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
-          ]
-
-          manifest_end = content.find(">")
-
-          if manifest_end != -1:
-              for permission in permissions:
-                  if permission not in content:
-                      content = (
-                          content[:manifest_end + 1]
-                          + "\n    "
-                          + permission
-                          + content[manifest_end + 1:]
-                      )
-              manifest_path.write_text(content, encoding="utf-8")
-
-          # 🚀 Automatikus desugaring beillesztése a build.gradle-be
           gradle_path = Path("android/app/build.gradle")
           if gradle_path.exists():
               g_content = gradle_path.read_text(encoding="utf-8")
-              
-              # compileOptions bekapcsolása
               if "coreLibraryDesugaringEnabled" not in g_content:
-                  target_str = "compileOptions {"
-                  replacement = "compileOptions {\n        coreLibraryDesugaringEnabled true"
-                  g_content = g_content.replace(target_str, replacement, 1)
-
-              # dependencies hozzáadása
+                  g_content = g_content.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        coreLibraryDesugaringEnabled true",
+                      1
+                  )
               if "desugar_jdk_libs" not in g_content:
                   g_content += "\n\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
-
               gradle_path.write_text(g_content, encoding="utf-8")
           PY
 
