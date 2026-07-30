@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Data Models
+// Zsolt Pro AI - StatPal Data Models (Teljes fájl)
 // File: lib/models/statpal_models.dart
 // ============================================================================
 
@@ -83,6 +83,86 @@ class StatMatch {
       venue: json['venue']?.toString(),
       home: StatTeamInfo.fromJson(json['home'] ?? {}),
       away: StatTeamInfo.fromJson(json['away'] ?? {}),
+    );
+  }
+}
+
+class StatStandingTeam {
+  final String position;
+  final String name;
+  final String id;
+  final String recentForm;
+  final int gamesPlayed;
+  final int wins;
+  final int draws;
+  final int losses;
+  final int goalsScored;
+  final int goalsAllowed;
+  final int goalDifference;
+  final int points;
+  final String? description;
+
+  StatStandingTeam({
+    required this.position,
+    required this.name,
+    required this.id,
+    required this.recentForm,
+    required this.gamesPlayed,
+    required this.wins,
+    required this.draws,
+    required this.losses,
+    required this.goalsScored,
+    required this.goalsAllowed,
+    required this.goalDifference,
+    required this.points,
+    this.description,
+  });
+
+  factory StatStandingTeam.fromJson(Map<String, dynamic> json) {
+    final overall = json['overall'] ?? {};
+    final total = json['total'] ?? {};
+    final descObj = json['description'];
+
+    return StatStandingTeam(
+      position: json['position']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      id: json['id']?.toString() ?? '',
+      recentForm: json['recent_form']?.toString() ?? '',
+      gamesPlayed: int.tryParse(overall['games_played']?.toString() ?? '0') ?? 0,
+      wins: int.tryParse(overall['wins']?.toString() ?? '0') ?? 0,
+      draws: int.tryParse(overall['draws']?.toString() ?? '0') ?? 0,
+      losses: int.tryParse(overall['losses']?.toString() ?? '0') ?? 0,
+      goalsScored: int.tryParse(overall['goals_scored']?.toString() ?? '0') ?? 0,
+      goalsAllowed: int.tryParse(overall['goals_allowed']?.toString() ?? '0') ?? 0,
+      goalDifference: int.tryParse(total['goal_difference']?.toString() ?? '0') ?? 0,
+      points: int.tryParse(total['points']?.toString() ?? '0') ?? 0,
+      description: descObj is Map ? descObj['value']?.toString() : descObj?.toString(),
+    );
+  }
+}
+
+class StatPrediction {
+  final String choice;
+  final String reasoning;
+  final String market;
+  final String odd;
+
+  StatPrediction({
+    required this.choice,
+    required this.reasoning,
+    required this.market,
+    required this.odd,
+  });
+
+  factory StatPrediction.fromJson(Map<String, dynamic> json) {
+    final predictionObj = json['prediction'] ?? {};
+    final oddsObj = predictionObj['prematch_odds'] ?? {};
+
+    return StatPrediction(
+      choice: predictionObj['choice']?.toString() ?? '',
+      reasoning: predictionObj['reasoning']?.toString() ?? '',
+      market: oddsObj['market']?.toString() ?? '',
+      odd: oddsObj['odd']?.toString() ?? '',
     );
   }
 }
