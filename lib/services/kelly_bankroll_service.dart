@@ -58,7 +58,7 @@ class KellyBankrollService {
 
     // Biztonságos frakció alkalmazása (pl. negyed-Kelly a túlzott kockázat elkerülésére)
     final double safeKelly = kellyFraction * fraction;
-    final double maxCap = 0.05; // Soha ne ajánljon 5%-nál többet egyetlen tettre sem
+    const double maxCap = 0.05; // Javítva const deklarációra (linter szabály)
     final double finalPercent = safeKelly > maxCap ? maxCap : safeKelly;
 
     final double stakeAmount = bankroll * finalPercent;
