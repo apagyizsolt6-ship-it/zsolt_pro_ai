@@ -34,15 +34,7 @@ jobs:
       - name: Flutter verzió ellenőrzése
         run: flutter --version
 
-      - name: Android projektfájlok generálása (v2 embedding)
-        run: |
-          flutter create \
-            --platforms=android \
-            --project-name=zsolt_pro_ai \
-            --org=hu.zsoltproai \
-            .
-
-      - name: Android engedélyek és Desugaring beillesztése
+      - name: Android értesítési engedélyek biztosítása (Manifest)
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -69,23 +61,11 @@ jobs:
                               + content[manifest_end + 1:]
                           )
                   manifest_path.write_text(content, encoding="utf-8")
-
-          gradle_path = Path("android/app/build.gradle")
-          if gradle_path.exists():
-              g_content = gradle_path.read_text(encoding="utf-8")
-              if "coreLibraryDesugaringEnabled" not in g_content:
-                  g_content = g_content.replace(
-                      "compileOptions {",
-                      "compileOptions {\n        coreLibraryDesugaringEnabled true",
-                      1
-                  )
-              if "desugar_jdk_libs" not in g_content:
-                  g_content += "\n\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
-              gradle_path.write_text(g_content, encoding="utf-8")
           PY
 
       - name: ML Kit R8 szabályok létrehozása
         run: |
+          mkdir -p android/app
           cat > android/app/proguard-rules.pro <<'EOF'
           # ===========================================
           # Zsolt Pro AI
@@ -108,38 +88,6 @@ jobs:
           -keepattributes InnerClasses
           -keepattributes EnclosingMethod
           EOF
-
-      - name: ProGuard bekötése az Android release buildbe
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          gradle_kts_path = Path(
-              "android/app/build.gradle.kts"
-          )
-
-          gradle_path = Path(
-              "android/app/build.gradle"
-          )
-
-          if gradle_kts_path.exists():
-              path = gradle_kts_path
-              content = path.read_text(encoding="utf-8")
-              if '"proguard-rules.pro"' not in content:
-                  release_marker = "release {\n"
-                  replacement = "release {\n                      proguardFiles(\n                          getDefaultProguardFile(\n                              \"proguard-android-optimize.txt\"\n                          ),\n                          \"proguard-rules.pro\"\n                      )\n"
-                  content = content.replace(release_marker, replacement, 1)
-                  path.write_text(content, encoding="utf-8")
-
-          elif gradle_path.exists():
-              path = gradle_path
-              content = path.read_text(encoding="utf-8")
-              if "proguard-rules.pro" not in content:
-                  release_marker = "release {\n"
-                  replacement = "release {\n                      proguardFiles getDefaultProguardFile(\n                          'proguard-android-optimize.txt'\n                      ), 'proguard-rules.pro'\n"
-                  content = content.replace(release_marker, replacement, 1)
-                  path.write_text(content, encoding="utf-8")
-          PY
 
       - name: Automatikus tesztfájl törlése
         run: rm -f test/widget_test.dart
