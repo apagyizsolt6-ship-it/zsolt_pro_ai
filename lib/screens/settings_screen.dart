@@ -1,10 +1,11 @@
 // ============================================================================
-// Zsolt Pro AI - Settings Screen (With Theme Toggle)
+// Zsolt Pro AI - Settings Screen (Working Theme Toggle)
 // File: lib/screens/settings_screen.dart
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import '../services/notification_settings_service.dart';
+import '../services/theme_notifier.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,9 +16,9 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final NotificationSettingsService _settings = NotificationSettingsService.instance;
+  final ThemeNotifier _themeNotifier = ThemeNotifier.instance;
 
   bool _isLoading = true;
-  bool _isDarkMode = true; // Alapértelmezetten sötét mód
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     await _settings.initialize();
+    await _themeNotifier.initialize();
     setState(() {
       _isLoading = false;
     });
@@ -34,15 +36,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = _themeNotifier.isDarkMode;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        title: Text(
           'Beállítások',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
@@ -59,20 +66,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 SwitchListTile(
-                  title: const Text(
+                  title: Text(
                     'Sötét Mód',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Sötét vizuális téma használata az alkalmazásban',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                    ),
                   ),
-                  value: _isDarkMode,
+                  value: isDark,
                   activeThumbColor: Colors.blueAccent,
-                  onChanged: (bool value) {
-                    setState(() {
-                      _isDarkMode = value;
-                    });
+                  onChanged: (bool value) async {
+                    await _themeNotifier.toggleTheme(value);
+                    setState(() {});
                   },
                 ),
                 const Divider(color: Colors.white24, height: 32),
@@ -86,13 +95,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 SwitchListTile(
-                  title: const Text(
+                  title: Text(
                     'Sharp Money Riasztások',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Értesítés jelentős piaci odds-mozgásokról',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                    ),
                   ),
                   value: _settings.sharpMoneyEnabled,
                   activeThumbColor: Colors.blueAccent,
@@ -102,13 +114,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
                 SwitchListTile(
-                  title: const Text(
+                  title: Text(
                     'Magas AI Értékű Tippek',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Értesítés a kiemelkedő valószínűségű meccsekről',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                    ),
                   ),
                   value: _settings.highAiEnabled,
                   activeThumbColor: Colors.blueAccent,
@@ -118,13 +133,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
                 SwitchListTile(
-                  title: const Text(
+                  title: Text(
                     'Csak Kedvencek Szűrése',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Csak a kedvencnek jelölt mérkőzésekről küldjön jelzést',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                    ),
                   ),
                   value: _settings.favoritesOnly,
                   activeThumbColor: Colors.blueAccent,
@@ -143,22 +161,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const ListTile(
+                ListTile(
                   title: Text(
                     'Verzió',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   ),
-                  trailing: Text(
+                  trailing: const Text(
                     '0.1.0+1 (Release)',
                     style: TextStyle(color: Colors.white70),
                   ),
                 ),
-                const ListTile(
+                ListTile(
                   title: Text(
                     'Motor',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   ),
-                  trailing: Text(
+                  trailing: const Text(
                     'Zsolt Pro AI Core',
                     style: TextStyle(color: Colors.white70),
                   ),
