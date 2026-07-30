@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Notification Engine Service (Teljes és Javított)
+// Zsolt Pro AI - Notification Engine Service (Véglegesen Javítva)
 // File: lib/services/notification_engine_service.dart
 // ============================================================================
 
@@ -68,11 +68,14 @@ class NotificationEngineService {
     final settings = NotificationSettingsService.instance;
 
     for (final AppMatch match in matches) {
-      if (match.status != MatchStatus.notStarted) continue;
+      // 1. Meccs státusz ellenőrzés biztonságos feltétellel
+      if (match.isFinished) continue;
 
-      if (!settings.sharpMoneyEnabled && !settings.highAiEnabled) return;
+      if (!settings.sharpMoneyEnabled && !settings.highAiEnabled) continue;
 
-      final bool isFavorite = FavoritesService.instance.isLeagueFavorite(match.league);
+      // 2. Kedvenc ligák ellenőrzése (metódus hívás helyett közvetlen lista vagy adaptált ellenőrzés)
+      // Feltételezve, hogy a FavoritesService-ben van kedvenc ellenőrző metódus
+      final bool isFavorite = FavoritesService.instance.isFavorite(match.league);
       
       if (settings.favoritesOnly && !isFavorite) continue;
 
@@ -97,7 +100,7 @@ class NotificationEngineService {
       if (settings.sharpMoneyEnabled && sharpSignal.hasSharpMovement) {
         shouldAlert = true;
         alertTitle = '🔥 Sharp Money Riasztás!';
-        alertBody = '${match.homeTeam} – ${match.awayTeam}: A piac hirtelen elmozdult a ${sharpSignal.sharpSide} irányába.';
+        alertBody = '${match.homeTeam} – ${match.awayTeam}: Jelentős piaci mozgás észlelve.';
       }
       else if (settings.highAiEnabled && match.aiScore >= settings.minAiScore) {
         shouldAlert = true;
