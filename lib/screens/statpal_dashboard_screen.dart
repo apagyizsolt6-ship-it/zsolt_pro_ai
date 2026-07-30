@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (ULTIMATE PRO Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Végleges stabil verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -117,7 +117,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
         final parts = rawTime.split(':');
         int hour = int.parse(parts[0]);
         int minute = int.parse(parts[1]);
-        hour = (hour + 2) % 24; // +2 óra eltolódás
+        hour = (hour + 2) % 24;
         return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
       }
     } catch (_) {}
@@ -156,7 +156,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
         ),
         body: Consumer<StatPalProvider>(
           builder: (context, provider, child) {
-            // Meccsek szűrése keresés alapján
             final filteredMatches = provider.liveMatches.where((match) {
               if (_matchSearchQuery.isEmpty) return true;
               final home = match.home.name.toLowerCase();
@@ -164,17 +163,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
               return home.contains(_matchSearchQuery) || away.contains(_matchSearchQuery);
             }).toList();
 
-            // Meccsek csoportosítása bajnokságonként (ha nincs külön liga mező, fallback csoportot adunk)
-            final Map<String, List<dynamic>> groupedMatches = {};
-            for (var match in filteredMatches) {
-              // Ha a match objektum tartalmazza a bajnokság nevét, azt használjuk, különben 'Egyéb Meccsek'
-              final leagueName = (match.leagueName != null && match.leagueName.toString().isNotEmpty) 
-                  ? match.leagueName 
-                  : 'Aktuális Mérkőzések';
-              groupedMatches.putIfAbsent(leagueName, () => []).add(match);
-            }
-
-            // Ligák szűrése keresés alapján
             final filteredLeagues = provider.leagues.where((league) {
               if (_leagueSearchQuery.isEmpty) return true;
               return league.name.toLowerCase().contains(_leagueSearchQuery) ||
@@ -226,7 +214,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // --- 1. ÉLŐ MECCSEK FÜL (Keresővel + Bajnokságonkénti lenyílókkal) ---
+                      // --- 1. ÉLŐ MECCSEK FÜL ---
                       Column(
                         children: [
                           Padding(
@@ -254,118 +242,109 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                     ? const Center(child: Text('Nincs a keresésnek megfelelő mérkőzés.', style: TextStyle(fontSize: 15)))
                                     : RefreshIndicator(
                                         onRefresh: () async => provider.loadInitialData(),
-                                        child: ListView(
+                                        child: ListView.builder(
                                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                                          children: groupedMatches.entries.map((entry) {
-                                            final leagueTitle = entry.key;
-                                            final matchesInLeague = entry.value;
+                                          itemCount: filteredMatches.length,
+                                          itemBuilder: (context, index) {
+                                            final match = filteredMatches[index];
+                                            final bool isLive = match.status != 'FT' && match.status != 'NS';
+                                            final correctedTime = _formatMatchTime(match.time);
 
                                             return Card(
-                                              margin: const EdgeInsets.symmetric(vertical: 6),
+                                              margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+                                              elevation: 2,
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                              child: ExpansionTile(
-                                                initiallyExpanded: true,
-                                                title: Text(
-                                                  leagueTitle,
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.amber),
-                                                ),
-                                                subtitle: Text('${matchesInLeague.length} mérkőzés', style: const TextStyle(fontSize: 12)),
-                                                children: matchesInLeague.map((match) {
-                                                  final bool isLive = match.status != 'FT' && match.status != 'NS';
-                                                  final correctedTime = _formatMatchTime(match.time);
-
-                                                  return InkWell(
-                                                    onTap: () {
-                                                      Navigator.push(
-                                                        context,
-                                                        MaterialPageRoute(
-                                                          builder: (_) => MatchDetailScreen(match: match),
-                                                        ),
-                                                      );
-                                                    },
-                                                    child: Padding(
-                                                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                                                      child: Row(
-                                                        children: [
-                                                          SizedBox(
-                                                            width: 65,
-                                                            child: Column(
-                                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                                              children: [
-                                                                Row(
-                                                                  children: [
-                                                                    if (isLive)
-                                                                      Container(
-                                                                        width: 7,
-                                                                        height: 7,
-                                                                        margin: const EdgeInsets.only(right: 4),
-                                                                        decoration: const BoxDecoration(
-                                                                          color: Colors.red,
-                                                                          shape: BoxShape.circle,
-                                                                        ),
-                                                                      ),
-                                                                    Text(
-                                                                      match.status,
-                                                                      style: TextStyle(
-                                                                        color: isLive ? Colors.redAccent : Colors.grey,
-                                                                        fontWeight: FontWeight.bold,
-                                                                        fontSize: 13,
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                                const SizedBox(height: 2),
-                                                                Text(
-                                                                  correctedTime,
-                                                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          const VerticalDivider(width: 15),
-                                                          Expanded(
-                                                            child: Column(
-                                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                                              children: [
-                                                                Text(
-                                                                  match.home.name,
-                                                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colors.onSurface),
-                                                                  maxLines: 1,
-                                                                  overflow: TextOverflow.ellipsis,
-                                                                ),
-                                                                const SizedBox(height: 4),
-                                                                Text(
-                                                                  match.away.name,
-                                                                  style: TextStyle(fontSize: 14, color: colors.onSurface.withValues(alpha: 0.85)),
-                                                                  maxLines: 1,
-                                                                  overflow: TextOverflow.ellipsis,
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          Column(
-                                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                                            children: [
-                                                              Text(match.home.score ?? '0', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                                              const SizedBox(height: 4),
-                                                              Text(match.away.score ?? '0', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                                            ],
-                                                          ),
-                                                        ],
-                                                      ),
+                                              child: InkWell(
+                                                borderRadius: BorderRadius.circular(12),
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) => MatchDetailScreen(match: match),
                                                     ),
                                                   );
-                                                }).toList(),
+                                                },
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                                  child: Row(
+                                                    children: [
+                                                      SizedBox(
+                                                        width: 65,
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          children: [
+                                                            Row(
+                                                              children: [
+                                                                if (isLive)
+                                                                  Container(
+                                                                    width: 7,
+                                                                    height: 7,
+                                                                    margin: const EdgeInsets.only(right: 4),
+                                                                    decoration: const BoxDecoration(
+                                                                      color: Colors.red,
+                                                                      shape: BoxShape.circle,
+                                                                    ),
+                                                                  ),
+                                                                Text(
+                                                                  match.status,
+                                                                  style: TextStyle(
+                                                                    color: isLive ? Colors.redAccent : Colors.grey,
+                                                                    fontWeight: FontWeight.bold,
+                                                                    fontSize: 13,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            const SizedBox(height: 2),
+                                                            Text(
+                                                              correctedTime,
+                                                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const VerticalDivider(width: 15),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          children: [
+                                                            Text(
+                                                              match.home.name,
+                                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colors.onSurface),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                            const SizedBox(height: 4),
+                                                            Text(
+                                                              match.away.name,
+                                                              style: TextStyle(fontSize: 14, color: colors.onSurface.withValues(alpha: 0.85)),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                                        children: [
+                                                          Text(match.home.score ?? '0', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                          const SizedBox(height: 4),
+                                                          Text(match.away.score ?? '0', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
                                               ),
                                             );
-                                          }).toList(),
+                                          },
                                         ),
                                       ),
                           ),
                         ],
                       ),
 
-                      // --- 2. LIGÁK FÜL (Keresővel) ---
+                      // --- 2. LIGÁK FÜL ---
                       Column(
                         children: [
                           Padding(
