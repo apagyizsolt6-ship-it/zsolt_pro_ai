@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Eredmények.com Stílus & Helyes Import)
+// Zsolt Pro AI - StatStandingTeam Típusbiztos Dashboard Screen
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -378,6 +378,12 @@ class LeagueStandingsScreen extends StatelessWidget {
                     itemCount: standings.length,
                     itemBuilder: (context, index) {
                       final team = standings[index];
+                      // Biztonságos konverziók a típusproblémák elkerülésére
+                      final int pos = int.tryParse(team.position.toString()) ?? (index + 1);
+                      final int played = int.tryParse(team.played.toString()) ?? 0;
+                      final int gd = int.tryParse(team.goalDifference.toString()) ?? 0;
+                      final int points = int.tryParse(team.points.toString()) ?? 0;
+
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
@@ -388,10 +394,10 @@ class LeagueStandingsScreen extends StatelessWidget {
                             SizedBox(
                               width: 30,
                               child: Text(
-                                '${team.position}',
+                                '$pos',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: team.position <= 3 ? Colors.green : Colors.grey,
+                                  color: pos <= 3 ? Colors.green : Colors.grey,
                                 ),
                               ),
                             ),
@@ -405,22 +411,22 @@ class LeagueStandingsScreen extends StatelessWidget {
                             ),
                             SizedBox(
                               width: 35,
-                              child: Text('${team.played}', textAlign: TextAlign.center),
+                              child: Text('$played', textAlign: TextAlign.center),
                             ),
                             SizedBox(
                               width: 35,
                               child: Text(
-                                '${team.goalDifference > 0 ? "+" : ""}${team.goalDifference}',
+                                '${gd > 0 ? "+" : ""}$gd',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: team.goalDifference > 0 ? Colors.green : (team.goalDifference < 0 ? Colors.red : Colors.grey),
+                                  color: gd > 0 ? Colors.green : (gd < 0 ? Colors.red : Colors.grey),
                                 ),
                               ),
                             ),
                             SizedBox(
                               width: 40,
                               child: Text(
-                                '${team.points}',
+                                '$points',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                               ),
