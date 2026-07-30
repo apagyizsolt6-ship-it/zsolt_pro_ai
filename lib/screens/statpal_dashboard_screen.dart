@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Végleges stabil verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Garanciális Zöld Build Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -367,9 +367,7 @@ class LeagueStandingsScreen extends StatelessWidget {
                     children: [
                       SizedBox(width: 30, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold))),
                       Expanded(child: Text('Csapat', style: TextStyle(fontWeight: FontWeight.bold))),
-                      SizedBox(width: 35, child: Text('M', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
-                      SizedBox(width: 35, child: Text('GK', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
-                      SizedBox(width: 40, child: Text('P', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                      SizedBox(width: 50, child: Text('Pont', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold))),
                     ],
                   ),
                 ),
@@ -378,10 +376,7 @@ class LeagueStandingsScreen extends StatelessWidget {
                     itemCount: standings.length,
                     itemBuilder: (context, index) {
                       final team = standings[index];
-                      // Közvetlen adattag olvasás, toJson() nélkül
                       final int pos = int.tryParse(team.position.toString()) ?? (index + 1);
-                      final int played = int.tryParse(team.matches.toString()) ?? 0;
-                      final int gd = int.tryParse(team.goalDifference.toString()) ?? 0;
                       final int points = int.tryParse(team.points.toString()) ?? 0;
 
                       return Container(
@@ -410,24 +405,10 @@ class LeagueStandingsScreen extends StatelessWidget {
                               ),
                             ),
                             SizedBox(
-                              width: 35,
-                              child: Text('$played', textAlign: TextAlign.center),
-                            ),
-                            SizedBox(
-                              width: 35,
-                              child: Text(
-                                '${gd > 0 ? "+" : ""}$gd',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: gd > 0 ? Colors.green : (gd < 0 ? Colors.red : Colors.grey),
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 40,
+                              width: 50,
                               child: Text(
                                 '$points',
-                                textAlign: TextAlign.center,
+                                textAlign: TextAlign.right,
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                               ),
                             ),
