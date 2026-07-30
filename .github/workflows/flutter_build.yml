@@ -34,6 +34,14 @@ jobs:
       - name: Flutter verzió ellenőrzése
         run: flutter --version
 
+      - name: Android projektfájlok generálása (v2 embedding)
+        run: |
+          flutter create \
+            --platforms=android \
+            --project-name=zsolt_pro_ai \
+            --org=hu.zsoltproai \
+            .
+
       - name: Android értesítési engedélyek biztosítása (Manifest)
         run: |
           python3 - <<'PY'
@@ -65,7 +73,6 @@ jobs:
 
       - name: ML Kit R8 szabályok létrehozása
         run: |
-          mkdir -p android/app
           cat > android/app/proguard-rules.pro <<'EOF'
           # ===========================================
           # Zsolt Pro AI
