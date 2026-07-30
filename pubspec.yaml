@@ -1,3 +1,8 @@
+# ============================================================================
+# Zsolt Pro AI - Pubspec Configuration with Notifications
+# File: pubspec.yaml
+# ============================================================================
+
 name: zsolt_pro_ai
 description: Zsolt Pro AI - magyar nyelvű sportfogadási elemző alkalmazás
 
@@ -16,6 +21,9 @@ dependencies:
   shared_preferences: ^2.5.3
   flutter_animate: ^4.5.2
   intl: ^0.20.2
+
+  # 🚀 Hozzáadva az értesítésekhez
+  flutter_local_notifications: ^16.3.1
 
   # AI Szelvény Felismerő
   image_picker: ^1.1.2
