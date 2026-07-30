@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Füles & Interaktív Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Eredmények.com Stílus & Full Dizájn)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/statpal_provider.dart';
+import '../models/stat_standing_team.dart';
 
 class StatPalDashboardScreen extends StatelessWidget {
   const StatPalDashboardScreen({super.key});
@@ -46,11 +47,11 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
         setState(() {
           _apiKeyController.text = savedKey;
           _hasKey = true;
-          _showSettings = false; // Ha már van kulcs, ne mutassa alapból
+          _showSettings = false;
         });
       } else {
         setState(() {
-          _showSettings = true; // Ha nincs kulcs, nyissa meg a beállítást
+          _showSettings = true;
         });
       }
     } catch (_) {}
@@ -71,14 +72,17 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('API kulcs sikeresen elmentve!')),
+        const SnackBar(
+          content: Text('API kulcs sikeresen elmentve! Adatok frissülnek...'),
+          backgroundColor: Colors.green,
+        ),
       );
 
       provider.loadInitialData();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hiba a mentés során: $e')),
+        SnackBar(content: Text('Hiba a mentés során: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -97,11 +101,11 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('StatPal Élő & Ligák'),
+          title: const Text('StatPal Élő & Ligák PRO', style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
           actions: [
             IconButton(
-              icon: Icon(_showSettings ? Icons.close : Icons.vpn_key),
+              icon: Icon(_showSettings ? Icons.close : Icons.vpn_key, color: Colors.amber),
               tooltip: 'API Kulcs Beállítása',
               onPressed: () {
                 setState(() {
@@ -111,9 +115,11 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
             ),
           ],
           bottom: const TabBar(
+            indicatorColor: Colors.amber,
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             tabs: [
               Tab(icon: Icon(Icons.sports_soccer), text: 'Élő Meccsek'),
-              Tab(icon: Icon(Icons.emoji_events), text: 'Ligák'),
+              Tab(icon: Icon(Icons.emoji_events), text: 'Ligák & Tabellák'),
             ],
           ),
         ),
@@ -121,104 +127,208 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
           builder: (context, provider, child) {
             return Column(
               children: [
-                // Ha be van kapcsolva a beállítás panel, megjelenik felül lenyitva
+                // Okos API beállító sáv (ha szükséges)
                 if (_showSettings || !_hasKey)
                   Container(
                     padding: const EdgeInsets.all(16.0),
-                    color: colors.surfaceContainerHighest,
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest,
+                      border: Border(bottom: BorderSide(color: colors.outline.withValues(alpha: 0.2))),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'StatPal API Kulcs szükséges',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        const Row(
+                          children: [
+                            Icon(Icons.lock_outline, size: 18, color: Colors.amber),
+                            SizedBox(width: 8),
+                            Text('StatPal API Kulcs szükséges a lekérdezéshez', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
                         TextField(
                           controller: _apiKeyController,
                           decoration: const InputDecoration(
-                            labelText: 'API Key',
+                            labelText: 'API Key beillesztése',
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _saveApiKey(provider),
-                          icon: const Icon(Icons.save, size: 18),
-                          label: const Text('Kulcs Mentése'),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                            onPressed: () => _saveApiKey(provider),
+                            icon: const Icon(Icons.save),
+                            label: const Text('Mentés és Adatok Lekérése'),
+                          ),
                         ),
                       ],
                     ),
                   ),
 
-                // Fő tartalom fülekre szedve
+                // Fő Tartalom Fülek
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // 1. Élő meccsek fül
+                      // --- 1. ÉLŐ MECCSEK FÜL (Eredmények.com stílus) ---
                       provider.isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : provider.liveMatches.isEmpty
-                              ? const Center(child: Text('Nincsenek élő mérkőzések.'))
-                              : ListView.builder(
-                                  padding: const EdgeInsets.all(12),
-                                  itemCount: provider.liveMatches.length,
-                                  itemBuilder: (context, index) {
-                                    final match = provider.liveMatches[index];
-                                    return Card(
-                                      margin: const EdgeInsets.symmetric(vertical: 6),
-                                      child: ListTile(
-                                        title: Text(
-                                          '${match.home.name} vs ${match.away.name}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                              ? const Center(
+                                  child: Text('Jelenleg nincsenek élő mérkőzések.', style: TextStyle(fontSize: 16)),
+                                )
+                              : RefreshIndicator(
+                                  onRefresh: () async => provider.loadInitialData(),
+                                  child: ListView.builder(
+                                    padding: const EdgeInsets.all(10),
+                                    itemCount: provider.liveMatches.length,
+                                    itemBuilder: (context, index) {
+                                      final match = provider.liveMatches[index];
+                                      final bool isLive = match.status != 'FT' && match.status != 'NS';
+                                      
+                                      return Card(
+                                        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+                                        elevation: 2,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                          child: Row(
+                                            children: [
+                                              // Státusz / Idő / Élő jelző
+                                              SizedBox(
+                                                width: 65,
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        if (isLive)
+                                                          Container(
+                                                            width: 7,
+                                                            height: 7,
+                                                            margin: const EdgeInsets.only(right: 4),
+                                                            decoration: const BoxDecoration(
+                                                              color: Colors.red,
+                                                              shape: BoxShape.circle,
+                                                            ),
+                                                          ),
+                                                        Text(
+                                                          match.status,
+                                                          style: TextStyle(
+                                                            color: isLive ? Colors.redAccent : Colors.grey,
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 13,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      match.time,
+                                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const VerticalDivider(width: 15),
+                                              // Csapatnevek
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      match.home.name,
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 14,
+                                                        color: colors.onSurface,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Text(
+                                                      match.away.name,
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.normal,
+                                                        fontSize: 14,
+                                                        color: colors.onSurface.withValues(alpha: 0.85),
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              // Eredmények
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.end,
+                                                children: [
+                                                  Text(
+                                                    match.home.score ?? '0',
+                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    match.away.score ?? '0',
+                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                        subtitle: Text('Státusz: ${match.status}'),
-                                        trailing: Text(
-                                          '${match.home.score ?? "0"} : ${match.away.score ?? "0"}',
-                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                        ),
-                                        onTap: () {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Kiválasztva: ${match.home.name} - ${match.away.name}')),
-                                          );
-                                        },
-                                      ),
-                                    );
-                                  },
+                                      );
+                                    },
+                                  ),
                                 ),
 
-                      // 2. Ligák fül
+                      // --- 2. LIGÁK FÜL ---
                       provider.leagues.isEmpty
                           ? const Center(child: Text('Nincsenek elérhető ligák.'))
                           : ListView.builder(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(10),
                               itemCount: provider.leagues.length,
                               itemBuilder: (context, index) {
                                 final league = provider.leagues[index];
                                 return Card(
-                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                  margin: const EdgeInsets.symmetric(vertical: 5),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   child: ListTile(
-                                    leading: const Icon(Icons.emoji_events, color: Colors.amber),
-                                    title: Text(
-                                      league.name,
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    leading: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.emoji_events, color: Colors.amber),
                                     ),
+                                    title: Text(league.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                                     subtitle: Text('Ország: ${league.country.toUpperCase()}'),
                                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                    onTap: () {
-                                      provider.loadStandings(league.id);
+                                    onTap: () async {
+                                      // Betöltjük és megnyitjuk a részletes tabellát!
                                       showDialog(
                                         context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: Text(league.name),
-                                          content: const Text('Tabella lekérve! (Részletes nézet hamarosan)'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(ctx),
-                                              child: const Text('Bezár'),
-                                            ),
-                                          ],
+                                        barrierDismissible: false,
+                                        builder: (_) => const Center(child: CircularProgressIndicator()),
+                                      );
+
+                                      await provider.loadStandings(league.id);
+
+                                      if (!context.mounted) return;
+                                      Navigator.pop(context); // Bezárja a loader dialógust
+
+                                      // Megnyitjuk a Tabella képernyőt
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => LeagueStandingsScreen(
+                                            leagueName: league.name,
+                                            standings: provider.standings,
+                                          ),
                                         ),
                                       );
                                     },
@@ -234,6 +344,108 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
           },
         ),
       ),
+    );
+  }
+}
+
+// ============================================================================
+// ÚJ: Dizájnos Tabella (Standings) Képernyő
+// ============================================================================
+class LeagueStandingsScreen extends StatelessWidget {
+  final String leagueName;
+  final List<StatStandingTeam> standings;
+
+  const LeagueStandingsScreen({
+    super.key,
+    required this.leagueName,
+    required this.standings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(leagueName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+      ),
+      body: standings.isEmpty
+          ? const Center(child: Text('Nincs elérhető tabella ehhez a ligához.'))
+          : Column(
+              children: [
+                // Fejléc
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: const Row(
+                    children: [
+                      SizedBox(width: 30, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(child: Text('Csapat', style: TextStyle(fontWeight: FontWeight.bold))),
+                      SizedBox(width: 35, child: Text('M', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                      SizedBox(width: 35, child: Text('GK', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                      SizedBox(width: 40, child: Text('P', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: standings.length,
+                    itemBuilder: (context, index) {
+                      final team = standings[index];
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.1))),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 30,
+                              child: Text(
+                                '${team.position}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: team.position <= 3 ? Colors.green : Colors.grey,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                team.name,
+                                style: const TextStyle(fontWeight: FontWeight.w500),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 35,
+                              child: Text('${team.played}', textAlign: TextAlign.center),
+                            ),
+                            SizedBox(
+                              width: 35,
+                              child: Text(
+                                '${team.goalDifference > 0 ? "+" : ""}${team.goalDifference}',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: team.goalDifference > 0 ? Colors.green : (team.goalDifference < 0 ? Colors.red : Colors.grey),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 40,
+                              child: Text(
+                                '${team.points}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
