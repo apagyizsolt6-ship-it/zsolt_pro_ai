@@ -4,37 +4,36 @@
 # ============================================================================
 
 name: zsolt_pro_ai
-description: Zsolt Pro AI - magyar nyelvű sportfogadási elemző alkalmazás[span_1](start_span)[span_1](end_span)
+description: Zsolt Pro AI - magyar nyelvű sportfogadási elemző alkalmazás[span_0](start_span)[span_0](end_span)
 
-publish_to: "none[span_2](start_span)"[span_2](end_span)
+publish_to: "none[span_1](start_span)"[span_1](end_span)
 
-version: 0.1.0+1[span_3](start_span)[span_3](end_span)
+version: 0.1.0+1[span_2](start_span)[span_2](end_span)
 
 environment:
-  sdk: ">=3.8.0 <4.0.0[span_4](start_span)"[span_4](end_span)
+  sdk: ">=3.8.0 <4.0.0[span_3](start_span)"[span_3](end_span)
 
 dependencies:
   flutter:
-    sdk: flutter[span_5](start_span)[span_5](end_span)
+    sdk: flutter[span_4](start_span)[span_4](end_span)
 
-  cupertino_icons: ^1.0.8[span_6](start_span)[span_6](end_span)
-  shared_preferences: ^2.5.3[span_7](start_span)[span_7](end_span)
-  flutter_animate: ^4.5.2[span_8](start_span)[span_8](end_span)
-  intl: ^0.20.2[span_9](start_span)[span_9](end_span)
-  http: ^1.2.0
+  cupertino_icons: ^1.0.8[span_5](start_span)[span_5](end_span)
+  shared_preferences: ^2.5.3[span_6](start_span)[span_6](end_span)
+  flutter_animate: ^4.5.2[span_7](start_span)[span_7](end_span)
+  intl: ^0.20.2[span_8](start_span)[span_8](end_span)
 
   # AI Szelvény Felismerő
-  image_picker: ^1.1.2[span_10](start_span)[span_10](end_span)
-  google_mlkit_text_recognition: ^0.16.0[span_11](start_span)[span_11](end_span)
+  image_picker: ^1.1.2[span_9](start_span)[span_9](end_span)
+  google_mlkit_text_recognition: ^0.16.0[span_10](start_span)[span_10](end_span)
 
   # Tippmix vonalkód- és QR-kód-beolvasás
-  mobile_scanner: 5.2.3[span_12](start_span)[span_12](end_span)
+  mobile_scanner: 5.2.3[span_11](start_span)[span_11](end_span)
 
 dev_dependencies:
   flutter_test:
-    sdk: flutter[span_13](start_span)[span_13](end_span)
+    sdk: flutter[span_12](start_span)[span_12](end_span)
 
-  flutter_lints: ^6.0.0[span_14](start_span)[span_14](end_span)
+  flutter_lints: ^6.0.0[span_13](start_span)[span_13](end_span)
 
 flutter:
-  uses-material-design: true[span_15](start_span)[span_15](end_span)
+  uses-material-design: true[span_14](start_span)[span_14](end_span)
