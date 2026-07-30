@@ -1,5 +1,5 @@
 # ============================================================================
-# Zsolt Pro AI - Pubspec Configuration (Final Notification Fix)
+# Zsolt Pro AI - Pubspec Configuration (Clean & Stable)
 # File: pubspec.yaml
 # ============================================================================
 
@@ -21,9 +21,6 @@ dependencies:
   shared_preferences: ^2.5.3
   flutter_animate: ^4.5.2
   intl: ^0.20.2
-
-  # 🚀 Fix 17.0.0 verzió, ami elkerüli a Java fordítási hibát
-  flutter_local_notifications: ^17.0.0
 
   # AI Szelvény Felismerő
   image_picker: ^1.1.2
