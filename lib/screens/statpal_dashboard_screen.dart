@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Végleges, Teljesen Tiszta Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Eredmények.com Stílusú Liga Csoportosítás)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -37,7 +37,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   bool _showSettings = false;
   String _matchSearchQuery = '';
   String _leagueSearchQuery = '';
-  String _matchFilter = 'all';
+  String _matchFilter = 'all'; // 'all', 'live', 'upcoming', 'finished'
 
   @override
   void initState() {
@@ -103,14 +103,13 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
     }
   }
 
+  // Szigorú státusz-szűrők az API adatai alapján
   bool _isMatchLive(dynamic match) {
     final String status = (match.status ?? '').toString().toUpperCase();
-    if (status.contains(':') || status == 'NS' || status == 'NOT STARTED' || status.isEmpty) {
-      return false;
-    }
-    if (status == 'FT' || status == 'AET' || status == 'PEN' || status == 'FINISHED') {
-      return false;
-    }
+    // Kizárjuk a nem élő vagy speciális státuszokat
+    if (status.isEmpty || status == 'NS' || status == 'NOT STARTED' || status.contains(':')) return false;
+    if (status == 'FT' || status == 'AET' || status == 'PEN' || status == 'FINISHED') return false;
+    if (status.contains('POSTP') || status.contains('CANCL') || status.contains('CANC')) return false;
     return true;
   }
 
@@ -164,36 +163,57 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
         ),
         body: Consumer<StatPalProvider>(
           builder: (context, provider, child) {
-            final filteredMatches = provider.liveMatches.where((matchItem) {
-              final home = matchItem.home.name.toLowerCase();
-              final away = matchItem.away.name.toLowerCase();
-              final matchesSearch = _matchSearchQuery.isEmpty || 
-                  home.contains(_matchSearchQuery) || 
-                  away.contains(_matchSearchQuery);
+            // Ligák szerinti csoportosítás szűrése és feldolgozása
+            final List<Map<String, dynamic>> filteredLeagueGroups = [];
 
-              if (!matchesSearch) return false;
+            for (var rawLeague in provider.rawLiveMatchesGroups) {
+              final leagueName = rawLeague['name']?.toString() ?? 'Ismeretlen Liga';
+              final leagueCountry = rawLeague['country']?.toString() ?? '';
+              final leagueId = rawLeague['id']?.toString() ?? '';
+              final matchesList = rawLeague['match'];
 
-              final bool isLive = _isMatchLive(matchItem);
-              final bool isFinished = _isMatchFinished(matchItem);
-              final bool isUpcoming = _isMatchUpcoming(matchItem);
+              if (matchesList is! List) continue;
 
-              if (_matchFilter == 'live') return isLive;
-              if (_matchFilter == 'upcoming') return isUpcoming;
-              if (_matchFilter == 'finished') return isFinished;
-              return true;
-            }).toList();
+              final List<StatMatch> matchedMeccsek = [];
 
-            filteredMatches.sort((a, b) {
-              final tA = a.time.toString();
-              final tB = b.time.toString();
-              return tA.compareTo(tB);
-            });
+              for (var mJson in matchesList) {
+                final matchObj = StatMatch.fromJson(mJson);
+                
+                // Csapat keresés szűrés
+                final home = matchObj.home.name.toLowerCase();
+                final away = matchObj.away.name.toLowerCase();
+                final matchesSearch = _matchSearchQuery.isEmpty || 
+                    home.contains(_matchSearchQuery) || 
+                    away.contains(_matchSearchQuery);
 
-            final Map<String, List<dynamic>> groupedMatches = {
-              'Zajló Élő Meccsek 🔴': filteredMatches.where((m) => _isMatchLive(m)).toList(),
-              'Következő Mérkőzések ⏰': filteredMatches.where((m) => _isMatchUpcoming(m)).toList(),
-              'Végeredmény / Lejárt Meccsek (FT) ✔️': filteredMatches.where((m) => _isMatchFinished(m)).toList(),
-            };
+                if (!matchesSearch) continue;
+
+                // Tab / Fül szerinti szűrés
+                final bool isLive = _isMatchLive(matchObj);
+                final bool isFinished = _isMatchFinished(matchObj);
+                final bool isUpcoming = _isMatchUpcoming(matchObj);
+
+                bool passesFilter = true;
+                if (_matchFilter == 'live') passesFilter = isLive;
+                else if (_matchFilter == 'upcoming') passesFilter = isUpcoming;
+                else if (_matchFilter == 'finished') passesFilter = isFinished;
+
+                if (passesFilter) {
+                  matchedMeccsek.add(matchObj);
+                }
+              }
+
+              if (matchedMeccsek.isNotEmpty) {
+                // Időpont szerinti rendezés az adott ligán belül
+                matchedMeccsek.sort((a, b) => a.time.compareTo(b.time));
+                filteredLeagueGroups.add({
+                  'id': leagueId,
+                  'name': leagueName,
+                  'country': leagueCountry,
+                  'matches': matchedMeccsek,
+                });
+              }
+            }
 
             final filteredLeagues = provider.leagues.where((league) {
               if (_leagueSearchQuery.isEmpty) return true;
@@ -246,6 +266,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 Expanded(
                   child: TabBarView(
                     children: [
+                      // 1. FÜL: Meccsek (Eredmények.com stílusú liga csoportosítással)
                       Column(
                         children: [
                           Padding(
@@ -304,28 +325,39 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                           Expanded(
                             child: provider.isLoading
                                 ? const Center(child: CircularProgressIndicator())
-                                : filteredMatches.isEmpty
+                                : filteredLeagueGroups.isEmpty
                                     ? const Center(child: Text('Nincs a feltételeknek megfelelő mérkőzés.', style: TextStyle(fontSize: 15)))
                                     : RefreshIndicator(
                                         onRefresh: () async => provider.loadInitialData(),
-                                        child: ListView(
+                                        child: ListView.builder(
                                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                                          children: groupedMatches.entries.map((entry) {
-                                            final sectionTitle = entry.key;
-                                            final matchesInGroup = entry.value;
-
-                                            if (matchesInGroup.isEmpty) return const SizedBox.shrink();
+                                          itemCount: filteredLeagueGroups.length,
+                                          itemBuilder: (context, groupIndex) {
+                                            final leagueGroup = filteredLeagueGroups[groupIndex];
+                                            final leagueName = leagueGroup['name'] as String;
+                                            final leagueCountry = leagueGroup['country'] as String;
+                                            final List<StatMatch> matches = leagueGroup['matches'] as List<StatMatch>;
 
                                             return Card(
                                               margin: const EdgeInsets.symmetric(vertical: 6),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                               child: ExpansionTile(
-                                                initiallyExpanded: sectionTitle.contains('Élő') || sectionTitle.contains('Következő'),
-                                                title: Text(
-                                                  '$sectionTitle (${matchesInGroup.length})',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.amber),
+                                                initiallyExpanded: true,
+                                                title: Row(
+                                                  children: [
+                                                    const Icon(Icons.sports_soccer, size: 16, color: Colors.amber),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        '${leagueCountry.toUpperCase()}: $leagueName',
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                                children: matchesInGroup.map((matchItem) {
+                                                children: matches.map((matchItem) {
                                                   final bool isLive = _isMatchLive(matchItem);
                                                   final bool isUpcoming = _isMatchUpcoming(matchItem);
 
@@ -413,9 +445,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                               : Column(
                                                                   crossAxisAlignment: CrossAxisAlignment.end,
                                                                   children: [
-                                                                    Text('${matchItem.home.goals}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                                    Text('${matchItem.home.goals ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                                                     const SizedBox(height: 4),
-                                                                    Text('${matchItem.away.goals}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                                    Text('${matchItem.away.goals ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                                                   ],
                                                                 ),
                                                         ],
@@ -425,13 +457,14 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                 }).toList(),
                                               ),
                                             );
-                                          }).toList(),
+                                          },
                                         ),
                                       ),
                           ),
                         ],
                       ),
 
+                      // 2. FÜL: Ligák & Tabellák
                       Column(
                         children: [
                           Padding(
@@ -545,7 +578,7 @@ class MatchDetailScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Expanded(child: Text(match.home.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                        Text('${match.home.goals} : ${match.away.goals}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
+                        Text('${match.home.goals ?? 0} : ${match.away.goals ?? 0}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
                         Expanded(child: Text(match.away.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
                       ],
                     ),
