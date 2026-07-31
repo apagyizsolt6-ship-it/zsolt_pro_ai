@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Valós AI Predikcióval)
+// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Végleges, Hibamentes Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -18,7 +18,7 @@ class StatPalHelper {
     if (status == 'AET') return 'Hossz. után';
     if (status == 'PEN' || status == 'TIZI') return 'Büntetők';
     if (status.contains('POSTP')) return 'Elhalasztva';
-    if (status.contains('CANCL' ) || status.contains('CANC')) return 'Törölve';
+    if (status.contains('CANCL') || status.contains('CANC')) return 'Törölve';
     if (status.contains('SUSP')) return 'Felfüggesztve';
     if (status.contains('PEN.')) return 'Büntető';
     return rawStatus;
@@ -439,7 +439,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                         builder: (_) => const Center(child: CircularProgressIndicator()),
                                                       );
 
-                                                      await provider.loadPrediction(matchItem.id);
+                                                      try {
+                                                        await provider.loadPrediction(matchItem.id);
+                                                      } catch (_) {}
 
                                                       if (!context.mounted) return;
                                                       Navigator.pop(context);
