@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Időrendbe Rendezett PRO Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Linter-barát & Időrendi Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -166,7 +166,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
         ),
         body: Consumer<StatPalProvider>(
           builder: (context, provider, child) {
-            // Szűrés keresésre és helyes státusz logikára
             final filteredMatches = provider.liveMatches.where((match) {
               final home = match.home.name.toLowerCase();
               final away = match.away.name.toLowerCase();
@@ -193,7 +192,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
               return timeA.compareTo(timeB);
             });
 
-            // Biztosított csoportosítás a rendezett listából
             final Map<String, List<dynamic>> groupedMatches = {
               'Zajló Élő Meccsek 🔴': filteredMatches.where((m) => _isMatchLive(m)).toList(),
               'Következő Mérkőzések ⏰': filteredMatches.where((m) => _isMatchUpcoming(m)).toList(),
@@ -335,6 +333,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   final bool isLive = _isMatchLive(match);
                                                   final bool isUpcoming = _isMatchUpcoming(match);
                                                   
+                                                  // Linter hiba javítva (biztonságos konverzió)
                                                   final homeScore = match.home.goals?.toString() ?? match.home.score?.toString() ?? '0';
                                                   final awayScore = match.away.goals?.toString() ?? match.away.score?.toString() ?? '0';
 
