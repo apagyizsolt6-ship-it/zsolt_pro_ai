@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Data Models (Teljes fájl)
+// Zsolt Pro AI - StatPal Data Models (Linter-Barát Teljes Fájl)
 // File: lib/models/statpal_models.dart
 // ============================================================================
 
@@ -74,6 +74,9 @@ class StatMatch {
     required this.away,
   });
 
+  // Kompatibilitási getter az id-hoz
+  String get id => mainId;
+
   factory StatMatch.fromJson(Map<String, dynamic> json) {
     return StatMatch(
       mainId: json['main_id']?.toString() ?? '',
@@ -146,23 +149,36 @@ class StatPrediction {
   final String reasoning;
   final String market;
   final String odd;
+  final String advice;
+  final String homePercentage;
+  final String drawPercentage;
+  final String awayPercentage;
 
   StatPrediction({
     required this.choice,
     required this.reasoning,
     required this.market,
     required this.odd,
+    required this.advice,
+    required this.homePercentage,
+    required this.drawPercentage,
+    required this.awayPercentage,
   });
 
   factory StatPrediction.fromJson(Map<String, dynamic> json) {
     final predictionObj = json['prediction'] ?? {};
     final oddsObj = predictionObj['prematch_odds'] ?? {};
+    final percentages = predictionObj['percentages'] ?? {};
 
     return StatPrediction(
       choice: predictionObj['choice']?.toString() ?? '',
       reasoning: predictionObj['reasoning']?.toString() ?? '',
       market: oddsObj['market']?.toString() ?? '',
       odd: oddsObj['odd']?.toString() ?? '',
+      advice: predictionObj['advice']?.toString() ?? predictionObj['choice']?.toString() ?? 'Elemzés elérhető',
+      homePercentage: percentages['home']?.toString() ?? '33',
+      drawPercentage: percentages['draw']?.toString() ?? '34',
+      awayPercentage: percentages['away']?.toString() ?? '33',
     );
   }
 }
