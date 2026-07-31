@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Automatikus 2 perces Frissítéssel)
+// Zsolt Pro AI - StatPal Dashboard & League Standings (Teljes Magyarítás)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -27,6 +27,20 @@ class StatPalHelper {
 
   static String formatMatchTime(String rawTime) {
     if (rawTime.isEmpty) return '';
+    
+    if (rawTime.contains(':') && rawTime.length <= 5) {
+      final parts = rawTime.split(':');
+      final hour = int.tryParse(parts[0]);
+      final minute = int.tryParse(parts[1]);
+      
+      if (hour != null && minute != null) {
+        int adjustedHour = (hour + 2) % 24;
+        final formattedHour = adjustedHour.toString().padLeft(2, '0');
+        final formattedMinute = minute.toString().padLeft(2, '0');
+        return '$formattedHour:$formattedMinute';
+      }
+    }
+    
     return rawTime;
   }
 
@@ -59,8 +73,9 @@ class StatPalHelper {
       'africa': 'Afrika',
       'south america': 'Dél-Amerika',
       'concacaf': 'CONCACAF',
+      'europe': 'Európa',
     };
-    return map[c] ?? (rawCountry.isNotEmpty ? '${rawCountry[0].toUpperCase()}${rawCountry.substring(1)}' : '');
+    return map[c] ?? (rawCountry.isNotEmpty ? '${rawCountry[0].toUpperCase()}${rawCountry.substring(1)}' : 'Egyéb');
   }
 
   static String formatLeagueHeader(String country, String name) {
@@ -112,7 +127,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   
   Set<String> _favoriteMatchIds = {};
   bool _allExpanded = true;
-  
   Timer? _autoRefreshTimer;
 
   @override
@@ -121,7 +135,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
     _loadSavedApiKey();
     _loadFavorites();
     
-    // 2 perces automatikus háttér-frissítés beállítása
     _autoRefreshTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
       if (mounted) {
         final provider = Provider.of<StatPalProvider>(context, listen: false);
@@ -221,7 +234,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
     final String status = (match.status ?? '').toString().toUpperCase();
     if (status.isEmpty || status == 'NS' || status == 'NOT STARTED' || status.contains(':')) return false;
     if (status == 'FT' || status == 'AET' || status == 'PEN' || status == 'FINISHED') return false;
-    if (status.contains('POSTP') || status.contains('CANCL') || status.contains('CANC')) return false;
+    if (status.contains('POSTP') || status.contains('CANCL' ) || status.contains('CANC')) return false;
     return true;
   }
 
@@ -896,9 +909,11 @@ class LeagueStandingsScreen extends StatelessWidget {
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   child: const Row(
                     children: [
-                      SizedBox(width: 30, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold))),
+                      SizedBox(width: 35, child: Text('Hely', style: TextStyle(fontWeight: FontWeight.bold))),
                       Expanded(child: Text('Csapat', style: TextStyle(fontWeight: FontWeight.bold))),
-                      SizedBox(width: 50, child: Text('Pont', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold))),
+                      SizedBox(width: 45, child: Text('Mérk.', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                      SizedBox(width: 45, child: Text('Gól', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                      SizedBox(width: 45, child: Text('Pont', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold))),
                     ],
                   ),
                 ),
@@ -909,6 +924,8 @@ class LeagueStandingsScreen extends StatelessWidget {
                       final team = standings[index];
                       final int pos = int.tryParse(team.position.toString()) ?? (index + 1);
                       final int points = int.tryParse(team.points.toString()) ?? 0;
+                      final int played = int.tryParse(team.gamesPlayed.toString()) ?? 0;
+                      final String goals = '${team.goalsScored}:${team.goalsAllowed}';
 
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -918,9 +935,9 @@ class LeagueStandingsScreen extends StatelessWidget {
                         child: Row(
                           children: [
                             SizedBox(
-                              width: 30,
+                              width: 35,
                               child: Text(
-                                '$pos',
+                                '$pos.',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: pos <= 3 ? Colors.green : Colors.grey,
@@ -936,11 +953,27 @@ class LeagueStandingsScreen extends StatelessWidget {
                               ),
                             ),
                             SizedBox(
-                              width: 50,
+                              width: 45,
+                              child: Text(
+                                '$played',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 13, color: Colors.grey),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 45,
+                              child: Text(
+                                goals,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 13, color: Colors.grey),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 45,
                               child: Text(
                                 '$points',
                                 textAlign: TextAlign.right,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.amber),
                               ),
                             ),
                           ],
