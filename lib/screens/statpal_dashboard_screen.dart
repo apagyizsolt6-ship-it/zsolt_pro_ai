@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Teljesen Magyarított & Korrigált Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Végleges, Teljesen Magyarított Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/statpal_provider.dart';
 import '../models/statpal_models.dart';
 
-// Egységes magyarító és időkorrekciós segédosztály
+// Egységes magyarító, időkorrekciós és fejléc formázó segédosztály
 class StatPalHelper {
   static String translateStatus(String rawStatus) {
     final status = rawStatus.toUpperCase().trim();
@@ -22,14 +22,61 @@ class StatPalHelper {
     if (status.contains('CANCL') || status.contains('CANC')) return 'Törölve';
     if (status.contains('SUSP')) return 'Felfüggesztve';
     if (status.contains('PEN.')) return 'Büntető';
-    return rawStatus; // Ha perces állás (pl. "57"), azt változtatás nélkül hagyjuk
+    return rawStatus;
   }
 
-  // Időeltolódás / időpont korrekciós formázó
   static String formatMatchTime(String rawTime) {
     if (rawTime.isEmpty) return '';
-    // Itt beállítható az esetleges óraeltolódás korrekció, ha az API pl. UTC-ben adja
     return rawTime;
+  }
+
+  static String translateCountry(String rawCountry) {
+    final c = rawCountry.toLowerCase().trim();
+    const map = {
+      'germany': 'Németország',
+      'australia': 'Ausztrália',
+      'brazil': 'Brazília',
+      'kazakhstan': 'Kazahsztán',
+      'russia': 'Oroszország',
+      'ukraine': 'Ukrajna',
+      'denmark': 'Dánia',
+      'finland': 'Finnország',
+      'india': 'India',
+      'ireland': 'Írország',
+      'indonesia': 'Indonézia',
+      'lithuania': 'Litvánia',
+      'mexico': 'Mexikó',
+      'moldova': 'Moldova',
+      'uzbekistan': 'Üzbegisztán',
+      'colombia': 'Kolumbia',
+      'chile': 'Chile',
+      'czech republic': 'Csehország',
+      'bolivia': 'Bolívia',
+      'belarus': 'Fehéroroszország',
+      'south korea': 'Dél-Korea',
+      'world': 'Világszintű',
+      'asia': 'Ázsia',
+      'africa': 'Afrika',
+      'south america': 'Dél-Amerika',
+      'concacaf': 'CONCACAF',
+    };
+    return map[c] ?? (rawCountry.isNotEmpty ? rawCountry[0].toUpperCase() + rawCountry.substring(1) : '');
+  }
+
+  static String formatLeagueHeader(String country, String name) {
+    final translatedCountry = translateCountry(country);
+    
+    String cleanName = name;
+    if (cleanName.toLowerCase().startsWith(country.toLowerCase() + ':')) {
+      cleanName = cleanName.substring(country.length + 1).trim();
+    } else if (cleanName.toLowerCase().startsWith(translatedCountry.toLowerCase() + ':')) {
+      cleanName = cleanName.substring(translatedCountry.length + 1).trim();
+    }
+
+    if (translatedCountry.isEmpty || translatedCountry.toLowerCase() == 'ismeretlen') {
+      return cleanName;
+    }
+    return '$translatedCountry: $cleanName';
   }
 }
 
@@ -358,6 +405,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                             final leagueName = leagueGroup['name'] as String;
                                             final leagueCountry = leagueGroup['country'] as String;
                                             final List<StatMatch> matches = leagueGroup['matches'] as List<StatMatch>;
+                                            final displayHeader = StatPalHelper.formatLeagueHeader(leagueCountry, leagueName);
 
                                             return Card(
                                               margin: const EdgeInsets.symmetric(vertical: 6),
@@ -370,7 +418,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                     const SizedBox(width: 8),
                                                     Expanded(
                                                       child: Text(
-                                                        '${leagueCountry.toUpperCase()}: $leagueName',
+                                                        displayHeader,
                                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
@@ -518,6 +566,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                     itemCount: filteredLeagues.length,
                                     itemBuilder: (context, index) {
                                       final league = filteredLeagues[index];
+                                      final translatedCountry = StatPalHelper.translateCountry(league.country);
                                       return Card(
                                         margin: const EdgeInsets.symmetric(vertical: 5),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -531,7 +580,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                             child: const Icon(Icons.emoji_events, color: Colors.amber),
                                           ),
                                           title: Text(league.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                          subtitle: Text('Ország: ${league.country.toUpperCase()}'),
+                                          subtitle: Text('Ország: $translatedCountry'),
                                           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                           onTap: () async {
                                             showDialog(
