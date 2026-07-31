@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Azonnali Navigációs Verzió)
+// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Kedvencek & Összecsukás)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -108,11 +108,18 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   String _matchSearchQuery = '';
   String _leagueSearchQuery = '';
   String _matchFilter = 'all';
+  
+  // Kedvenc meccsek ID tárolója
+  Set<String> _favoriteMatchIds = {};
+  
+  // Globális kibontási állapot az ExpansionTile-okhoz
+  bool _allExpanded = true;
 
   @override
   void initState() {
     super.initState();
     _loadSavedApiKey();
+    _loadFavorites();
     _matchSearchController.addListener(() {
       setState(() {
         _matchSearchQuery = _matchSearchController.text.toLowerCase();
@@ -140,6 +147,32 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
           _showSettings = true;
         });
       }
+    } catch (_) {}
+  }
+
+  Future<void> _loadFavorites() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('statpal_favorites') ?? [];
+      if (mounted) {
+        setState(() {
+          _favoriteMatchIds = list.toSet();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleFavorite(String matchId) async {
+    setState(() {
+      if (_favoriteMatchIds.contains(matchId)) {
+        _favoriteMatchIds.remove(matchId);
+      } else {
+        _favoriteMatchIds.add(matchId);
+      }
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('statpal_favorites', _favoriteMatchIds.toList());
     } catch (_) {}
   }
 
@@ -257,6 +290,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 final bool isLive = _isMatchLive(matchObj);
                 final bool isFinished = _isMatchFinished(matchObj);
                 final bool isUpcoming = _isMatchUpcoming(matchObj);
+                final bool isFav = _favoriteMatchIds.contains(matchObj.id);
 
                 bool passesFilter = true;
                 if (_matchFilter == 'live') {
@@ -265,6 +299,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                   passesFilter = isUpcoming;
                 } else if (_matchFilter == 'finished') {
                   passesFilter = isFinished;
+                } else if (_matchFilter == 'favorites') {
+                  passesFilter = isFav;
                 }
 
                 if (passesFilter) {
@@ -340,20 +376,37 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                             padding: const EdgeInsets.all(10.0),
                             child: Column(
                               children: [
-                                TextField(
-                                  controller: _matchSearchController,
-                                  decoration: InputDecoration(
-                                    hintText: 'Keresés csapatra...',
-                                    prefixIcon: const Icon(Icons.search),
-                                    suffixIcon: _matchSearchQuery.isNotEmpty
-                                        ? IconButton(
-                                            icon: const Icon(Icons.clear),
-                                            onPressed: () => _matchSearchController.clear(),
-                                          )
-                                        : null,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                    isDense: true,
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _matchSearchController,
+                                        decoration: InputDecoration(
+                                          hintText: 'Keresés csapatra...',
+                                          prefixIcon: const Icon(Icons.search),
+                                          suffixIcon: _matchSearchQuery.isNotEmpty
+                                              ? IconButton(
+                                                  icon: const Icon(Icons.clear),
+                                                  onPressed: () => _matchSearchController.clear(),
+                                                )
+                                              : null,
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                          isDense: true,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Összecsukás / Kibontás gomb
+                                    IconButton(
+                                      icon: Icon(_allExpanded ? Icons.unfold_less : Icons.unfold_more, color: Colors.amber),
+                                      tooltip: _allExpanded ? 'Összes összecsukása' : 'Összes kibontása',
+                                      onPressed: () {
+                                        setState(() {
+                                          _allExpanded = !_allExpanded;
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 8),
                                 SingleChildScrollView(
@@ -364,6 +417,12 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                         label: const Text('Összes'),
                                         selected: _matchFilter == 'all',
                                         onSelected: (_) => setState(() => _matchFilter = 'all'),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      ChoiceChip(
+                                        label: const Text('Kedvencek ⭐'),
+                                        selected: _matchFilter == 'favorites',
+                                        onSelected: (_) => setState(() => _matchFilter = 'favorites'),
                                       ),
                                       const SizedBox(width: 6),
                                       ChoiceChip(
@@ -410,7 +469,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                               margin: const EdgeInsets.symmetric(vertical: 6),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                               child: ExpansionTile(
-                                                initiallyExpanded: true,
+                                                key: Key('${leagueGroup['id']}_$_allExpanded'),
+                                                initiallyExpanded: _allExpanded,
                                                 title: Row(
                                                   children: [
                                                     const Icon(Icons.sports_soccer, size: 16, color: Colors.amber),
@@ -430,10 +490,10 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   final bool isUpcoming = _isMatchUpcoming(matchItem);
                                                   final String translatedStatus = StatPalHelper.translateStatus(matchItem.status);
                                                   final String correctedTime = StatPalHelper.formatMatchTime(matchItem.time);
+                                                  final bool isFav = _favoriteMatchIds.contains(matchItem.id);
 
                                                   return InkWell(
                                                     onTap: () {
-                                                      // Azonnali navigáció letiltott előtöltés nélkül, hogy ne akadjon el
                                                       Navigator.push(
                                                         context,
                                                         MaterialPageRoute(
@@ -445,8 +505,20 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                                                       child: Row(
                                                         children: [
+                                                          // Csillag gomb a kedvencekhez
+                                                          InkWell(
+                                                            onTap: () => _toggleFavorite(matchItem.id),
+                                                            child: Padding(
+                                                              padding: const EdgeInsets.only(right: 8.0),
+                                                              child: Icon(
+                                                                isFav ? Icons.star : Icons.star_border,
+                                                                color: isFav ? Colors.amber : Colors.grey,
+                                                                size: 20,
+                                                              ),
+                                                            ),
+                                                          ),
                                                           SizedBox(
-                                                            width: 75,
+                                                            width: 65,
                                                             child: Column(
                                                               crossAxisAlignment: CrossAxisAlignment.start,
                                                               children: [
