@@ -1,8 +1,9 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Kedvencek & Összecsukás)
+// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Automatikus 2 perces Frissítéssel)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -109,17 +110,27 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   String _leagueSearchQuery = '';
   String _matchFilter = 'all';
   
-  // Kedvenc meccsek ID tárolója
   Set<String> _favoriteMatchIds = {};
-  
-  // Globális kibontási állapot az ExpansionTile-okhoz
   bool _allExpanded = true;
+  
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadSavedApiKey();
     _loadFavorites();
+    
+    // 2 perces automatikus háttér-frissítés beállítása
+    _autoRefreshTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+      if (mounted) {
+        final provider = Provider.of<StatPalProvider>(context, listen: false);
+        if (_hasKey && !provider.isLoading) {
+          provider.loadInitialData();
+        }
+      }
+    });
+
     _matchSearchController.addListener(() {
       setState(() {
         _matchSearchQuery = _matchSearchController.text.toLowerCase();
@@ -226,6 +237,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     _apiKeyController.dispose();
     _matchSearchController.dispose();
     _leagueSearchController.dispose();
@@ -396,7 +408,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    // Összecsukás / Kibontás gomb
                                     IconButton(
                                       icon: Icon(_allExpanded ? Icons.unfold_less : Icons.unfold_more, color: Colors.amber),
                                       tooltip: _allExpanded ? 'Összes összecsukása' : 'Összes kibontása',
@@ -449,7 +460,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                             ),
                           ),
                           Expanded(
-                            child: provider.isLoading
+                            child: provider.isLoading && provider.rawLiveMatchesGroups.isEmpty
                                 ? const Center(child: CircularProgressIndicator())
                                 : filteredLeagueGroups.isEmpty
                                     ? const Center(child: Text('Nincs a feltételeknek megfelelő mérkőzés.', style: TextStyle(fontSize: 15)))
@@ -505,7 +516,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                                                       child: Row(
                                                         children: [
-                                                          // Csillag gomb a kedvencekhez
                                                           InkWell(
                                                             onTap: () => _toggleFavorite(matchItem.id),
                                                             child: Padding(
