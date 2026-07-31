@@ -1,11 +1,11 @@
 // ===========================================
-// Zsolt Pro AI
-// Version: v0.4.8
+// Zsolt Pro AI - Központi Fordítási Központ
+// Version: v1.0.0 (Teljes körű fordító csomag)
 // File: lib/utils/league_translator.dart
 // ===========================================
 
 class LeagueTranslator {
-  /// Fixen definiált konkrét liganevek
+  /// Fixen definiált konkrét ligakifejezések és nevek
   static const Map<String, String> _knownLeagues = <String, String>{
     // Magyarország
     'Hungarian NB I': 'Magyarország NB I',
@@ -28,9 +28,24 @@ class LeagueTranslator {
     'UEFA Conference League': 'Konferencia Liga',
     'American Major League Soccer': 'Amerikai MLS',
     'International Friendlies': 'Nemzetközi Barátságos',
+    'Club Friendlies': 'Klub Barátságos Mérkőzések',
   };
 
-  /// A Föld összes futballal rendelkező országának és régiójának magyarosítója
+  /// Meccs státuszok teljes körű fordítása (TheSportsDB, Sportmonks, StatPal adatokhoz)
+  static String translateStatus(String rawStatus) {
+    final status = rawStatus.toUpperCase().trim();
+    if (status == 'FT' || status == 'FINISHED' || status == 'AET') return 'Vége';
+    if (status == 'NS' || status == 'NOT STARTED' || status == 'TIMED') return 'Kezdés';
+    if (status == 'HT' || status == 'HALF TIME') return 'Félidő';
+    if (status == 'LIVE' || status == 'IN PLAY' || status == '1H' || status == '2H') return 'Élő';
+    if (status == 'PEN' || status == 'ET') return 'Hosszabbítás / Tizenegyesek';
+    if (status.contains('POSTP')) return 'Elhalasztva';
+    if (status.contains('CANCL') || status.contains('CANC')) return 'Törölve';
+    if (status.contains('SUSP')) return 'Felfüggesztve';
+    return rawStatus;
+  }
+
+  /// Országok és régiók magyarosító szótára
   static const Map<String, String> _countryPrefixes = <String, String>{
     // Európa
     'Hungarian': 'Magyarország',
@@ -119,7 +134,7 @@ class LeagueTranslator {
     'Iranian': 'Iráni',
     'Iraqi': 'Iraki',
     'Qatari': 'Katari',
-    'Emirati': 'EIR-beli',
+    'Emirati': 'Emírségekbeli',
     'Indian': 'Indiai',
     'Thai': 'Thaiföldi',
     'Vietnamese': 'Vietnámi',
@@ -149,14 +164,18 @@ class LeagueTranslator {
     'League One': 'Bajnokság I',
     'League Two': 'Bajnokság II',
     'League': 'Bajnokság',
+    'Division': 'Divízió',
     'Primera Division': 'Primera División',
     'Segunda Division': 'Segunda División',
     'Copa de la Liga': 'Ligakupa',
     'Cup': 'Kupa',
     'Friendlies': 'Barátságos mérkőzések',
     'Championship': 'Bajnokság',
+    'Play Offs': 'Rájátszás',
+    'Group Stage': 'Csoportkör',
   };
 
+  /// Fő fordító metódus ligákhoz és bajnokságokhoz
   static String translate(String originalLeagueName) {
     final String trimmed = originalLeagueName.trim();
     if (trimmed.isEmpty) return trimmed;
@@ -175,7 +194,7 @@ class LeagueTranslator {
       }
     });
 
-    // 3. Gyakori angol kifejezések és "League" cseréje
+    // 3. Gyakori angol kifejezések cseréje
     _commonTerms.forEach((String englishTerm, String hungarianTerm) {
       if (translated.contains(englishTerm)) {
         translated = translated.replaceAll(englishTerm, hungarianTerm);
