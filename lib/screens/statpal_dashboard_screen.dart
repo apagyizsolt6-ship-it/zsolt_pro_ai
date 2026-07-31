@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Véglegesen Javított PRO Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Időrendbe Rendezett PRO Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -105,18 +105,14 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
     }
   }
 
-  // Segédfüggvény a meccs pontos állapotának megállapításához
   bool _isMatchLive(dynamic match) {
     final String status = (match.status ?? '').toString().toUpperCase();
-    // Ha a státusz időpont formátumú (pl. 17:00) vagy NS, akkor NEM élő
     if (status.contains(':') || status == 'NS' || status == 'NOT STARTED' || status.isEmpty) {
       return false;
     }
-    // Ha kifejezetten véget ért
     if (status == 'FT' || status == 'AET' || status == 'PEN' || status == 'FINISHED') {
       return false;
     }
-    // Minden egyéb esetben (1H, 2H, HT, élő percek számként) élőnek tekintjük
     return true;
   }
 
@@ -190,7 +186,14 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
               return true; // 'all'
             }).toList();
 
-            // Biztosított csoportosítás a javított logikával
+            // Meccsek rendezése kezdési időpont (match.time) szerint növekvő sorrendbe
+            filteredMatches.sort((a, b) {
+              final timeA = (a.time ?? '').toString();
+              final timeB = (b.time ?? '').toString();
+              return timeA.compareTo(timeB);
+            });
+
+            // Biztosított csoportosítás a rendezett listából
             final Map<String, List<dynamic>> groupedMatches = {
               'Zajló Élő Meccsek 🔴': filteredMatches.where((m) => _isMatchLive(m)).toList(),
               'Következő Mérkőzések ⏰': filteredMatches.where((m) => _isMatchUpcoming(m)).toList(),
@@ -323,7 +326,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                               margin: const EdgeInsets.symmetric(vertical: 6),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                               child: ExpansionTile(
-                                                initiallyExpanded: sectionTitle.contains('Élő'),
+                                                initiallyExpanded: sectionTitle.contains('Élő') || sectionTitle.contains('Következő'),
                                                 title: Text(
                                                   '$sectionTitle (${matchesInGroup.length})',
                                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.amber),
