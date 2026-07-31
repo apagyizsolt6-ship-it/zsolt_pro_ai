@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Teljesen Hibamentes PRO Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (100% Garantált Tiszta Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -37,8 +37,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   bool _showSettings = false;
   String _matchSearchQuery = '';
   String _leagueSearchQuery = '';
-  
-  // Szűrő mód: 'all' = összes, 'live' = csak élő, 'upcoming' = következő, 'finished' = véget ért
   String _matchFilter = 'all';
 
   @override
@@ -182,10 +180,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
               if (_matchFilter == 'live') return isLive;
               if (_matchFilter == 'upcoming') return isUpcoming;
               if (_matchFilter == 'finished') return isFinished;
-              return true; // 'all'
+              return true;
             }).toList();
 
-            // Meccsek rendezése kezdési időpont (match.time) szerint növekvő sorrendbe
             filteredMatches.sort((a, b) {
               final timeA = (a.time ?? '').toString();
               final timeB = (b.time ?? '').toString();
@@ -249,7 +246,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // --- 1. ÉLŐ MECCSEK FÜL ---
                       Column(
                         children: [
                           Padding(
@@ -333,10 +329,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   final bool isLive = _isMatchLive(match);
                                                   final bool isUpcoming = _isMatchUpcoming(match);
                                                   
-                                                  // Teljesen linter-kompatibilis kiolvasás
-                                                  final homeScore = match.home.goals.toString();
-                                                  final awayScore = match.away.goals.toString();
-
                                                   return InkWell(
                                                     onTap: () {
                                                       Navigator.push(
@@ -421,9 +413,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                               : Column(
                                                                   crossAxisAlignment: CrossAxisAlignment.end,
                                                                   children: [
-                                                                    Text(homeScore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                                    Text(match.home.goals.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                                                     const SizedBox(height: 4),
-                                                                    Text(awayScore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                                    Text(match.away.goals.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                                                   ],
                                                                 ),
                                                         ],
@@ -440,7 +432,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                         ],
                       ),
 
-                      // --- 2. LIGÁK FÜL ---
                       Column(
                         children: [
                           Padding(
@@ -525,9 +516,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   }
 }
 
-// ============================================================================
-// Részletes Meccs Elemző Képernyő
-// ============================================================================
 class MatchDetailScreen extends StatelessWidget {
   final dynamic match;
 
@@ -535,9 +523,6 @@ class MatchDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final homeScore = match.home.goals.toString();
-    final awayScore = match.away.goals.toString();
-
     return Scaffold(
       appBar: AppBar(
         title: Text('${match.home.name} vs ${match.away.name}', style: const TextStyle(fontSize: 14)),
@@ -560,7 +545,7 @@ class MatchDetailScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Expanded(child: Text(match.home.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                        Text('$homeScore : $awayScore', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
+                        Text('${match.home.goals} : ${match.away.goals}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
                         Expanded(child: Text(match.away.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
                       ],
                     ),
@@ -588,9 +573,6 @@ class MatchDetailScreen extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// Tabella Képernyő
-// ============================================================================
 class LeagueStandingsScreen extends StatelessWidget {
   final String leagueName;
   final List<StatStandingTeam> standings;
