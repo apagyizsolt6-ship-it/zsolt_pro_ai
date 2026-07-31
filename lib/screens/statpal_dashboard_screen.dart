@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Végleges, Teljesen Magyarított Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Linter-Barát Végleges Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/statpal_provider.dart';
 import '../models/statpal_models.dart';
 
-// Egységes magyarító, időkorrekciós és fejléc formázó segédosztály
 class StatPalHelper {
   static String translateStatus(String rawStatus) {
     final status = rawStatus.toUpperCase().trim();
@@ -60,16 +59,16 @@ class StatPalHelper {
       'south america': 'Dél-Amerika',
       'concacaf': 'CONCACAF',
     };
-    return map[c] ?? (rawCountry.isNotEmpty ? rawCountry[0].toUpperCase() + rawCountry.substring(1) : '');
+    return map[c] ?? (rawCountry.isNotEmpty ? '${rawCountry[0].toUpperCase()}${rawCountry.substring(1)}' : '');
   }
 
   static String formatLeagueHeader(String country, String name) {
     final translatedCountry = translateCountry(country);
     
     String cleanName = name;
-    if (cleanName.toLowerCase().startsWith(country.toLowerCase() + ':')) {
+    if (cleanName.toLowerCase().startsWith('$country:')) {
       cleanName = cleanName.substring(country.length + 1).trim();
-    } else if (cleanName.toLowerCase().startsWith(translatedCountry.toLowerCase() + ':')) {
+    } else if (cleanName.toLowerCase().startsWith('$translatedCountry:')) {
       cleanName = cleanName.substring(translatedCountry.length + 1).trim();
     }
 
