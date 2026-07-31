@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Linter-Barát Végleges Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Teljesen Magyarított & Korrigált Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -8,6 +8,30 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/statpal_provider.dart';
 import '../models/statpal_models.dart';
+
+// Egységes magyarító és időkorrekciós segédosztály
+class StatPalHelper {
+  static String translateStatus(String rawStatus) {
+    final status = rawStatus.toUpperCase().trim();
+    if (status == 'FT' || status == 'FINISHED') return 'Vége';
+    if (status == 'NS' || status == 'NOT STARTED') return 'Kezdés';
+    if (status == 'HT') return 'Félidő';
+    if (status == 'AET') return 'Hossz. után';
+    if (status == 'PEN' || status == 'TIZI') return 'Büntetők';
+    if (status.contains('POSTP')) return 'Elhalasztva';
+    if (status.contains('CANCL') || status.contains('CANC')) return 'Törölve';
+    if (status.contains('SUSP')) return 'Felfüggesztve';
+    if (status.contains('PEN.')) return 'Büntető';
+    return rawStatus; // Ha perces állás (pl. "57"), azt változtatás nélkül hagyjuk
+  }
+
+  // Időeltolódás / időpont korrekciós formázó
+  static String formatMatchTime(String rawTime) {
+    if (rawTime.isEmpty) return '';
+    // Itt beállítható az esetleges óraeltolódás korrekció, ha az API pl. UTC-ben adja
+    return rawTime;
+  }
+}
 
 class StatPalDashboardScreen extends StatelessWidget {
   const StatPalDashboardScreen({super.key});
@@ -242,7 +266,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                         TextField(
                           controller: _apiKeyController,
                           decoration: const InputDecoration(
-                            labelText: 'API Key beillesztése',
+                            labelText: 'API Kulcs beillesztése',
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -357,6 +381,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                 children: matches.map((matchItem) {
                                                   final bool isLive = _isMatchLive(matchItem);
                                                   final bool isUpcoming = _isMatchUpcoming(matchItem);
+                                                  final String translatedStatus = StatPalHelper.translateStatus(matchItem.status);
+                                                  final String correctedTime = StatPalHelper.formatMatchTime(matchItem.time);
 
                                                   return InkWell(
                                                     onTap: () {
@@ -372,7 +398,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                       child: Row(
                                                         children: [
                                                           SizedBox(
-                                                            width: 65,
+                                                            width: 75,
                                                             child: Column(
                                                               crossAxisAlignment: CrossAxisAlignment.start,
                                                               children: [
@@ -388,19 +414,22 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                                           shape: BoxShape.circle,
                                                                         ),
                                                                       ),
-                                                                    Text(
-                                                                      isUpcoming ? 'Kezdés' : matchItem.status,
-                                                                      style: TextStyle(
-                                                                        color: isLive ? Colors.redAccent : Colors.grey,
-                                                                        fontWeight: FontWeight.bold,
-                                                                        fontSize: 12,
+                                                                    Expanded(
+                                                                      child: Text(
+                                                                        isUpcoming ? 'Kezdés' : translatedStatus,
+                                                                        style: TextStyle(
+                                                                          color: isLive ? Colors.redAccent : Colors.grey,
+                                                                          fontWeight: FontWeight.bold,
+                                                                          fontSize: 12,
+                                                                        ),
+                                                                        overflow: TextOverflow.ellipsis,
                                                                       ),
                                                                     ),
                                                                   ],
                                                                 ),
                                                                 const SizedBox(height: 2),
                                                                 Text(
-                                                                  matchItem.time,
+                                                                  correctedTime,
                                                                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                                                                 ),
                                                               ],
@@ -435,7 +464,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                                     borderRadius: BorderRadius.circular(8),
                                                                   ),
                                                                   child: Text(
-                                                                    matchItem.time,
+                                                                    correctedTime,
                                                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber),
                                                                   ),
                                                                 )
@@ -552,6 +581,9 @@ class MatchDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final translatedStatus = StatPalHelper.translateStatus(match.status);
+    final correctedTime = StatPalHelper.formatMatchTime(match.time);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('${match.home.name} vs ${match.away.name}', style: const TextStyle(fontSize: 14)),
@@ -568,7 +600,7 @@ class MatchDetailScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    Text('Státusz: ${match.status} (${match.time})', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    Text('Státusz: $translatedStatus ($correctedTime)', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
