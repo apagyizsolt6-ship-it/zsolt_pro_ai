@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Kategóriákra Bontott PRO Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Véglegesen Javított PRO Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -105,6 +105,31 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
     }
   }
 
+  // Segédfüggvény a meccs pontos állapotának megállapításához
+  bool _isMatchLive(dynamic match) {
+    final String status = (match.status ?? '').toString().toUpperCase();
+    // Ha a státusz időpont formátumú (pl. 17:00) vagy NS, akkor NEM élő
+    if (status.contains(':') || status == 'NS' || status == 'NOT STARTED' || status.isEmpty) {
+      return false;
+    }
+    // Ha kifejezetten véget ért
+    if (status == 'FT' || status == 'AET' || status == 'PEN' || status == 'FINISHED') {
+      return false;
+    }
+    // Minden egyéb esetben (1H, 2H, HT, élő percek számként) élőnek tekintjük
+    return true;
+  }
+
+  bool _isMatchFinished(dynamic match) {
+    final String status = (match.status ?? '').toString().toUpperCase();
+    return status == 'FT' || status == 'AET' || status == 'PEN' || status == 'FINISHED';
+  }
+
+  bool _isMatchUpcoming(dynamic match) {
+    final String status = (match.status ?? '').toString().toUpperCase();
+    return status == 'NS' || status == 'NOT STARTED' || status.contains(':') || status.isEmpty;
+  }
+
   @override
   void dispose() {
     _apiKeyController.dispose();
@@ -145,7 +170,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
         ),
         body: Consumer<StatPalProvider>(
           builder: (context, provider, child) {
-            // Szűrés keresésre és státuszra (Élő, Még nem kezdődött, Lejárt)
+            // Szűrés keresésre és helyes státusz logikára
             final filteredMatches = provider.liveMatches.where((match) {
               final home = match.home.name.toLowerCase();
               final away = match.away.name.toLowerCase();
@@ -155,9 +180,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
 
               if (!matchesSearch) return false;
 
-              final bool isLive = match.status != 'FT' && match.status != 'NS';
-              final bool isFinished = match.status == 'FT';
-              final bool isUpcoming = match.status == 'NS';
+              final bool isLive = _isMatchLive(match);
+              final bool isFinished = _isMatchFinished(match);
+              final bool isUpcoming = _isMatchUpcoming(match);
 
               if (_matchFilter == 'live') return isLive;
               if (_matchFilter == 'upcoming') return isUpcoming;
@@ -165,11 +190,11 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
               return true; // 'all'
             }).toList();
 
-            // Csoportosítás státusz szerint, helyes magyar elnevezésekkel
+            // Biztosított csoportosítás a javított logikával
             final Map<String, List<dynamic>> groupedMatches = {
-              'Zajló Élő Meccsek 🔴': filteredMatches.where((m) => m.status != 'FT' && m.status != 'NS').toList(),
-              'Következő Mérkőzések ⏰': filteredMatches.where((m) => m.status == 'NS').toList(),
-              'Végeredmény / Lejárt Meccsek (FT) ✔️': filteredMatches.where((m) => m.status == 'FT').toList(),
+              'Zajló Élő Meccsek 🔴': filteredMatches.where((m) => _isMatchLive(m)).toList(),
+              'Következő Mérkőzések ⏰': filteredMatches.where((m) => _isMatchUpcoming(m)).toList(),
+              'Végeredmény / Lejárt Meccsek (FT) ✔️': filteredMatches.where((m) => _isMatchFinished(m)).toList(),
             };
 
             final filteredLeagues = provider.leagues.where((league) {
@@ -223,7 +248,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // --- 1. ÉLŐ MECCSEK FÜL (Kategóriákkal és Szűrősávval) ---
+                      // --- 1. ÉLŐ MECCSEK FÜL ---
                       Column(
                         children: [
                           Padding(
@@ -246,7 +271,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                // Gyors szűrőgombok
                                 SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
@@ -305,8 +329,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.amber),
                                                 ),
                                                 children: matchesInGroup.map((match) {
-                                                  final bool isLive = match.status != 'FT' && match.status != 'NS';
-                                                  final bool isUpcoming = match.status == 'NS';
+                                                  final bool isLive = _isMatchLive(match);
+                                                  final bool isUpcoming = _isMatchUpcoming(match);
                                                   
                                                   final homeScore = match.home.goals?.toString() ?? match.home.score?.toString() ?? '0';
                                                   final awayScore = match.away.goals?.toString() ?? match.away.score?.toString() ?? '0';
@@ -342,11 +366,11 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                                         ),
                                                                       ),
                                                                     Text(
-                                                                      match.status,
+                                                                      isUpcoming ? 'Kezdés' : match.status,
                                                                       style: TextStyle(
                                                                         color: isLive ? Colors.redAccent : Colors.grey,
                                                                         fontWeight: FontWeight.bold,
-                                                                        fontSize: 13,
+                                                                        fontSize: 12,
                                                                       ),
                                                                     ),
                                                                   ],
