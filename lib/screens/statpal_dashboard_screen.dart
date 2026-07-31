@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Garanciális Zöld Build)
+// Zsolt Pro AI - StatPal Dashboard Screen (Bajnokságonkénti Lenyílós PRO Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -193,7 +193,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // --- 1. ÉLŐ MECCSEK FÜL ---
+                      // --- 1. ÉLŐ MECCSEK FÜL (BAJNOKSÁGONKÉNTI LENYÍLÓKKal) ---
                       Column(
                         children: [
                           Padding(
@@ -224,97 +224,120 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                         child: ListView.builder(
                                           padding: const EdgeInsets.symmetric(horizontal: 10),
                                           itemCount: provider.liveMatches.length,
-                                          itemBuilder: (context, index) {
-                                            final match = provider.liveMatches[index];
-                                            final bool isLive = match.status != 'FT' && match.status != 'NS';
-                                            final homeScore = match.home.score?.toString() ?? '0';
-                                            final awayScore = match.away.score?.toString() ?? '0';
+                                          itemBuilder: (context, leagueIndex) {
+                                            final leagueGroup = provider.liveMatches[leagueIndex];
+                                            final leagueName = leagueGroup.name ?? 'Ismeretlen Liga';
+                                            final matches = leagueGroup.matches ?? [];
+
+                                            // Keresés szűrés a ligán belüli meccsekre
+                                            final filteredMatches = matches.where((match) {
+                                              if (_matchSearchQuery.isEmpty) return true;
+                                              final home = match.home.name.toLowerCase();
+                                              final away = match.away.name.toLowerCase();
+                                              return home.contains(_matchSearchQuery) || away.contains(_matchSearchQuery);
+                                            }).toList();
+
+                                            if (filteredMatches.isEmpty && _matchSearchQuery.isNotEmpty) {
+                                              return const SizedBox.shrink();
+                                            }
 
                                             return Card(
-                                              margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
-                                              elevation: 2,
+                                              margin: const EdgeInsets.symmetric(vertical: 6),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                              child: InkWell(
-                                                borderRadius: BorderRadius.circular(12),
-                                                onTap: () {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) => MatchDetailScreen(match: match),
-                                                    ),
-                                                  );
-                                                },
-                                                child: Padding(
-                                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                                  child: Row(
-                                                    children: [
-                                                      SizedBox(
-                                                        width: 65,
-                                                        child: Column(
-                                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                                          children: [
-                                                            Row(
+                                              child: ExpansionTile(
+                                                initiallyExpanded: true,
+                                                title: Text(
+                                                  leagueName,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.amber),
+                                                ),
+                                                subtitle: Text('Ország: ${leagueGroup.country?.toUpperCase() ?? ""} | ${filteredMatches.length} meccs', style: const TextStyle(fontSize: 12)),
+                                                children: filteredMatches.map((match) {
+                                                  final bool isLive = match.status != 'FT' && match.status != 'NS';
+                                                  final homeGoals = match.home.goals?.toString() ?? '0';
+                                                  final awayGoals = match.away.goals?.toString() ?? '0';
+
+                                                  return InkWell(
+                                                    onTap: () {
+                                                      Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (_) => MatchDetailScreen(match: match),
+                                                        ),
+                                                      );
+                                                    },
+                                                    child: Padding(
+                                                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                                                      child: Row(
+                                                        children: [
+                                                          SizedBox(
+                                                            width: 65,
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
                                                               children: [
-                                                                if (isLive)
-                                                                  Container(
-                                                                    width: 7,
-                                                                    height: 7,
-                                                                    margin: const EdgeInsets.only(right: 4),
-                                                                    decoration: const BoxDecoration(
-                                                                      color: Colors.red,
-                                                                      shape: BoxShape.circle,
+                                                                Row(
+                                                                  children: [
+                                                                    if (isLive)
+                                                                      Container(
+                                                                        width: 7,
+                                                                        height: 7,
+                                                                        margin: const EdgeInsets.only(right: 4),
+                                                                        decoration: const BoxDecoration(
+                                                                          color: Colors.red,
+                                                                          shape: BoxShape.circle,
+                                                                        ),
+                                                                      ),
+                                                                    Text(
+                                                                      match.status,
+                                                                      style: TextStyle(
+                                                                        color: isLive ? Colors.redAccent : Colors.grey,
+                                                                        fontWeight: FontWeight.bold,
+                                                                        fontSize: 13,
+                                                                      ),
                                                                     ),
-                                                                  ),
+                                                                  ],
+                                                                ),
+                                                                const SizedBox(height: 2),
                                                                 Text(
-                                                                  match.status,
-                                                                  style: TextStyle(
-                                                                    color: isLive ? Colors.redAccent : Colors.grey,
-                                                                    fontWeight: FontWeight.bold,
-                                                                    fontSize: 13,
-                                                                  ),
+                                                                  match.time,
+                                                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
                                                                 ),
                                                               ],
                                                             ),
-                                                            const SizedBox(height: 2),
-                                                            Text(
-                                                              match.time,
-                                                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                                          ),
+                                                          const VerticalDivider(width: 15),
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Text(
+                                                                  match.home.name,
+                                                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colors.onSurface),
+                                                                  maxLines: 1,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                ),
+                                                                const SizedBox(height: 4),
+                                                                Text(
+                                                                  match.away.name,
+                                                                  style: TextStyle(fontSize: 14, color: colors.onSurface.withValues(alpha: 0.85)),
+                                                                  maxLines: 1,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                ),
+                                                              ],
                                                             ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      const VerticalDivider(width: 15),
-                                                      Expanded(
-                                                        child: Column(
-                                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                                          children: [
-                                                            Text(
-                                                              match.home.name,
-                                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colors.onSurface),
-                                                              maxLines: 1,
-                                                              overflow: TextOverflow.ellipsis,
-                                                            ),
-                                                            const SizedBox(height: 4),
-                                                            Text(
-                                                              match.away.name,
-                                                              style: TextStyle(fontSize: 14, color: colors.onSurface.withValues(alpha: 0.85)),
-                                                              maxLines: 1,
-                                                              overflow: TextOverflow.ellipsis,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                                        children: [
-                                                          Text(homeScore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                                          const SizedBox(height: 4),
-                                                          Text(awayScore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                          ),
+                                                          Column(
+                                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                                            children: [
+                                                              Text(homeGoals, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                              const SizedBox(height: 4),
+                                                              Text(awayGoals, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                            ],
+                                                          ),
                                                         ],
                                                       ),
-                                                    ],
-                                                  ),
-                                                ),
+                                                    ),
+                                                  );
+                                                }).toList(),
                                               ),
                                             );
                                           },
@@ -324,7 +347,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                         ],
                       ),
 
-                      // --- 2. LIGÁK FÜL ---
+                      // --- 2. LIGÁK FÜL (KERESŐVEL) ---
                       Column(
                         children: [
                           Padding(
@@ -410,7 +433,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
 }
 
 // ============================================================================
-// Részletes Meccs Elemző Képernyő
+// RÉSZLETES MECCS ELEMZŐ KÉPERNYŐ
 // ============================================================================
 class MatchDetailScreen extends StatelessWidget {
   final dynamic match;
@@ -419,8 +442,8 @@ class MatchDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final homeScore = match.home.score?.toString() ?? '0';
-    final awayScore = match.away.score?.toString() ?? '0';
+    final homeGoals = match.home.goals?.toString() ?? '0';
+    final awayGoals = match.away.goals?.toString() ?? '0';
 
     return Scaffold(
       appBar: AppBar(
@@ -438,16 +461,20 @@ class MatchDetailScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    Text('Státusz: ${match.status} (${match.time})', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    Text('Státusz: ${match.status} (${match.date} ${match.time})', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Expanded(child: Text(match.home.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                        Text('$homeScore : $awayScore', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
+                        Text('$homeGoals : $awayGoals', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
                         Expanded(child: Text(match.away.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
                       ],
                     ),
+                    if (match.venue != null && match.venue.toString().isNotEmpty) ...[
+                      const SizedBox(height: 15),
+                      Text('Helyszín: ${match.venue}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    ]
                   ],
                 ),
               ),
@@ -473,7 +500,7 @@ class MatchDetailScreen extends StatelessWidget {
 }
 
 // ============================================================================
-// Tabella Képernyő
+// TABELLA KÉPERNYŐ (Javított, robusztus adatkezeléssel)
 // ============================================================================
 class LeagueStandingsScreen extends StatelessWidget {
   final String leagueName;
@@ -502,7 +529,7 @@ class LeagueStandingsScreen extends StatelessWidget {
                     const Icon(Icons.info_outline, size: 48, color: Colors.amber),
                     const SizedBox(height: 12),
                     Text(
-                      'Ehhez a ligához ($leagueName) jelenleg nem érhető el tabella az API-n keresztül, vagy az adott idény adatai zártak.',
+                      'A(z) $leagueName ligához jelenleg nem érhető el aktív tabella az API-n keresztül (lehet, hogy kupa forduló zajlik vagy az idény szünetel).',
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.grey, fontSize: 15),
                     ),
