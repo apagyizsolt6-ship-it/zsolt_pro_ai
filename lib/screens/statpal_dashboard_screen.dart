@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Linter-Barát Végleges Verzió)
+// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Valós AI Predikcióval)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -18,7 +18,7 @@ class StatPalHelper {
     if (status == 'AET') return 'Hossz. után';
     if (status == 'PEN' || status == 'TIZI') return 'Büntetők';
     if (status.contains('POSTP')) return 'Elhalasztva';
-    if (status.contains('CANCL') || status.contains('CANC')) return 'Törölve';
+    if (status.contains('CANCL' ) || status.contains('CANC')) return 'Törölve';
     if (status.contains('SUSP')) return 'Felfüggesztve';
     if (status.contains('PEN.')) return 'Büntető';
     return rawStatus;
@@ -432,11 +432,25 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   final String correctedTime = StatPalHelper.formatMatchTime(matchItem.time);
 
                                                   return InkWell(
-                                                    onTap: () {
+                                                    onTap: () async {
+                                                      showDialog(
+                                                        context: context,
+                                                        barrierDismissible: false,
+                                                        builder: (_) => const Center(child: CircularProgressIndicator()),
+                                                      );
+
+                                                      await provider.loadPrediction(matchItem.id);
+
+                                                      if (!context.mounted) return;
+                                                      Navigator.pop(context);
+
                                                       Navigator.push(
                                                         context,
                                                         MaterialPageRoute(
-                                                          builder: (_) => MatchDetailScreen(match: matchItem),
+                                                          builder: (_) => MatchDetailScreen(
+                                                            match: matchItem,
+                                                            prediction: provider.currentPrediction,
+                                                          ),
                                                         ),
                                                       );
                                                     },
@@ -624,8 +638,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
 
 class MatchDetailScreen extends StatelessWidget {
   final dynamic match;
+  final StatPrediction? prediction;
 
-  const MatchDetailScreen({super.key, required this.match});
+  const MatchDetailScreen({super.key, required this.match, this.prediction});
 
   @override
   Widget build(BuildContext context) {
@@ -637,7 +652,7 @@ class MatchDetailScreen extends StatelessWidget {
         title: Text('${match.home.name} vs ${match.away.name}', style: const TextStyle(fontSize: 14)),
         centerTitle: true,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
@@ -663,18 +678,70 @@ class MatchDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            const Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.analytics, size: 64, color: Colors.grey),
-                    SizedBox(height: 12),
-                    Text('Részletes AI statisztikák és esélyek hamarosan...', style: TextStyle(color: Colors.grey, fontSize: 15)),
-                  ],
+            if (prediction != null) ...[
+              Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.analytics, color: Colors.amber),
+                          SizedBox(width: 8),
+                          Text('AI Előrejelzés & Esélyek', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        ],
+                      ),
+                      const Divider(height: 20),
+                      if (prediction!.advice.isNotEmpty) ...[
+                        Text('Tipp: ${prediction!.advice}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 15)),
+                        const SizedBox(height: 12),
+                      ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Hazai (1):'),
+                          Text('${prediction!.homePercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Döntetlen (X):'),
+                          Text('${prediction!.drawPercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Vendég (2):'),
+                          Text('${prediction!.awayPercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ] else ...[
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.info_outline, size: 48, color: Colors.amber),
+                        SizedBox(height: 12),
+                        Text('Ehhez a mérkőzéshez jelenleg nem érhető el részletes AI predikció.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
