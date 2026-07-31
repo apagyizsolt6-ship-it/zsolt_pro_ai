@@ -184,8 +184,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
             }).toList();
 
             filteredMatches.sort((a, b) {
-              final timeA = (a.time ?? '').toString();
-              final timeB = (b.time ?? '').toString();
+              final homeGoalsStr = match.home.goals.toString();
+              final awayGoalsStr = match.away.goals.toString();
+
               return timeA.compareTo(timeB);
             });
 
