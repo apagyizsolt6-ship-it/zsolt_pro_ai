@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Véglegesen Linter-Biztos Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Teljesen Hibamentes PRO Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -333,9 +333,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   final bool isLive = _isMatchLive(match);
                                                   final bool isUpcoming = _isMatchUpcoming(match);
                                                   
-                                                  // Linter-barát biztonságos kiolvasás (nincs felesleges null check)
-                                                  final homeScore = match.home.goals?.toString() ?? '0';
-                                                  final awayScore = match.away.goals?.toString() ?? '0';
+                                                  // Teljesen linter-kompatibilis kiolvasás
+                                                  final homeScore = match.home.goals.toString();
+                                                  final awayScore = match.away.goals.toString();
 
                                                   return InkWell(
                                                     onTap: () {
@@ -535,8 +535,8 @@ class MatchDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final homeScore = match.home.goals?.toString() ?? '0';
-    final awayScore = match.away.goals?.toString() ?? '0';
+    final homeScore = match.home.goals.toString();
+    final awayScore = match.away.goals.toString();
 
     return Scaffold(
       appBar: AppBar(
