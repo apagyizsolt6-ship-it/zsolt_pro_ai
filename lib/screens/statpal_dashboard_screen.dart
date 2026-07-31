@@ -38,7 +38,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   String _matchSearchQuery = '';
   String _leagueSearchQuery = '';
   
-  // Szűrő mód: 'all' = összes, 'live' = csak élő, 'upcoming' = maiek, 'finished' = véget ért
+  // Szűrő mód: 'all' = összes, 'live' = csak élő, 'upcoming' = következő, 'finished' = véget ért
   String _matchFilter = 'all';
 
   @override
@@ -165,11 +165,11 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
               return true; // 'all'
             }).toList();
 
-            // Csoportosítás státusz szerint, hogy rendezett szekciók legyenek
+            // Csoportosítás státusz szerint, helyes magyar elnevezésekkel
             final Map<String, List<dynamic>> groupedMatches = {
               'Zajló Élő Meccsek 🔴': filteredMatches.where((m) => m.status != 'FT' && m.status != 'NS').toList(),
               'Következő Mérkőzések ⏰': filteredMatches.where((m) => m.status == 'NS').toList(),
-              'Vért Ért / Lejárt Meccsek (FT) ✔️': filteredMatches.where((m) => m.status == 'FT').toList(),
+              'Végeredmény / Lejárt Meccsek (FT) ✔️': filteredMatches.where((m) => m.status == 'FT').toList(),
             };
 
             final filteredLeagues = provider.leagues.where((league) {
@@ -306,6 +306,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                 ),
                                                 children: matchesInGroup.map((match) {
                                                   final bool isLive = match.status != 'FT' && match.status != 'NS';
+                                                  final bool isUpcoming = match.status == 'NS';
+                                                  
                                                   final homeScore = match.home.goals?.toString() ?? match.home.score?.toString() ?? '0';
                                                   final awayScore = match.away.goals?.toString() ?? match.away.score?.toString() ?? '0';
 
@@ -378,14 +380,26 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                               ],
                                                             ),
                                                           ),
-                                                          Column(
-                                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                                            children: [
-                                                              Text(homeScore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                                              const SizedBox(height: 4),
-                                                              Text(awayScore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                                            ],
-                                                          ),
+                                                          isUpcoming
+                                                              ? Container(
+                                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                                  decoration: BoxDecoration(
+                                                                    color: Colors.amber.withValues(alpha: 0.15),
+                                                                    borderRadius: BorderRadius.circular(8),
+                                                                  ),
+                                                                  child: Text(
+                                                                    match.time,
+                                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber),
+                                                                  ),
+                                                                )
+                                                              : Column(
+                                                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                                                  children: [
+                                                                    Text(homeScore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                                    const SizedBox(height: 4),
+                                                                    Text(awayScore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                                  ],
+                                                                ),
                                                         ],
                                                       ),
                                                     ),
