@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Eredmények.com Stílusú Liga Csoportosítás)
+// Zsolt Pro AI - StatPal Dashboard Screen (Linter-Barát Végleges Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -37,7 +37,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   bool _showSettings = false;
   String _matchSearchQuery = '';
   String _leagueSearchQuery = '';
-  String _matchFilter = 'all'; // 'all', 'live', 'upcoming', 'finished'
+  String _matchFilter = 'all';
 
   @override
   void initState() {
@@ -103,10 +103,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
     }
   }
 
-  // Szigorú státusz-szűrők az API adatai alapján
   bool _isMatchLive(dynamic match) {
     final String status = (match.status ?? '').toString().toUpperCase();
-    // Kizárjuk a nem élő vagy speciális státuszokat
     if (status.isEmpty || status == 'NS' || status == 'NOT STARTED' || status.contains(':')) return false;
     if (status == 'FT' || status == 'AET' || status == 'PEN' || status == 'FINISHED') return false;
     if (status.contains('POSTP') || status.contains('CANCL') || status.contains('CANC')) return false;
@@ -163,7 +161,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
         ),
         body: Consumer<StatPalProvider>(
           builder: (context, provider, child) {
-            // Ligák szerinti csoportosítás szűrése és feldolgozása
             final List<Map<String, dynamic>> filteredLeagueGroups = [];
 
             for (var rawLeague in provider.rawLiveMatchesGroups) {
@@ -179,7 +176,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
               for (var mJson in matchesList) {
                 final matchObj = StatMatch.fromJson(mJson);
                 
-                // Csapat keresés szűrés
                 final home = matchObj.home.name.toLowerCase();
                 final away = matchObj.away.name.toLowerCase();
                 final matchesSearch = _matchSearchQuery.isEmpty || 
@@ -188,15 +184,18 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
 
                 if (!matchesSearch) continue;
 
-                // Tab / Fül szerinti szűrés
                 final bool isLive = _isMatchLive(matchObj);
                 final bool isFinished = _isMatchFinished(matchObj);
                 final bool isUpcoming = _isMatchUpcoming(matchObj);
 
                 bool passesFilter = true;
-                if (_matchFilter == 'live') passesFilter = isLive;
-                else if (_matchFilter == 'upcoming') passesFilter = isUpcoming;
-                else if (_matchFilter == 'finished') passesFilter = isFinished;
+                if (_matchFilter == 'live') {
+                  passesFilter = isLive;
+                } else if (_matchFilter == 'upcoming') {
+                  passesFilter = isUpcoming;
+                } else if (_matchFilter == 'finished') {
+                  passesFilter = isFinished;
+                }
 
                 if (passesFilter) {
                   matchedMeccsek.add(matchObj);
@@ -204,7 +203,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
               }
 
               if (matchedMeccsek.isNotEmpty) {
-                // Időpont szerinti rendezés az adott ligán belül
                 matchedMeccsek.sort((a, b) => a.time.compareTo(b.time));
                 filteredLeagueGroups.add({
                   'id': leagueId,
@@ -266,7 +264,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      // 1. FÜL: Meccsek (Eredmények.com stílusú liga csoportosítással)
                       Column(
                         children: [
                           Padding(
@@ -464,7 +461,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                         ],
                       ),
 
-                      // 2. FÜL: Ligák & Tabellák
                       Column(
                         children: [
                           Padding(
