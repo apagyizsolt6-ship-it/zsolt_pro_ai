@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard Screen (Véglegesen Javított PRO Verzió)
+// Zsolt Pro AI - StatPal Dashboard Screen (Végleges, Teljesen Tiszta Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -164,18 +164,18 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
         ),
         body: Consumer<StatPalProvider>(
           builder: (context, provider, child) {
-            final filteredMatches = provider.liveMatches.where((match) {
-              final home = match.home.name.toLowerCase();
-              final away = match.away.name.toLowerCase();
+            final filteredMatches = provider.liveMatches.where((matchItem) {
+              final home = matchItem.home.name.toLowerCase();
+              final away = matchItem.away.name.toLowerCase();
               final matchesSearch = _matchSearchQuery.isEmpty || 
                   home.contains(_matchSearchQuery) || 
                   away.contains(_matchSearchQuery);
 
               if (!matchesSearch) return false;
 
-              final bool isLive = _isMatchLive(match);
-              final bool isFinished = _isMatchFinished(match);
-              final bool isUpcoming = _isMatchUpcoming(match);
+              final bool isLive = _isMatchLive(matchItem);
+              final bool isFinished = _isMatchFinished(matchItem);
+              final bool isUpcoming = _isMatchUpcoming(matchItem);
 
               if (_matchFilter == 'live') return isLive;
               if (_matchFilter == 'upcoming') return isUpcoming;
@@ -184,10 +184,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
             }).toList();
 
             filteredMatches.sort((a, b) {
-              final homeGoalsStr = match.home.goals.toString();
-              final awayGoalsStr = match.away.goals.toString();
-
-              return timeA.compareTo(timeB);
+              final tA = a.time.toString();
+              final tB = b.time.toString();
+              return tA.compareTo(tB);
             });
 
             final Map<String, List<dynamic>> groupedMatches = {
@@ -326,16 +325,16 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   '$sectionTitle (${matchesInGroup.length})',
                                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.amber),
                                                 ),
-                                                children: matchesInGroup.map((match) {
-                                                  final bool isLive = _isMatchLive(match);
-                                                  final bool isUpcoming = _isMatchUpcoming(match);
-                                                  
+                                                children: matchesInGroup.map((matchItem) {
+                                                  final bool isLive = _isMatchLive(matchItem);
+                                                  final bool isUpcoming = _isMatchUpcoming(matchItem);
+
                                                   return InkWell(
                                                     onTap: () {
                                                       Navigator.push(
                                                         context,
                                                         MaterialPageRoute(
-                                                          builder: (_) => MatchDetailScreen(match: match),
+                                                          builder: (_) => MatchDetailScreen(match: matchItem),
                                                         ),
                                                       );
                                                     },
@@ -361,7 +360,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                                         ),
                                                                       ),
                                                                     Text(
-                                                                      isUpcoming ? 'Kezdés' : match.status,
+                                                                      isUpcoming ? 'Kezdés' : matchItem.status,
                                                                       style: TextStyle(
                                                                         color: isLive ? Colors.redAccent : Colors.grey,
                                                                         fontWeight: FontWeight.bold,
@@ -372,7 +371,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                                 ),
                                                                 const SizedBox(height: 2),
                                                                 Text(
-                                                                  match.time,
+                                                                  matchItem.time,
                                                                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                                                                 ),
                                                               ],
@@ -384,14 +383,14 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                               crossAxisAlignment: CrossAxisAlignment.start,
                                                               children: [
                                                                 Text(
-                                                                  match.home.name,
+                                                                  matchItem.home.name,
                                                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colors.onSurface),
                                                                   maxLines: 1,
                                                                   overflow: TextOverflow.ellipsis,
                                                                 ),
                                                                 const SizedBox(height: 4),
                                                                 Text(
-                                                                  match.away.name,
+                                                                  matchItem.away.name,
                                                                   style: TextStyle(fontSize: 14, color: colors.onSurface.withValues(alpha: 0.85)),
                                                                   maxLines: 1,
                                                                   overflow: TextOverflow.ellipsis,
@@ -407,16 +406,16 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                                     borderRadius: BorderRadius.circular(8),
                                                                   ),
                                                                   child: Text(
-                                                                    match.time,
+                                                                    matchItem.time,
                                                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber),
                                                                   ),
                                                                 )
                                                               : Column(
                                                                   crossAxisAlignment: CrossAxisAlignment.end,
                                                                   children: [
-                                                                    Text('${match.home.goals}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                                    Text('${matchItem.home.goals}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                                                     const SizedBox(height: 4),
-                                                                    Text('${match.away.goals}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                                    Text('${matchItem.away.goals}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                                                   ],
                                                                 ),
                                                         ],
