@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Végleges, Hibamentes Verzió)
+// Zsolt Pro AI - StatPal Dashboard & Match Detail Screen (Azonnali Navigációs Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -432,27 +432,12 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                   final String correctedTime = StatPalHelper.formatMatchTime(matchItem.time);
 
                                                   return InkWell(
-                                                    onTap: () async {
-                                                      showDialog(
-                                                        context: context,
-                                                        barrierDismissible: false,
-                                                        builder: (_) => const Center(child: CircularProgressIndicator()),
-                                                      );
-
-                                                      try {
-                                                        await provider.loadPrediction(matchItem.id);
-                                                      } catch (_) {}
-
-                                                      if (!context.mounted) return;
-                                                      Navigator.pop(context);
-
+                                                    onTap: () {
+                                                      // Azonnali navigáció letiltott előtöltés nélkül, hogy ne akadjon el
                                                       Navigator.push(
                                                         context,
                                                         MaterialPageRoute(
-                                                          builder: (_) => MatchDetailScreen(
-                                                            match: matchItem,
-                                                            prediction: provider.currentPrediction,
-                                                          ),
+                                                          builder: (_) => MatchDetailScreen(match: matchItem),
                                                         ),
                                                       );
                                                     },
@@ -638,20 +623,52 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   }
 }
 
-class MatchDetailScreen extends StatelessWidget {
+class MatchDetailScreen extends StatefulWidget {
   final dynamic match;
-  final StatPrediction? prediction;
 
-  const MatchDetailScreen({super.key, required this.match, this.prediction});
+  const MatchDetailScreen({super.key, required this.match});
+
+  @override
+  State<MatchDetailScreen> createState() => _MatchDetailScreenState();
+}
+
+class _MatchDetailScreenState extends State<MatchDetailScreen> {
+  bool _isLoadingPrediction = true;
+  StatPrediction? _prediction;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPrediction();
+  }
+
+  Future<void> _fetchPrediction() async {
+    try {
+      final provider = Provider.of<StatPalProvider>(context, listen: false);
+      await provider.loadPrediction(widget.match.id);
+      if (mounted) {
+        setState(() {
+          _prediction = provider.currentPrediction;
+          _isLoadingPrediction = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingPrediction = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final translatedStatus = StatPalHelper.translateStatus(match.status);
-    final correctedTime = StatPalHelper.formatMatchTime(match.time);
+    final translatedStatus = StatPalHelper.translateStatus(widget.match.status);
+    final correctedTime = StatPalHelper.formatMatchTime(widget.match.time);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${match.home.name} vs ${match.away.name}', style: const TextStyle(fontSize: 14)),
+        title: Text('${widget.match.home.name} vs ${widget.match.away.name}', style: const TextStyle(fontSize: 14)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -670,9 +687,9 @@ class MatchDetailScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        Expanded(child: Text(match.home.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                        Text('${match.home.goals ?? 0} : ${match.away.goals ?? 0}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
-                        Expanded(child: Text(match.away.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                        Expanded(child: Text(widget.match.home.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                        Text('${widget.match.home.goals ?? 0} : ${widget.match.away.goals ?? 0}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
+                        Expanded(child: Text(widget.match.away.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
                       ],
                     ),
                   ],
@@ -680,7 +697,12 @@ class MatchDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            if (prediction != null) ...[
+            if (_isLoadingPrediction)
+              const Padding(
+                padding: EdgeInsets.all(40.0),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_prediction != null)
               Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -697,15 +719,15 @@ class MatchDetailScreen extends StatelessWidget {
                         ],
                       ),
                       const Divider(height: 20),
-                      if (prediction!.advice.isNotEmpty) ...[
-                        Text('Tipp: ${prediction!.advice}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 15)),
+                      if (_prediction!.advice.isNotEmpty) ...[
+                        Text('Tipp: ${_prediction!.advice}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 15)),
                         const SizedBox(height: 12),
                       ],
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Hazai (1):'),
-                          Text('${prediction!.homePercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${_prediction!.homePercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -713,7 +735,7 @@ class MatchDetailScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Döntetlen (X):'),
-                          Text('${prediction!.drawPercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${_prediction!.drawPercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -721,14 +743,14 @@ class MatchDetailScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Vendég (2):'),
-                          Text('${prediction!.awayPercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${_prediction!.awayPercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ],
                   ),
                 ),
-              ),
-            ] else ...[
+              )
+            else
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(24.0),
@@ -743,7 +765,6 @@ class MatchDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
           ],
         ),
       ),
