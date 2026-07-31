@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Provider / Controller (Teljes fájl)
+// Zsolt Pro AI - StatPal Provider / Controller (Frissített Teljes Fájl)
 // File: lib/providers/statpal_provider.dart
 // ============================================================================
 
@@ -19,6 +19,10 @@ class StatPalProvider with ChangeNotifier {
 
   List<StatMatch> _liveMatches = [];
   List<StatMatch> get liveMatches => _liveMatches;
+
+  // Új tároló a ligák szerinti csoportosításhoz
+  List<Map<String, dynamic>> _rawLiveMatchesGroups = [];
+  List<Map<String, dynamic>> get rawLiveMatchesGroups => _rawLiveMatchesGroups;
 
   List<StatStandingTeam> _standings = [];
   List<StatStandingTeam> get standings => _standings;
@@ -46,8 +50,10 @@ class StatPalProvider with ChangeNotifier {
       final rawLeagues = await StatPalService.instance.fetchLeagues();
       _leagues = rawLeagues.map((json) => StatLeague.fromJson(json)).toList();
 
-      // Élő meccsek lekérése
+      // Élő meccsek és ligacsoportok lekérése
       final rawLive = await StatPalService.instance.fetchLiveMatches();
+      _rawLiveMatchesGroups = rawLive; // Mentjük a nyers csoportokat a nézethez
+
       _liveMatches = [];
       for (var leagueGroup in rawLive) {
         if (leagueGroup['match'] is List) {
