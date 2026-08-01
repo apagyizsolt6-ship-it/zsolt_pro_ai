@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Home Screen (Teljesen Linter-Kompatibilis Verzió)
+// Zsolt Pro AI - Home Screen
 // File: lib/screens/home_screen.dart
 // ============================================================================
 
@@ -24,7 +24,6 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Üdvözlő kártya
             Container(
               padding: const EdgeInsets.all(20.0),
               decoration: BoxDecoration(
@@ -57,14 +56,11 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
             const Text(
               'Gyorsmenü',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
             ),
             const SizedBox(height: 12),
-
-            // AI Top 5 kártya
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -74,13 +70,11 @@ class HomeScreen extends StatelessWidget {
                 subtitle: const Text('A legjobb AI tippek'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  Navigator.push(context, const MaterialPageRoute(builder: context => AITop5Screen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AITop5Screen()));
                 },
               ),
             ),
             const SizedBox(height: 10),
-
-            // ÖSSZEVONT KÁRTYA: Meccsek, Élő & Ligák
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -101,13 +95,11 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
                 onTap: () {
-                  Navigator.push(context, const MaterialPageRoute(builder: context => StatPalDashboardScreen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const StatPalDashboardScreen()));
                 },
               ),
             ),
             const SizedBox(height: 10),
-
-            // Szelvény kártya
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -122,14 +114,11 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
             const Text(
               'Tőke & Menedzsment',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
             ),
             const SizedBox(height: 12),
-
-            // Smart Bankroll & ROI kártya
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
