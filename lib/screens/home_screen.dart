@@ -1,454 +1,161 @@
-// ===========================================
-// Zsolt Pro AI
-// Version: v0.31.0 - Clean Home with StatPal Integration
+// ============================================================================
+// Zsolt Pro AI - Home Screen (Összevont Meccsek & Ligák Kártyával)
 // File: lib/screens/home_screen.dart
-// ===========================================
+// ============================================================================
 
 import 'package:flutter/material.dart';
-
+import 'matches_screen.dart'; // vagy a megfelelő meccsek/ligák képernyő importja
 import 'ai_top5_screen.dart';
-import 'bankroll_screen.dart';
 import 'betslip_screen.dart';
-import 'matches_screen.dart';
+import 'bankroll_screen.dart';
 import 'settings_screen.dart';
-import 'statpal_dashboard_screen.dart'; // <--- StatPal import hozzáadva
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({
-    super.key,
-  });
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Zsolt Pro AI',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('Zsolt Pro AI', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            28,
-          ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeaderCard(
-              colors,
+            // Üdvözlő kártya
+            Container(
+              padding: const EdgeInsets.all(20.0),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Colors.blueAccent, Colors.purpleAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: const [
+                  Text(
+                    'Üdv a Zsolt Pro AI alkalmazásban!',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Magyar nyelvű AI sportfogadási elemző- és tőkekezelő rendszer',
+                    style: TextStyle(fontSize: 13, color: Colors.white70),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 12),
+                  Chip(
+                    label: Text('Smart Bankroll + ROI + StatPal', style: TextStyle(fontSize: 12)),
+                    backgroundColor: Colors.white24,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
-            const _SectionHeader(
-              icon: Icons.dashboard_outlined,
-              title: 'Gyorsmenü',
+
+            const Text(
+              'Gyorsmenü',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
             ),
             const SizedBox(height: 12),
-            _MenuCard(
-              icon: Icons.psychology,
-              title: 'AI Top 5',
-              subtitle: 'A legjobb AI tippek',
-              onTap: () {
-                _openScreen(
-                  context: context,
-                  screen: const AITop5Screen(),
-                );
-              },
+
+            // AI Top 5 kártya
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading: const Icon(Icons.psychology, color: Colors.amber, size: 28),
+                title: const Text('AI Top 5', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('A legjobb AI tippek'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AiTop5Screen()));
+                },
+              ),
             ),
-            _MenuCard(
-              icon: Icons.sports_soccer,
-              title: 'Meccsek és Kedvencek',
-              subtitle:
-                  'Mai meccsek, élő eredmények és kedvenc ligák',
-              onTap: () {
-                _openScreen(
-                  context: context,
-                  screen: const MatchesScreen(),
-                );
-              },
+            const SizedBox(height: 10),
+
+            // ÖSSZEVONT KÁRTYA: Meccsek, Élő & Ligák
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading: const Icon(Icons.sports_soccer, color: Colors.amber, size: 28),
+                title: const Text('Meccsek, Élő & Ligák', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Mai meccsek, élő eredmények, tabellák és kedvenc ligák'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Chip(
+                      label: Text('LIVE', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                      backgroundColor: Colors.red,
+                      padding: EdgeInsets.zero,
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const MatchesScreen()));
+                },
+              ),
             ),
-            _MenuCard(
-              icon: Icons.receipt_long,
-              title: 'Szelvény',
-              subtitle: 'Fogadásaid kezelése',
-              onTap: () {
-                _openScreen(
-                  context: context,
-                  screen: const BetslipScreen(),
-                );
-              },
+            const SizedBox(height: 10),
+
+            // Szelvény kártya
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading: const Icon(Icons.receipt_long, color: Colors.amber, size: 28),
+                title: const Text('Szelvény', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Fogadásaid kezelése'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const BetslipScreen()));
+                },
+              ),
             ),
-            const SizedBox(height: 12),
-            const _SectionHeader(
-              icon: Icons.sports,
-              title: 'StatPal Élő & Elemzések',
-            ),
-            const SizedBox(height: 12),
-            _MenuCard(
-              icon: Icons.sports_score,
-              title: 'StatPal Élő & Ligák',
-              subtitle: 'Élő meccsek, tabellák és mérkőzés előrejelzések',
-              badgeText: 'LIVE',
-              badgeColor: Colors.blueAccent,
-              onTap: () {
-                _openScreen(
-                  context: context,
-                  screen: const StatPalDashboardScreen(),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            const _SectionHeader(
-              icon: Icons.account_balance_wallet_outlined,
-              title: 'Tőke & Menedzsment',
-            ),
-            const SizedBox(height: 12),
-            _MenuCard(
-              icon: Icons.savings_outlined,
-              title: 'Smart Bankroll & ROI',
-              subtitle:
-                  'Virtuális egyenleg, fogadási előzmények és ROI statisztikák',
-              badgeText: 'PRO',
-              badgeColor: Colors.green,
-              onTap: () {
-                _openScreen(
-                  context: context,
-                  screen: const BankrollScreen(),
-                );
-              },
+            const SizedBox(height: 24),
+
+            const Text(
+              'Tőke & Menedzsment',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
             ),
             const SizedBox(height: 12),
-            const _SectionHeader(
-              icon: Icons.settings_outlined,
-              title: 'Alkalmazás',
-            ),
-            const SizedBox(height: 12),
-            _MenuCard(
-              icon: Icons.settings,
-              title: 'Beállítások',
-              subtitle:
-                  'Alkalmazás beállításai',
-              onTap: () {
-                _openScreen(
-                  context: context,
-                  screen: const SettingsScreen(),
-                );
-              },
+
+            // Smart Bankroll & ROI kártya
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading: const Icon(Icons.account_balance_wallet, color: Colors.amber, size: 28),
+                title: const Text('Smart Bankroll & ROI', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Virtuális egyenleg, fogadási előzmények és ROI statisztikák'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Chip(
+                      label: Text('PRO', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                      backgroundColor: Colors.green,
+                      padding: EdgeInsets.zero,
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const BankrollScreen()));
+                },
+              ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderCard(
-    ColorScheme colors,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(
-        20,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            colors.primary,
-            colors.tertiary,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(
-          22,
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: colors.primary.withValues(
-              alpha: 0.25,
-            ),
-            blurRadius: 18,
-            offset: const Offset(
-              0,
-              8,
-            ),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              color: colors.onPrimary.withValues(
-                alpha: 0.16,
-              ),
-              borderRadius: BorderRadius.circular(
-                22,
-              ),
-              border: Border.all(
-                color: colors.onPrimary.withValues(
-                  alpha: 0.30,
-                ),
-              ),
-            ),
-            child: Icon(
-              Icons.psychology,
-              color: colors.onPrimary,
-              size: 48,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Üdv a Zsolt Pro AI alkalmazásban!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colors.onPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Magyar nyelvű AI sportfogadási '
-            'elemző- és tőkekezelő rendszer',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colors.onPrimary.withValues(
-                alpha: 0.92,
-              ),
-              fontSize: 15,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 9,
-            ),
-            decoration: BoxDecoration(
-              color: colors.onPrimary.withValues(
-                alpha: 0.14,
-              ),
-              borderRadius: BorderRadius.circular(
-                18,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.verified_outlined,
-                  size: 19,
-                  color: colors.onPrimary,
-                ),
-                const SizedBox(width: 7),
-                Text(
-                  'Smart Bankroll + ROI + StatPal',
-                  style: TextStyle(
-                    color: colors.onPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openScreen({
-    required BuildContext context,
-    required Widget screen,
-  }) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (
-          BuildContext context,
-        ) {
-          return screen;
-        },
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final IconData icon;
-  final String title;
-
-  const _SectionHeader({
-    required this.icon,
-    required this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: colors.primaryContainer,
-            borderRadius: BorderRadius.circular(
-              11,
-            ),
-          ),
-          child: Icon(
-            icon,
-            size: 21,
-            color: colors.onPrimaryContainer,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MenuCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String? badgeText;
-  final Color? badgeColor;
-  final VoidCallback onTap;
-
-  const _MenuCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.badgeText,
-    this.badgeColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme colors =
-        Theme.of(context).colorScheme;
-
-    return Card(
-      margin: const EdgeInsets.only(
-        bottom: 12,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 7,
-          ),
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(
-              horizontal: 8,
-            ),
-            leading: Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                borderRadius: BorderRadius.circular(
-                  15,
-                ),
-              ),
-              child: Icon(
-                icon,
-                color: colors.onPrimaryContainer,
-                size: 27,
-              ),
-            ),
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (badgeText != null)
-                  Container(
-                    margin: const EdgeInsets.only(
-                      left: 8,
-                    ),
-                    padding:
-                        const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: (
-                        badgeColor ??
-                            colors.primary
-                      ).withValues(
-                        alpha: 0.15,
-                      ),
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
-                      border: Border.all(
-                        color: (
-                          badgeColor ??
-                              colors.primary
-                        ).withValues(
-                          alpha: 0.45,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      badgeText!,
-                      style: TextStyle(
-                        color:
-                            badgeColor ??
-                                colors.primary,
-                        fontSize: 11,
-                        fontWeight:
-                            FontWeight.bold,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(
-                top: 4,
-              ),
-              child: Text(
-                subtitle,
-              ),
-            ),
-            trailing: Icon(
-              Icons.arrow_forward_ios,
-              size: 18,
-              color: colors.onSurfaceVariant,
-            ),
-          ),
         ),
       ),
     );
