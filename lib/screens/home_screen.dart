@@ -1,14 +1,14 @@
 // ============================================================================
-// Zsolt Pro AI - Home Screen (Összevont Meccsek & Ligák Kártyával)
+// Zsolt Pro AI - Home Screen (Javított, Összevont Kártyás Verzió)
 // File: lib/screens/home_screen.dart
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'matches_screen.dart'; // vagy a megfelelő meccsek/ligák képernyő importja
 import 'ai_top5_screen.dart';
-import 'betslip_screen.dart';
 import 'bankroll_screen.dart';
-import 'settings_screen.dart';
+import 'betslip_screen.dart';
+import 'matches_screen.dart';
+import 'statpal_dashboard_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -36,8 +36,8 @@ class HomeScreen extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Column(
-                children: const [
+              child: const Column(
+                children: [
                   Text(
                     'Üdv a Zsolt Pro AI alkalmazásban!',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
@@ -81,7 +81,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // ÖSSZEVONT KÁRTYA: Meccsek, Élő & Ligák
+            // ÖSSZEVONT KÁRTYA: Meccsek, Élő & Ligák (StatPal integrációval)
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -102,7 +102,7 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
                 onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const MatchesScreen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const StatpalDashboardScreen()));
                 },
               ),
             ),
