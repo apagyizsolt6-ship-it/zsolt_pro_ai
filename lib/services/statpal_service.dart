@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal API Integration Service
+// Zsolt Pro AI - StatPal API Integration Service (Offset / Dátum Támogatással)
 // File: lib/services/statpal_service.dart
 // ============================================================================
 
@@ -47,20 +47,50 @@ class StatPalService {
     return [];
   }
 
-  /// 2. Élő mérkőzések lekérése (Get Matches Today / Live)
-  Future<List<Map<String, dynamic>>> fetchLiveMatches() async {
+  /// 2. Élő és napi mérkőzések lekérése eltolás (offset) alapján
+  Future<List<Map<String, dynamic>>> fetchLiveMatches({int offset = 0}) async {
     if (!hasApiKey) return [];
     try {
-      final Uri uri = Uri.parse('$_baseUrl/matches/live?access_key=$_apiKey');
+      // Ha offset == 0, megpróbáljuk a live endpointot, egyébként a napi (daily) endpointot offsettel
+      final String endpoint = (offset == 0)
+          ? '$_baseUrl/matches/live?access_key=$_apiKey'
+          : '$_baseUrl/matches/daily?offset=$offset&access_key=$_apiKey';
+
+      final Uri uri = Uri.parse(endpoint);
       final response = await http.get(uri, headers: {'Accept': 'application/json'});
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final liveMatchesObj = data['live_matches'];
-        if (liveMatchesObj != null && liveMatchesObj['league'] is List) {
-          return List<Map<String, dynamic>>.from(liveMatchesObj['league']);
+
+        // Élő meccsek válasz kezelése ('live_matches')
+        if (data['live_matches'] != null && data['live_matches']['league'] is List) {
+          return List<Map<String, dynamic>>.from(data['live_matches']['league']);
+        }
+
+        // Napi meccsek válasz kezelése ('matches_DD_MM_YYYY' vagy egyéb dinamikus kulcsok)
+        for (var key in data.keys) {
+          final obj = data[key];
+          if (obj is Map && obj['league'] is List) {
+            return List<Map<String, dynamic>>.from(obj['league']);
+          }
         }
       }
     } catch (_) {}
+
+    // Tartalék hívás a daily végpontra ha a live üres lenne
+    try {
+      final Uri uri = Uri.parse('$_baseUrl/matches/daily?offset=$offset&access_key=$_apiKey');
+      final response = await http.get(uri, headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        for (var key in data.keys) {
+          final obj = data[key];
+          if (obj is Map && obj['league'] is List) {
+            return List<Map<String, dynamic>>.from(obj['league']);
+          }
+        }
+      }
+    } catch (_) {}
+
     return [];
   }
 
