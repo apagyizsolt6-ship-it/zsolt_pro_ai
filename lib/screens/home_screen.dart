@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Home Screen (Végleges, Linter-Barát Verzió)
+// Zsolt Pro AI - Home Screen (Teljesen Linter-Kompatibilis Verzió)
 // File: lib/screens/home_screen.dart
 // ============================================================================
 
