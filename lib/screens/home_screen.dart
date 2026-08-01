@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Home Screen (Végleges, Hibamentes Verzió)
+// Zsolt Pro AI - Home Screen (Végleges, Linter-Barát Verzió)
 // File: lib/screens/home_screen.dart
 // ============================================================================
 
@@ -64,7 +64,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // AI Top 5 kártya (Helyes AITop5Screen osztállyal)[span_2](start_span)[span_2](end_span)
+            // AI Top 5 kártya
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -80,7 +80,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // ÖSSZEVONT KÁRTYA: Meccsek, Élő & Ligák (Helyes StatPalDashboardScreen osztállyal)[span_3](start_span)[span_3](end_span)
+            // ÖSSZEVONT KÁRTYA: Meccsek, Élő & Ligák
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
