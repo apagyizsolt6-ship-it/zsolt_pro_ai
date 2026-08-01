@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Match Detail Screen (Biztonságos, Letisztult Verzió)
+// Zsolt Pro AI - Match Detail Screen (Teljes, Működő Verzió)
 // File: lib/screens/match_detail_screen.dart
 // ============================================================================
 
@@ -118,7 +118,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                         children: [
                           Icon(Icons.analytics, color: Colors.amber),
                           SizedBox(width: 8),
-                          Text('Zsolt Pro AI Elemzés', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('Zsolt Pro AI Elemzés & Esélyek', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         ],
                       ),
                       const Divider(height: 20),
@@ -170,6 +170,31 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                   ),
                 ),
               ),
+            
+            const SizedBox(height: 20),
+            
+            // Értékelő / Value Bet kártya helye
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Row(
+                      children: [
+                        Icon(Icons.local_fire_department, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Text('Value Bet & Kelly Tőkeajánlás', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ],
+                    ),
+                    Divider(height: 20),
+                    Text('Optimális értékelőny és biztonságos tétajánlás az aktuális oddsok alapján.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
