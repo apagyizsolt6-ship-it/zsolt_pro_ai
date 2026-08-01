@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard, Standings & Date Selector (Teljes Verzió)
+// Zsolt Pro AI - StatPal Dashboard, Standings & Date Selector (Végleges Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -123,7 +123,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   
   bool _hasKey = false;
   bool _showSettings = false;
-  int _selectedDayIndex = 0; // Dátum naptár indexe (0 = ma)
+  int _selectedDayIndex = 0;
   String _matchSearchQuery = '';
   String _leagueSearchQuery = '';
   String _matchFilter = 'all';
@@ -142,7 +142,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
       if (mounted) {
         final provider = Provider.of<StatPalProvider>(context, listen: false);
         if (_hasKey && !provider.isLoading) {
-          provider.loadInitialData();
+          provider.loadInitialData(offset: _selectedDayIndex);
         }
       }
     });
@@ -224,7 +224,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
         ),
       );
 
-      provider.loadInitialData();
+      provider.loadInitialData(offset: _selectedDayIndex);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -436,7 +436,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                // KOMPAKT DÁTUMVÁLASZTÓ NAPTÁR SÁV
                                 DaySelector(
                                   selectedIndex: _selectedDayIndex,
                                   onChanged: (int index) {
@@ -444,7 +443,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                     setState(() {
                                       _selectedDayIndex = index;
                                     });
-                                    provider.loadInitialData();
+                                    provider.loadInitialData(offset: index);
                                   },
                                 ),
                                 const SizedBox(height: 8),
@@ -493,7 +492,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                 : filteredLeagueGroups.isEmpty
                                     ? const Center(child: Text('Nincs a feltételeknek megfelelő mérkőzés.', style: TextStyle(fontSize: 15)))
                                     : RefreshIndicator(
-                                        onRefresh: () async => provider.loadInitialData(),
+                                        onRefresh: () async => provider.loadInitialData(offset: _selectedDayIndex),
                                         child: ListView.builder(
                                           padding: const EdgeInsets.symmetric(horizontal: 10),
                                           itemCount: filteredLeagueGroups.length,
