@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Provider / Controller (Dátumszűréssel Ellátott Verzió)
+// Zsolt Pro AI - StatPal Provider / Controller (Végleges Tiszta Verzió)
 // File: lib/providers/statpal_provider.dart
 // ============================================================================
 
@@ -20,7 +20,6 @@ class StatPalProvider with ChangeNotifier {
   List<StatMatch> _liveMatches = [];
   List<StatMatch> get liveMatches => _liveMatches;
 
-  // Tároló a ligák szerinti csoportosításhoz
   List<Map<String, dynamic>> _rawLiveMatchesGroups = [];
   List<Map<String, dynamic>> get rawLiveMatchesGroups => _rawLiveMatchesGroups;
 
@@ -30,8 +29,8 @@ class StatPalProvider with ChangeNotifier {
   StatPrediction? _currentPrediction;
   StatPrediction? get currentPrediction => _currentPrediction;
 
-  /// Adatok betöltése / frissítése (választható dátum alapján)
-  Future<void> loadInitialData({DateTime? selectedDate}) async {
+  /// Adatok betöltése / frissítése (választható dátum vagy eltolás alapján)
+  Future<void> loadInitialData({DateTime? selectedDate, int offset = 0}) async {
     _isLoading = true;
     _errorMessage = '';
     notifyListeners();
@@ -50,24 +49,19 @@ class StatPalProvider with ChangeNotifier {
       final rawLeagues = await StatPalService.instance.fetchLeagues();
       _leagues = rawLeagues.map((json) => StatLeague.fromJson(json)).toList();
 
-      // Meccsek és ligacsoportok lekérése a kiválasztott dátum alapján
-      List<Map<String, dynamic>> rawLive = [];
-      
+      // Kiszámítjuk az eltolást (offset), ha dátumot kaptunk
+      int calculatedOffset = offset;
       if (selectedDate != null) {
-        final String formattedDate = 
-            '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
-        
-        // Dátum szerinti lekérdezés a service-en keresztül
-        try {
-          rawLive = await StatPalService.instance.fetchLiveMatches(date: formattedDate);
-        } catch (_) {
-          rawLive = await StatPalService.instance.fetchLiveMatches();
-        }
-      } else {
-        rawLive = await StatPalService.instance.fetchLiveMatches();
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final target = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+        calculatedOffset = target.difference(today).inDays;
       }
 
-      _rawLiveMatchesGroups = rawLive; // Mentjük a nyers csoportokat a nézethez
+      // Meccsek lekérése a helyes offset paraméterrel
+      final rawLive = await StatPalService.instance.fetchLiveMatches(offset: calculatedOffset);
+
+      _rawLiveMatchesGroups = rawLive;
 
       _liveMatches = [];
       for (var leagueGroup in rawLive) {
