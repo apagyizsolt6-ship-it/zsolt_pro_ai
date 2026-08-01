@@ -72,7 +72,7 @@ class HomeScreen extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    const MaterialPageRoute(
                       builder: (context) => const AITop5Screen(),
                     ),
                   );
@@ -102,7 +102,7 @@ class HomeScreen extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    const MaterialPageRoute(
                       builder: (context) => const StatPalDashboardScreen(),
                     ),
                   );
