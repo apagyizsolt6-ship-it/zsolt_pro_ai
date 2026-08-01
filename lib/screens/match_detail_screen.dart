@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Match Detail Screen (Linter-barát, Hibamentes Verzió)
+// Zsolt Pro AI - Match Detail Screen (Végleges, Tiszta Verzió)
 // File: lib/screens/match_detail_screen.dart
 // ============================================================================
 
@@ -32,7 +32,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     try {
       final matchId = widget.match?.id?.toString() ?? '';
       if (matchId.isEmpty) {
-        setState(() { _isLoadingPrediction = false; });
+        if (mounted) setState(() { _isLoadingPrediction = false; });
         return;
       }
       final provider = Provider.of<StatPalProvider>(context, listen: false);
@@ -54,16 +54,31 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final rawStatus = widget.match?.status?.toString() ?? '';
-    final rawTime = widget.match?.time?.toString() ?? '';
-    
+    String rawStatus = '';
+    String rawTime = '';
+    String homeName = 'Hazai Csapat';
+    String awayName = 'Vendég Csapat';
+    String homeGoals = '0';
+    String awayGoals = '0';
+
+    try {
+      if (widget.match != null) {
+        rawStatus = widget.match.status?.toString() ?? '';
+        rawTime = widget.match.time?.toString() ?? '';
+        
+        if (widget.match.home != null) {
+          homeName = widget.match.home.name?.toString() ?? 'Hazai Csapat';
+          homeGoals = widget.match.home.goals?.toString() ?? '0';
+        }
+        if (widget.match.away != null) {
+          awayName = widget.match.away.name?.toString() ?? 'Vendég Csapat';
+          awayGoals = widget.match.away.goals?.toString() ?? '0';
+        }
+      }
+    } catch (_) {}
+
     final translatedStatus = LeagueTranslator.translateStatus(rawStatus);
     final correctedTime = LeagueTranslator.formatMatchTime(rawTime);
-
-    final homeName = widget.match?.home?.name?.toString() ?? 'Hazai Csapat';
-    final awayName = widget.match?.away?.name?.toString() ?? 'Vendég Csapat';
-    final homeGoals = widget.match?.home?.goals?.toString() ?? '0';
-    final awayGoals = widget.match?.away?.goals?.toString() ?? '0';
 
     return Scaffold(
       appBar: AppBar(
@@ -126,13 +141,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                         Text('Tipp: ${_prediction!.advice}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 15)),
                         const SizedBox(height: 12),
                       ],
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Hazai (1):'),
-                          // Helyesbítve const-tal a linter elvárásai szerint
-                        ],
-                      ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
