@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI - Központi Fordítási Központ
-// Version: v1.0.0 (Teljes körű fordító csomag)
+// Version: v1.0.1 (Teljes körű fordító csomag + Időbélyeg formázó)
 // File: lib/utils/league_translator.dart
 // ===========================================
 
@@ -31,7 +31,7 @@ class LeagueTranslator {
     'Club Friendlies': 'Klub Barátságos Mérkőzések',
   };
 
-  /// Meccs státuszok teljes körű fordítása (TheSportsDB, Sportmonks, StatPal adatokhoz)
+  /// Meccs státuszok teljes körű fordítása
   static String translateStatus(String rawStatus) {
     final status = rawStatus.toUpperCase().trim();
     if (status == 'FT' || status == 'FINISHED' || status == 'AET') return 'Vége';
@@ -43,6 +43,26 @@ class LeagueTranslator {
     if (status.contains('CANCL') || status.contains('CANC')) return 'Törölve';
     if (status.contains('SUSP')) return 'Felfüggesztve';
     return rawStatus;
+  }
+
+  /// Pontos időzóna-korrekció (UTC -> Helyi magyar idő)
+  static String formatMatchTime(String rawTime) {
+    if (rawTime.isEmpty) return '';
+    
+    if (rawTime.contains(':') && rawTime.length <= 5) {
+      final parts = rawTime.split(':');
+      final hour = int.tryParse(parts[0]);
+      final minute = int.tryParse(parts[1]);
+      
+      if (hour != null && minute != null) {
+        int adjustedHour = (hour + 2) % 24;
+        final formattedHour = adjustedHour.toString().padLeft(2, '0');
+        final formattedMinute = minute.toString().padLeft(2, '0');
+        return '$formattedHour:$formattedMinute';
+      }
+    }
+    
+    return rawTime;
   }
 
   /// Országok és régiók magyarosító szótára
