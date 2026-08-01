@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Home Screen (Végleges, Garantáltan Zöld Build Verzió)
+// Zsolt Pro AI - Home Screen
 // File: lib/screens/home_screen.dart
 // ============================================================================
 
