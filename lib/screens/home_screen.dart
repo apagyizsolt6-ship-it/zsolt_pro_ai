@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Home Screen (Javított, Összevont Kártyás Verzió)
+// Zsolt Pro AI - Home Screen (Végleges, Hibamentes Verzió)
 // File: lib/screens/home_screen.dart
 // ============================================================================
 
@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'ai_top5_screen.dart';
 import 'bankroll_screen.dart';
 import 'betslip_screen.dart';
-import 'matches_screen.dart';
 import 'statpal_dashboard_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -65,7 +64,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // AI Top 5 kártya
+            // AI Top 5 kártya (Helyes AITop5Screen osztállyal)[span_2](start_span)[span_2](end_span)
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -75,13 +74,13 @@ class HomeScreen extends StatelessWidget {
                 subtitle: const Text('A legjobb AI tippek'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AiTop5Screen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AITop5Screen()));
                 },
               ),
             ),
             const SizedBox(height: 10),
 
-            // ÖSSZEVONT KÁRTYA: Meccsek, Élő & Ligák (StatPal integrációval)
+            // ÖSSZEVONT KÁRTYA: Meccsek, Élő & Ligák (Helyes StatPalDashboardScreen osztállyal)[span_3](start_span)[span_3](end_span)
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -102,7 +101,7 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
                 onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const StatpalDashboardScreen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const StatPalDashboardScreen()));
                 },
               ),
             ),
