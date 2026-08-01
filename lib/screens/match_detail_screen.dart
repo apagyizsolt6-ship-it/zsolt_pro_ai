@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Match Detail Screen (Letisztult, Prémium Verzió)
+// Zsolt Pro AI - Match Detail Screen (Biztonságos, Letisztult Verzió)
 // File: lib/screens/match_detail_screen.dart
 // ============================================================================
 
@@ -30,8 +30,13 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   Future<void> _fetchPrediction() async {
     try {
+      final matchId = widget.match?.id?.toString() ?? '';
+      if (matchId.isEmpty) {
+        setState(() { _isLoadingPrediction = false; });
+        return;
+      }
       final provider = Provider.of<StatPalProvider>(context, listen: false);
-      await provider.loadPrediction(widget.match.id);
+      await provider.loadPrediction(matchId);
       if (mounted) {
         setState(() {
           _prediction = provider.currentPrediction;
@@ -49,8 +54,16 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final translatedStatus = LeagueTranslator.translateStatus(widget.match.status);
-    final correctedTime = LeagueTranslator.formatMatchTime(widget.match.time);
+    final rawStatus = widget.match?.status?.toString() ?? '';
+    final rawTime = widget.match?.time?.toString() ?? '';
+    
+    final translatedStatus = LeagueTranslator.translateStatus(rawStatus);
+    final correctedTime = LeagueTranslator.formatMatchTime(rawTime);
+
+    final homeName = widget.match?.home?.name?.toString() ?? 'Hazai Csapat';
+    final awayName = widget.match?.away?.name?.toString() ?? 'Vendég Csapat';
+    final homeGoals = widget.match?.home?.goals?.toString() ?? '0';
+    final awayGoals = widget.match?.away?.goals?.toString() ?? '0';
 
     return Scaffold(
       appBar: AppBar(
@@ -75,9 +88,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        Expanded(child: Text(widget.match.home.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                        Text('${widget.match.home.goals ?? 0} : ${widget.match.away.goals ?? 0}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
-                        Expanded(child: Text(widget.match.away.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                        Expanded(child: Text(homeName, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                        Text('$homeGoals : $awayGoals', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
+                        Expanded(child: Text(awayName, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
                       ],
                     ),
                   ],
