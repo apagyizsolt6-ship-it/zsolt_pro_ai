@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Home Screen
+// Zsolt Pro AI - Home Screen (Végleges, Minden Const-ot Kiszűrő Verzió)
 // File: lib/screens/home_screen.dart
 // ============================================================================
 
@@ -70,7 +70,7 @@ class HomeScreen extends StatelessWidget {
                 subtitle: const Text('A legjobb AI tippek'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  Navigator.push(context, const MaterialPageRoute(builder: (context) => AITop5Screen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AITop5Screen()));
                 },
               ),
             ),
@@ -95,7 +95,7 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
                 onTap: () {
-                  Navigator.push(context, const MaterialPageRoute(builder: (context) => StatPalDashboardScreen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const StatPalDashboardScreen()));
                 },
               ),
             ),
