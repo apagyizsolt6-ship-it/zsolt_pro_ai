@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Match Detail Screen (Diagnosztikai Verzió)
+// Zsolt Pro AI - Match Detail Screen (StatPal Kompatibilis Verzió)
 // File: lib/screens/match_detail_screen.dart
 // ============================================================================
 
@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/statpal_provider.dart';
 import '../models/statpal_models.dart';
-import '../utils/league_translator.dart';
+import 'statpal_dashboard_screen.dart';
 
 class MatchDetailScreen extends StatefulWidget {
   final dynamic match;
@@ -30,7 +30,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   Future<void> _fetchPrediction() async {
     try {
-      final matchId = widget.match?.id?.toString() ?? widget.match?['id']?.toString() ?? '';
+      final matchId = widget.match?.id?.toString() ?? '';
       if (matchId.isEmpty) {
         if (mounted) setState(() { _isLoadingPrediction = false; });
         return;
@@ -54,47 +54,24 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String rawStatus = '';
-    String rawTime = '';
-    String homeName = '';
-    String awayName = '';
-    String homeGoals = '0';
-    String awayGoals = '0';
+    final match = widget.match;
+    
+    // Biztonságos adatkötés a StatPal objektumok alapján
+    final String homeName = match?.home?.name?.toString() ?? match?.homeName?.toString() ?? 'Hazai Csapat';
+    final String awayName = match?.away?.name?.toString() ?? match?.awayName?.toString() ?? 'Vendég Csapat';
+    final String rawStatus = match?.status?.toString() ?? '';
+    final String rawTime = match?.time?.toString() ?? '';
+    
+    final translatedStatus = StatPalHelper.translateStatus(rawStatus);
+    final correctedTime = StatPalHelper.formatMatchTime(rawTime);
 
-    try {
-      final m = widget.match;
-      if (m != null) {
-        // Ha Map vagy objektum
-        if (m is Map) {
-          rawStatus = m['status']?.toString() ?? m['strStatus']?.toString() ?? '';
-          rawTime = m['time']?.toString() ?? m['strTime']?.toString() ?? '';
-          homeName = m['homeName']?.toString() ?? m['strHomeTeam']?.toString() ?? m['home']?['name']?.toString() ?? m['teamHome']?.toString() ?? '';
-          awayName = m['awayName']?.toString() ?? m['strAwayTeam']?.toString() ?? m['away']?['name']?.toString() ?? m['teamAway']?.toString() ?? '';
-          homeGoals = m['homeGoals']?.toString() ?? m['intHomeScore']?.toString() ?? m['homeScore']?.toString() ?? '0';
-          awayGoals = m['awayGoals']?.toString() ?? m['intAwayScore']?.toString() ?? m['awayScore']?.toString() ?? '0';
-        } else {
-          rawStatus = m.status?.toString() ?? m.strStatus?.toString() ?? '';
-          rawTime = m.time?.toString() ?? m.strTime?.toString() ?? '';
-          homeName = m.homeName?.toString() ?? m.home?.name?.toString() ?? m.strHomeTeam?.toString() ?? m.homeTeam?.toString() ?? '';
-          awayName = m.awayName?.toString() ?? m.away?.name?.toString() ?? m.strAwayTeam?.toString() ?? m.awayTeam?.toString() ?? '';
-          homeGoals = m.homeGoals?.toString() ?? m.home?.goals?.toString() ?? m.intHomeScore?.toString() ?? m.homeScore?.toString() ?? '0';
-          awayGoals = m.awayGoals?.toString() ?? m.away?.goals?.toString() ?? m.intAwayScore?.toString() ?? m.awayScore?.toString() ?? '0';
-        }
-      }
-    } catch (e) {
-      homeName = 'Hiba: $e';
-    }
-
-    // Ha még mindig üres, kiírjuk a típust debug céllal
-    if (homeName.isEmpty) homeName = 'Ismeretlen Hazai (${widget.match.runtimeType})';
-    if (awayName.isEmpty) awayName = 'Ismeretlen Vendég';
-
-    final translatedStatus = LeagueTranslator.translateStatus(rawStatus);
-    final correctedTime = LeagueTranslator.formatMatchTime(rawTime);
+    final homeGoals = match?.home?.goals ?? match?.homeGoals ?? 0;
+    final awayGoals = match?.away?.goals ?? match?.awayGoals ?? 0;
+    final bool isUpcoming = rawStatus.isEmpty || rawStatus == 'NS' || rawStatus == 'NOT STARTED' || rawTime.contains(':');
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meccselemzés', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('$homeName vs $awayName', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -109,14 +86,32 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    Text('Státusz: ${translatedStatus.isNotEmpty ? translatedStatus : "Ismeretlen"} ${correctedTime.isNotEmpty ? '($correctedTime)' : ''}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
+                    Text(
+                      'Státusz: $translatedStatus ${correctedTime.isNotEmpty ? '($correctedTime)' : ''}',
+                      style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        Expanded(child: Text(homeName, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                        Text('$homeGoals : $awayGoals', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
-                        Expanded(child: Text(awayName, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                        Expanded(
+                          child: Text(
+                            homeName,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                        ),
+                        Text(
+                          isUpcoming ? 'VS' : '$homeGoals : $awayGoals',
+                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber),
+                        ),
+                        Expanded(
+                          child: Text(
+                            awayName,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -126,7 +121,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
             const SizedBox(height: 20),
             if (_isLoadingPrediction)
               const Padding(
-                padding: EdgeInsets.all(30.0),
+                padding: EdgeInsets.all(40.0),
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (_prediction != null)
@@ -178,10 +173,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                 ),
               )
             else
-              Card(
+              const Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(24.0),
                   child: Center(
                     child: Column(
