@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Match Detail Screen (Teljes, Univerzális Verzió)
+// Zsolt Pro AI - Match Detail Screen (Teljesen Biztonságos Univerzális Verzió)
 // File: lib/screens/match_detail_screen.dart
 // ============================================================================
 
@@ -30,7 +30,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
   Future<void> _fetchPrediction() async {
     try {
-      final matchId = widget.match?.id?.toString() ?? '';
+      final matchId = widget.match?.id?.toString() ?? widget.match?['id']?.toString() ?? '';
       if (matchId.isEmpty) {
         if (mounted) setState(() { _isLoadingPrediction = false; });
         return;
@@ -62,29 +62,44 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
     String awayGoals = '0';
 
     try {
-      if (widget.match != null) {
-        rawStatus = widget.match.status?.toString() ?? widget.match.strStatus?.toString() ?? '';
-        rawTime = widget.match.time?.toString() ?? widget.match.strTime?.toString() ?? '';
+      final m = widget.match;
+      if (m != null) {
+        // Státusz és idő lekérése biztonságosan (objektum vagy Map esetén is)
+        rawStatus = m.status?.toString() ?? m.strStatus?.toString() ?? m['status']?.toString() ?? m['strStatus']?.toString() ?? '';
+        rawTime = m.time?.toString() ?? m.strTime?.toString() ?? m['time']?.toString() ?? m['strTime']?.toString() ?? '';
         
-        // Univerzális adatszerkezet-kezelés a különböző API modellekhez
-        if (widget.match.homeName != null) {
-          homeName = widget.match.homeName.toString();
-        } else if (widget.match.home?.name != null) {
-          homeName = widget.match.home.name.toString();
-        } else if (widget.match.strHomeTeam != null) {
-          homeName = widget.match.strHomeTeam.toString();
-        }
+        // Hazai csapat név kinyerése minden lehetséges API formátumból
+        homeName = m.homeName?.toString() ??
+                   m.home?.name?.toString() ??
+                   m.strHomeTeam?.toString() ??
+                   m.homeTeam?.toString() ??
+                   m['homeName']?.toString() ??
+                   m['strHomeTeam']?.toString() ??
+                   m['home']?['name']?.toString() ?? 'Hazai Csapat';
 
-        if (widget.match.awayName != null) {
-          awayName = widget.match.awayName.toString();
-        } else if (widget.match.away?.name != null) {
-          awayName = widget.match.away.name.toString();
-        } else if (widget.match.strAwayTeam != null) {
-          awayName = widget.match.strAwayTeam.toString();
-        }
+        // Vendég csapat név kinyerése minden lehetséges API formátumból
+        awayName = m.awayName?.toString() ??
+                   m.away?.name?.toString() ??
+                   m.strAwayTeam?.toString() ??
+                   m.awayTeam?.toString() ??
+                   m['awayName']?.toString() ??
+                   m['strAwayTeam']?.toString() ??
+                   m['away']?['name']?.toString() ?? 'Vendég Csapat';
 
-        homeGoals = widget.match.homeGoals?.toString() ?? widget.match.home?.goals?.toString() ?? widget.match.intHomeScore?.toString() ?? '0';
-        awayGoals = widget.match.awayGoals?.toString() ?? widget.match.away?.goals?.toString() ?? widget.match.intAwayScore?.toString() ?? '0';
+        // Gólok / Eredmény kinyerése
+        homeGoals = m.homeGoals?.toString() ??
+                    m.home?.goals?.toString() ??
+                    m.intHomeScore?.toString() ??
+                    m.homeScore?.toString() ??
+                    m['homeGoals']?.toString() ??
+                    m['intHomeScore']?.toString() ?? '0';
+
+        awayGoals = m.awayGoals?.toString() ??
+                    m.away?.goals?.toString() ??
+                    m.intAwayScore?.toString() ??
+                    m.awayScore?.toString() ??
+                    m['awayGoals']?.toString() ??
+                    m['intAwayScore']?.toString() ?? '0';
       }
     } catch (_) {}
 
@@ -109,7 +124,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    Text('Státusz: $translatedStatus ($correctedTime)', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    Text('Státusz: $translatedStatus ${correctedTime.isNotEmpty ? '($correctedTime)' : ''}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
