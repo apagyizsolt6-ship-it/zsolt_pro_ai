@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard & League Standings (Teljes Magyarítás)
+// Zsolt Pro AI - StatPal Dashboard, Standings & Date Selector (Teljes Verzió)
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -9,6 +9,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/statpal_provider.dart';
 import '../models/statpal_models.dart';
+import '../widgets/day_selector.dart';
+import 'match_detail_screen.dart';
 
 class StatPalHelper {
   static String translateStatus(String rawStatus) {
@@ -121,6 +123,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
   
   bool _hasKey = false;
   bool _showSettings = false;
+  int _selectedDayIndex = 0; // Dátum naptár indexe (0 = ma)
   String _matchSearchQuery = '';
   String _leagueSearchQuery = '';
   String _matchFilter = 'all';
@@ -234,7 +237,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
     final String status = (match.status ?? '').toString().toUpperCase();
     if (status.isEmpty || status == 'NS' || status == 'NOT STARTED' || status.contains(':')) return false;
     if (status == 'FT' || status == 'AET' || status == 'PEN' || status == 'FINISHED') return false;
-    if (status.contains('POSTP') || status.contains('CANCL' ) || status.contains('CANC')) return false;
+    if (status.contains('POSTP') || status.contains('CANCL') || status.contains('CANC')) return false;
     return true;
   }
 
@@ -431,6 +434,18 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                       },
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: 8),
+                                // KOMPAKT DÁTUMVÁLASZTÓ NAPTÁR SÁV
+                                DaySelector(
+                                  selectedIndex: _selectedDayIndex,
+                                  onChanged: (int index) {
+                                    if (_selectedDayIndex == index) return;
+                                    setState(() {
+                                      _selectedDayIndex = index;
+                                    });
+                                    provider.loadInitialData();
+                                  },
                                 ),
                                 const SizedBox(height: 8),
                                 SingleChildScrollView(
@@ -712,155 +727,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
               ],
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class MatchDetailScreen extends StatefulWidget {
-  final dynamic match;
-
-  const MatchDetailScreen({super.key, required this.match});
-
-  @override
-  State<MatchDetailScreen> createState() => _MatchDetailScreenState();
-}
-
-class _MatchDetailScreenState extends State<MatchDetailScreen> {
-  bool _isLoadingPrediction = true;
-  StatPrediction? _prediction;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchPrediction();
-  }
-
-  Future<void> _fetchPrediction() async {
-    try {
-      final provider = Provider.of<StatPalProvider>(context, listen: false);
-      await provider.loadPrediction(widget.match.id);
-      if (mounted) {
-        setState(() {
-          _prediction = provider.currentPrediction;
-          _isLoadingPrediction = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _isLoadingPrediction = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final translatedStatus = StatPalHelper.translateStatus(widget.match.status);
-    final correctedTime = StatPalHelper.formatMatchTime(widget.match.time);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.match.home.name} vs ${widget.match.away.name}', style: const TextStyle(fontSize: 14)),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    Text('Státusz: $translatedStatus ($correctedTime)', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Expanded(child: Text(widget.match.home.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                        Text('${widget.match.home.goals ?? 0} : ${widget.match.away.goals ?? 0}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.amber)),
-                        Expanded(child: Text(widget.match.away.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            if (_isLoadingPrediction)
-              const Padding(
-                padding: EdgeInsets.all(40.0),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_prediction != null)
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.analytics, color: Colors.amber),
-                          SizedBox(width: 8),
-                          Text('AI Előrejelzés & Esélyek', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ],
-                      ),
-                      const Divider(height: 20),
-                      if (_prediction!.advice.isNotEmpty) ...[
-                        Text('Tipp: ${_prediction!.advice}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 15)),
-                        const SizedBox(height: 12),
-                      ],
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Hazai (1):'),
-                          Text('${_prediction!.homePercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Döntetlen (X):'),
-                          Text('${_prediction!.drawPercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Vendég (2):'),
-                          Text('${_prediction!.awayPercentage}%', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.info_outline, size: 48, color: Colors.amber),
-                        SizedBox(height: 12),
-                        Text('Ehhez a mérkőzéshez jelenleg nem érhető el részletes AI predikció.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 14)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
         ),
       ),
     );
