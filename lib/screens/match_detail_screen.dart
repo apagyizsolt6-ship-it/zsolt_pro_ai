@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Match Detail Screen (StatPal Kompatibilis Verzió)
+// Zsolt Pro AI - Match Detail Screen (Végleges, Zöld Build Verzió)
 // File: lib/screens/match_detail_screen.dart
 // ============================================================================
 
@@ -56,7 +56,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
   Widget build(BuildContext context) {
     final match = widget.match;
     
-    // Biztonságos adatkötés a StatPal objektumok alapján
     final String homeName = match?.home?.name?.toString() ?? match?.homeName?.toString() ?? 'Hazai Csapat';
     final String awayName = match?.away?.name?.toString() ?? match?.awayName?.toString() ?? 'Vendég Csapat';
     final String rawStatus = match?.status?.toString() ?? '';
@@ -173,10 +172,10 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                 ),
               )
             else
-              const Card(
+              Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Padding(
+                child: const Padding(
                   padding: EdgeInsets.all(24.0),
                   child: Center(
                     child: Column(
