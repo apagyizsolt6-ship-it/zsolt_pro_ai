@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Match Detail Screen (Teljes, Működő Verzió)
+// Zsolt Pro AI - Match Detail Screen (Linter-barát, Hibamentes Verzió)
 // File: lib/screens/match_detail_screen.dart
 // ============================================================================
 
@@ -126,6 +126,13 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
                         Text('Tipp: ${_prediction!.advice}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent, fontSize: 15)),
                         const SizedBox(height: 12),
                       ],
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Hazai (1):'),
+                          // Helyesbítve const-tal a linter elvárásai szerint
+                        ],
+                      ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -173,15 +180,15 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
             
             const SizedBox(height: 20),
             
-            // Értékelő / Value Bet kártya helye
+            // Értékelő / Value Bet kártya
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+              child: const Padding(
+                padding: EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Row(
                       children: [
                         Icon(Icons.local_fire_department, color: Colors.amber),
