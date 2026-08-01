@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Match Detail Screen (Végleges, Tiszta Verzió)
+// Zsolt Pro AI - Match Detail Screen (Teljes, Univerzális Verzió)
 // File: lib/screens/match_detail_screen.dart
 // ============================================================================
 
@@ -63,17 +63,28 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> {
 
     try {
       if (widget.match != null) {
-        rawStatus = widget.match.status?.toString() ?? '';
-        rawTime = widget.match.time?.toString() ?? '';
+        rawStatus = widget.match.status?.toString() ?? widget.match.strStatus?.toString() ?? '';
+        rawTime = widget.match.time?.toString() ?? widget.match.strTime?.toString() ?? '';
         
-        if (widget.match.home != null) {
-          homeName = widget.match.home.name?.toString() ?? 'Hazai Csapat';
-          homeGoals = widget.match.home.goals?.toString() ?? '0';
+        // Univerzális adatszerkezet-kezelés a különböző API modellekhez
+        if (widget.match.homeName != null) {
+          homeName = widget.match.homeName.toString();
+        } else if (widget.match.home?.name != null) {
+          homeName = widget.match.home.name.toString();
+        } else if (widget.match.strHomeTeam != null) {
+          homeName = widget.match.strHomeTeam.toString();
         }
-        if (widget.match.away != null) {
-          awayName = widget.match.away.name?.toString() ?? 'Vendég Csapat';
-          awayGoals = widget.match.away.goals?.toString() ?? '0';
+
+        if (widget.match.awayName != null) {
+          awayName = widget.match.awayName.toString();
+        } else if (widget.match.away?.name != null) {
+          awayName = widget.match.away.name.toString();
+        } else if (widget.match.strAwayTeam != null) {
+          awayName = widget.match.strAwayTeam.toString();
         }
+
+        homeGoals = widget.match.homeGoals?.toString() ?? widget.match.home?.goals?.toString() ?? widget.match.intHomeScore?.toString() ?? '0';
+        awayGoals = widget.match.awayGoals?.toString() ?? widget.match.away?.goals?.toString() ?? widget.match.intAwayScore?.toString() ?? '0';
       }
     } catch (_) {}
 
