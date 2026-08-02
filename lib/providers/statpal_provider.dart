@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Provider / Controller (Nemzetközi Kupák Teljeskörű Kezelésével)
+// Zsolt Pro AI - StatPal Provider / Controller (Javított Nemzetközi Kupa Szűréssel)
 // File: lib/providers/statpal_provider.dart
 // ============================================================================
 
@@ -30,8 +30,20 @@ class StatPalProvider with ChangeNotifier {
   StatPrediction? _currentPrediction;
   StatPrediction? get currentPrediction => _currentPrediction;
 
-  /// Szigorú, tételes engedélyezési lista (Kifejezett nemzetközi kupa kezeléssel)
+  /// Szigorú, tételes engedélyezési lista - Biztosított nemzetközi kupa kezeléssel
   bool _isAllowedLeague(String rawCountry, String rawName) {
+    final String countryLower = rawCountry.trim().toLowerCase();
+    final String nameLower = rawName.trim().toLowerCase();
+
+    // 1. NEMZETKÖZI KUPÁK (Ha a kategória Europe, World, vagy a névben benne van a BL/EL/Konferencia/UEFA)
+    if (countryLower == 'europe' || countryLower == 'world' || countryLower == 'international' ||
+        nameLower.contains('champions league') || nameLower.contains('europa league') || 
+        nameLower.contains('conference league') || nameLower.contains('uefa') ||
+        nameLower.contains('bajnokok ligája') || nameLower.contains('európa liga') || 
+        nameLower.contains('konferencia liga')) {
+      return true;
+    }
+
     String cleanCountry = rawCountry.replaceAll('_', ' ');
     String cleanName = rawName;
     if (cleanName.toLowerCase().startsWith(cleanCountry.toLowerCase())) {
@@ -39,14 +51,6 @@ class StatPalProvider with ChangeNotifier {
     }
     final full = cleanCountry.isNotEmpty ? '$cleanCountry: $cleanName' : cleanName;
     final h = LeagueTranslator.translate(full).toLowerCase();
-    final originalLower = '$rawCountry $rawName'.toLowerCase();
-
-    // 1. NEMZETKÖZI KUPÁK (Bajnokok Ligája, Európa Liga, Konferencia Liga - nevek vagy kódok alapján)
-    if (originalLower.contains('champions league') || originalLower.contains('europa league') || originalLower.contains('conference league') ||
-        h.contains('bajnokok ligája') || h.contains('európa liga') || h.contains('konferencia liga') ||
-        h.contains('uefa')) {
-      return true;
-    }
 
     // 2. MAGYARORSZÁG (Csak NB I, NB II és Kupa - NB III kizárva)
     if (h.contains('magyarország')) {
@@ -70,7 +74,7 @@ class StatPalProvider with ChangeNotifier {
       return h.contains('la liga') || h.contains('segunda') || h.contains('kupa');
     }
 
-    // 4. KÜLFÖLDI FŐBB LIGÁK ÉS KÉRT 2. OSZTÁLYOK (Portugália, Hollandia, Belgium, Törökország, Svéd, Dán, Norvég, Svájci)
+    // 4. KÜLFÖLDI FŐBB LIGÁK ÉS KÉRT 2. OSZTÁLYOK
     if (h.contains('portugália')) {
       return h.contains('primeira') || h.contains('liga 2') || h.contains('segunda');
     }
