@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.1.0
+// Version: v0.1.1 (Frissítve a StatPal PRO-hoz)
 // File: lib/widgets/app_bottom_nav.dart
 // ===========================================
 
@@ -36,7 +36,7 @@ class AppBottomNav extends StatelessWidget {
         NavigationDestination(
           icon: Icon(Icons.sports_soccer_outlined),
           selectedIcon: Icon(Icons.sports_soccer),
-          label: "Meccsek",
+          label: "Meccsek PRO",
         ),
         NavigationDestination(
           icon: Icon(Icons.receipt_long_outlined),
