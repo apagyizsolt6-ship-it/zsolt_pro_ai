@@ -1,6 +1,5 @@
 // ===========================================
-// Zsolt Pro AI
-// Version: v0.4.0
+// Zsolt Pro AI - Fő alkalmazás keret (StatPal PRO Integrációval)
 // File: lib/app.dart
 // ===========================================
 
@@ -9,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'screens/ai_top5_screen.dart';
 import 'screens/betslip_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/matches_screen.dart';
+import 'screens/statpal_dashboard_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/app_bottom_nav.dart';
 
@@ -26,7 +25,7 @@ class _ZsoltProAppState extends State<ZsoltProApp> {
   final List<Widget> _pages = const [
     HomeScreen(),
     AITop5Screen(),
-    MatchesScreen(),
+    StatPalDashboardScreen(), // Cserélve a tiszta, szűrt PRO képernyőre
     BetslipScreen(),
     SettingsScreen(),
   ];
