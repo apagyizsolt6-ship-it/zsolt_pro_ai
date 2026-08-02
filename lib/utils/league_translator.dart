@@ -1,22 +1,14 @@
 // ===========================================
 // Zsolt Pro AI - Központi Fordítási Központ
-// Version: v1.0.1 (Teljes körű fordító csomag + Időbélyeg formázó)
+// Version: v1.0.2 (StatPal Speciális Országnevekkel Bővítve)
 // File: lib/utils/league_translator.dart
 // ===========================================
 
 class LeagueTranslator {
-  /// Fixen definiált konkrét ligakifejezések és nevek
   static const Map<String, String> _knownLeagues = <String, String>{
-    // Magyarország
     'Hungarian NB I': 'Magyarország NB I',
     'Hungarian NB II': 'Magyarország NB II',
-    'Hungarian NB III Northeast': 'Magyarország NB III - Északkelet',
-    'Hungarian NB III Northwest': 'Magyarország NB III - Északnyugat',
-    'Hungarian NB III Southeast': 'Magyarország NB III - Délkelet',
-    'Hungarian NB III Southwest': 'Magyarország NB III - Délnyugat',
     'Hungarian Cup': 'Magyar Kupa',
-
-    // Kiemelt nemzetközi & Top ligák
     'English Premier League': 'Angol Premier Bajnokság',
     'English League Championship': 'Angol Championship',
     'Spanish La Liga': 'Spanyol La Liga',
@@ -26,12 +18,8 @@ class LeagueTranslator {
     'UEFA Champions League': 'Bajnokok Ligája',
     'UEFA Europa League': 'Európa Liga',
     'UEFA Conference League': 'Konferencia Liga',
-    'American Major League Soccer': 'Amerikai MLS',
-    'International Friendlies': 'Nemzetközi Barátságos',
-    'Club Friendlies': 'Klub Barátságos Mérkőzések',
   };
 
-  /// Meccs státuszok teljes körű fordítása
   static String translateStatus(String rawStatus) {
     final status = rawStatus.toUpperCase().trim();
     if (status == 'FT' || status == 'FINISHED' || status == 'AET') return 'Vége';
@@ -45,29 +33,29 @@ class LeagueTranslator {
     return rawStatus;
   }
 
-  /// Pontos időzóna-korrekció (UTC -> Helyi magyar idő)
   static String formatMatchTime(String rawTime) {
     if (rawTime.isEmpty) return '';
-    
     if (rawTime.contains(':') && rawTime.length <= 5) {
       final parts = rawTime.split(':');
       final hour = int.tryParse(parts[0]);
       final minute = int.tryParse(parts[1]);
-      
       if (hour != null && minute != null) {
         int adjustedHour = (hour + 2) % 24;
-        final formattedHour = adjustedHour.toString().padLeft(2, '0');
-        final formattedMinute = minute.toString().padLeft(2, '0');
-        return '$formattedHour:$formattedMinute';
+        return '${adjustedHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
       }
     }
-    
     return rawTime;
   }
 
-  /// Országok és régiók magyarosító szótára
   static const Map<String, String> _countryPrefixes = <String, String>{
-    // Európa
+    // StatPal alulvonásos és speciális formátumok kezelése először
+    'South_korea': 'Dél-Korea',
+    'Faroe_islands': 'Feröer-szigetek',
+    'El_salvador': 'Salvador',
+    'Costa_rica': 'Costa Rica',
+    'Czech_republic': 'Csehország',
+    
+    // Alap országnevek
     'Hungarian': 'Magyarország',
     'English': 'Angol',
     'Spanish': 'Spanyol',
@@ -114,9 +102,8 @@ class LeagueTranslator {
     'Latvian': 'Lett',
     'Lithuanian': 'Litván',
     'Luxembourg': 'Luxemburgi',
-    'Faroe Islands': 'Feröeri',
+    'Faroe Islands': 'Feröer',
 
-    // Dél- és Közép-Amerika
     'Brazilian': 'Brazília',
     'Argentinian': 'Argentin',
     'Argentine': 'Argentin',
@@ -135,14 +122,12 @@ class LeagueTranslator {
     'Panamanian': 'Panamai',
     'Jamaican': 'Jamaicai',
 
-    // Észak-Amerika & Ausztrália
     'American': 'Amerikai',
     'Canadian': 'Kanadai',
     'Australia': 'Ausztrál',
     'Australian': 'Ausztrál',
     'New Zealand': 'Új-zélandi',
 
-    // Ázsia & Közel-Kelet
     'Korean': 'Koreai',
     'Japanese': 'Japán',
     'Chinese': 'Kínai',
@@ -161,7 +146,6 @@ class LeagueTranslator {
     'Indonesian': 'Indonéz',
     'Malaysian': 'Maláj',
 
-    // Afrika
     'Egyptian': 'Egyiptomi',
     'Moroccan': 'Marokkói',
     'Tunisian': 'Tunéziai',
@@ -174,7 +158,6 @@ class LeagueTranslator {
     'Ivory Coast': 'Elefántcsontparti',
   };
 
-  /// Gyakori angol kifejezések és ligatípusok fordítása
   static const Map<String, String> _commonTerms = <String, String>{
     'Premier League': 'Premier Bajnokság',
     'Super League': 'Szuperbajnokság',
@@ -187,7 +170,6 @@ class LeagueTranslator {
     'Division': 'Divízió',
     'Primera Division': 'Primera División',
     'Segunda Division': 'Segunda División',
-    'Copa de la Liga': 'Ligakupa',
     'Cup': 'Kupa',
     'Friendlies': 'Barátságos mérkőzések',
     'Championship': 'Bajnokság',
@@ -195,26 +177,34 @@ class LeagueTranslator {
     'Group Stage': 'Csoportkör',
   };
 
-  /// Fő fordító metódus ligákhoz és bajnokságokhoz
   static String translate(String originalLeagueName) {
-    final String trimmed = originalLeagueName.trim();
+    String trimmed = originalLeagueName.trim();
     if (trimmed.isEmpty) return trimmed;
 
-    // 1. Pontos szótári egyezés
     if (_knownLeagues.containsKey(trimmed)) {
       return _knownLeagues[trimmed]!;
     }
 
+    // Duplikációk szűrése (pl. "Costa Rica: Costa Rica: ...")
+    if (trimmed.contains(':')) {
+      final parts = trimmed.split(':');
+      if (parts.length >= 2) {
+        final p0 = parts[0].trim().toLowerCase();
+        final p1 = parts[1].trim().toLowerCase();
+        if (p0 == p1 || p1.contains(p0)) {
+          trimmed = parts.skip(1).join(':').trim();
+        }
+      }
+    }
+
     String translated = trimmed;
 
-    // 2. Országnév cseréje
     _countryPrefixes.forEach((String englishPrefix, String hungarianPrefix) {
-      if (translated.contains(englishPrefix)) {
-        translated = translated.replaceAll(englishPrefix, hungarianPrefix);
+      if (translated.startsWith(englishPrefix)) {
+        translated = translated.replaceFirst(englishPrefix, hungarianPrefix);
       }
     });
 
-    // 3. Gyakori angol kifejezések cseréje
     _commonTerms.forEach((String englishTerm, String hungarianTerm) {
       if (translated.contains(englishTerm)) {
         translated = translated.replaceAll(englishTerm, hungarianTerm);
