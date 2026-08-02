@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard, Standings & StatPalHelper Restored
+// Zsolt Pro AI - StatPal Dashboard & Válogatott Ligák Szűrése
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -27,8 +27,54 @@ class StatPalHelper {
   }
 
   static String formatLeagueHeader(String country, String name) {
-    final full = country.isNotEmpty ? '$country: $name' : name;
+    String cleanCountry = country.replaceAll('_', ' ');
+    String cleanName = name;
+    if (cleanName.toLowerCase().startsWith(cleanCountry.toLowerCase())) {
+      cleanName = cleanName.substring(cleanCountry.length).replaceAll(RegExp(r'^[:\s]+'), '').trim();
+    }
+    final full = cleanCountry.isNotEmpty ? '$cleanCountry: $cleanName' : cleanName;
     return LeagueTranslator.translate(full);
+  }
+
+  /// Ellenőrzi, hogy a liga szerepel-e az engedélyezett listánken (a képeid alapján)
+  static bool isAllowedLeague(String translatedHeader) {
+    final h = translatedHeader.toLowerCase();
+
+    // 1. Kedvencek / Top 5 (1. és 2. osztály + Kupák)
+    if (h.contains('magyarország') && (h.contains('nb i') || h.contains('nb ii') || h.contains('kupa'))) return true;
+    if (h.contains('angol') && (h.contains('premier') || h.contains('championship') || h.contains('kupa') || h.contains('league one') || h.contains('league two'))) return true;
+    if (h.contains('német') && (h.contains('bundesliga') || h.contains('2.') || h.contains('kupa') || h.contains('pokal'))) return true;
+    if (h.contains('francia') && (h.contains('ligue 1') || h.contains('ligue 2') || h.contains('kupa'))) return true;
+    if (h.contains('olasz') && (h.contains('serie a') || h.contains('serie b') || h.contains('kupa'))) return true;
+    if (h.contains('spanyol') && (h.contains('la liga') || h.contains('segunda') || h.contains('kupa'))) return true;
+
+    // 2. További engedélyezett országok (1. és esetleg 2. osztály / kupa a kézírásod alapján)
+    const allowedCountries = [
+      'portugália', 'hollandia', 'belgium', 'törökország', 'cseh', 'görög', 
+      'dánia', 'norvégia', 'svájc', 'ciprus', 'svédország', 'skócia', 
+      'ausztria', 'románia', 'horvátország', 'szlovénia', 'ukrajna', 
+      'izrael', 'írország', 'örményország', 'koszovó', 'bosznia', 
+      'lettország', 'finnország', 'kazahsztán', 'feröer', 'macedónia', 
+      'moldova', 'albánia', 'fehéroroszország', 'litvánia', 'málta', 
+      'észtország', 'andorra', 'bulgária', 'wales', 'argentína', 
+      'brazília', 'mexikó', 'kolumbia', 'usa', 'japán', 'kína', 
+      'dél-korea', 'irán', 'egyiptom', 'nigéria', 'tunézia', 'katár', 
+      'szaúd-arábia', 'fülöp-szigetek', 'india', 'hongkong', 'szerbia',
+      'ekvador', 'salvador', 'észtország', 'fiji', 'francia', 'georgia'
+    ];
+
+    for (var c in allowedCountries) {
+      if (h.contains(c)) {
+        return true;
+      }
+    }
+
+    // Nemzetközi kupák (Bajnokok Ligája, Európa Liga, Konferencia Liga)
+    if (h.contains('bajnokok ligája') || h.contains('európa liga') || h.contains('konferencia liga')) {
+      return true;
+    }
+
+    return false;
   }
 }
 
@@ -237,8 +283,12 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
 
               if (matchesList is! List) continue;
 
-              final fullRawName = leagueCountry.isNotEmpty ? '$leagueCountry: $rawLeagueName' : rawLeagueName;
-              final displayHeader = LeagueTranslator.translate(fullRawName);
+              final displayHeader = StatPalHelper.formatLeagueHeader(leagueCountry, rawLeagueName);
+
+              // Csak a listán szereplő ligák engedélyezése
+              if (!StatPalHelper.isAllowedLeague(displayHeader)) {
+                continue;
+              }
 
               final List<StatMatch> matchedMeccsek = [];
 
@@ -285,8 +335,10 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
             }
 
             final filteredLeagues = provider.leagues.where((league) {
+              final translatedName = StatPalHelper.formatLeagueHeader(league.country, league.name);
+              if (!StatPalHelper.isAllowedLeague(translatedName)) return false;
+
               if (_leagueSearchQuery.isEmpty) return true;
-              final translatedName = LeagueTranslator.translate('${league.country}: ${league.name}');
               return translatedName.toLowerCase().contains(_leagueSearchQuery) ||
                      league.name.toLowerCase().contains(_leagueSearchQuery);
             }).toList();
@@ -428,7 +480,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                             child: provider.isLoading && provider.rawLiveMatchesGroups.isEmpty
                                 ? const Center(child: CircularProgressIndicator())
                                 : filteredLeagueGroups.isEmpty
-                                    ? const Center(child: Text('Nincs a feltételeknek megfelelő mérkőzés.', style: TextStyle(fontSize: 15)))
+                                    ? const Center(child: Text('Nincs a megadott listának megfelelő mérkőzés.', style: TextStyle(fontSize: 15)))
                                     : RefreshIndicator(
                                         onRefresh: () async => provider.loadInitialData(offset: _selectedDayIndex),
                                         child: ListView.builder(
@@ -462,8 +514,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                 children: matches.map((matchItem) {
                                                   final bool isLive = _isMatchLive(matchItem);
                                                   final bool isUpcoming = _isMatchUpcoming(matchItem);
-                                                  final String translatedStatus = LeagueTranslator.translateStatus(matchItem.status);
-                                                  final String correctedTime = LeagueTranslator.formatMatchTime(matchItem.time);
+                                                  final String translatedStatus = StatPalHelper.translateStatus(matchItem.status);
+                                                  final String correctedTime = StatPalHelper.formatMatchTime(matchItem.time);
                                                   final bool isFav = _favoriteMatchIds.contains(matchItem.id);
 
                                                   return InkWell(
@@ -611,7 +663,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                     itemCount: filteredLeagues.length,
                                     itemBuilder: (context, index) {
                                       final league = filteredLeagues[index];
-                                      final translatedName = LeagueTranslator.translate('${league.country}: ${league.name}');
+                                      final translatedName = StatPalHelper.formatLeagueHeader(league.country, league.name);
                                       return Card(
                                         margin: const EdgeInsets.symmetric(vertical: 5),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
