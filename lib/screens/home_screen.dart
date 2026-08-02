@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - Home Screen (Teljesen Újragondolt, Tiszta Verzió)
+// Zsolt Pro AI - Home Screen (StatPal PRO Integrációval)
 // File: lib/screens/home_screen.dart
 // ============================================================================
 
@@ -65,8 +65,8 @@ class HomeScreen extends StatelessWidget {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.sports_soccer, color: Colors.amber, size: 28),
-            title: const Text('Meccsek, Élő & Ligák'),
-            subtitle: const Text('Mai meccsek és élő eredmények'),
+            title: const Text('StatPal Élő & Ligák PRO'),
+            subtitle: const Text('Szűrt mai meccsek és élő eredmények'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
