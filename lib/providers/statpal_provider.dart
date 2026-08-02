@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Provider / Controller (NB III nélkül, Skandináv + Svájci 2. osztállyal)
+// Zsolt Pro AI - StatPal Provider / Controller (Nemzetközi Kupák Teljeskörű Kezelésével)
 // File: lib/providers/statpal_provider.dart
 // ============================================================================
 
@@ -30,7 +30,7 @@ class StatPalProvider with ChangeNotifier {
   StatPrediction? _currentPrediction;
   StatPrediction? get currentPrediction => _currentPrediction;
 
-  /// Szigorú, tételes engedélyezési lista (Skandináv + Svájci 2. osztályokkal, NB III nélkül)
+  /// Szigorú, tételes engedélyezési lista (Kifejezett nemzetközi kupa kezeléssel)
   bool _isAllowedLeague(String rawCountry, String rawName) {
     String cleanCountry = rawCountry.replaceAll('_', ' ');
     String cleanName = rawName;
@@ -39,11 +39,12 @@ class StatPalProvider with ChangeNotifier {
     }
     final full = cleanCountry.isNotEmpty ? '$cleanCountry: $cleanName' : cleanName;
     final h = LeagueTranslator.translate(full).toLowerCase();
+    final originalLower = '$rawCountry $rawName'.toLowerCase();
 
-    // 1. NEMZETKÖZI KUPÁK
-    if (h.contains('bajnokok ligája') || h.contains('champions league') ||
-        h.contains('európa liga') || h.contains('europa league') ||
-        h.contains('konferencia liga') || h.contains('conference league')) {
+    // 1. NEMZETKÖZI KUPÁK (Bajnokok Ligája, Európa Liga, Konferencia Liga - nevek vagy kódok alapján)
+    if (originalLower.contains('champions league') || originalLower.contains('europa league') || originalLower.contains('conference league') ||
+        h.contains('bajnokok ligája') || h.contains('európa liga') || h.contains('konferencia liga') ||
+        h.contains('uefa')) {
       return true;
     }
 
@@ -82,19 +83,15 @@ class StatPalProvider with ChangeNotifier {
     if (h.contains('törökország')) {
       return h.contains('super lig') || h.contains('1. lig');
     }
-    // Svéd 2. osztály (Superettan vagy Division 1/2 ha szükséges, de az Allsvenskan mellett a Superettan a hivatalos 2. vonal)
     if (h.contains('svédország')) {
       return h.contains('allsvenskan') || h.contains('superettan');
     }
-    // Dán 2. osztály (1. Division a dán 2. szint)
     if (h.contains('dánia')) {
       return h.contains('superliga') || h.contains('1. division');
     }
-    // Norvég 2. osztály (Obos-Ligaen)
     if (h.contains('norvégia')) {
       return h.contains('eliteserien') || h.contains('obos-ligaen');
     }
-    // Svájci 2. osztály (Challenge League)
     if (h.contains('svájc')) {
       return h.contains('szuperbajnokság') || h.contains('challenge league') || h.contains('promotion');
     }
