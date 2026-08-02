@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard & Válogatott Ligák Szűrése
+// Zsolt Pro AI - StatPal Dashboard & Szigorú Fehérlistás Ligaszűrés
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -36,42 +36,82 @@ class StatPalHelper {
     return LeagueTranslator.translate(full);
   }
 
-  /// Ellenőrzi, hogy a liga szerepel-e az engedélyezett listánken (a képeid alapján)
+  /// Szigorú fehérlista a füzeted alapján – CSAK EZEK jelenhetnek meg
   static bool isAllowedLeague(String translatedHeader) {
     final h = translatedHeader.toLowerCase();
 
-    // 1. Kedvencek / Top 5 (1. és 2. osztály + Kupák)
-    if (h.contains('magyarország') && (h.contains('nb i') || h.contains('nb ii') || h.contains('kupa'))) return true;
-    if (h.contains('angol') && (h.contains('premier') || h.contains('championship') || h.contains('kupa') || h.contains('league one') || h.contains('league two'))) return true;
-    if (h.contains('német') && (h.contains('bundesliga') || h.contains('2.') || h.contains('kupa') || h.contains('pokal'))) return true;
-    if (h.contains('francia') && (h.contains('ligue 1') || h.contains('ligue 2') || h.contains('kupa'))) return true;
-    if (h.contains('olasz') && (h.contains('serie a') || h.contains('serie b') || h.contains('kupa'))) return true;
-    if (h.contains('spanyol') && (h.contains('la liga') || h.contains('segunda') || h.contains('kupa'))) return true;
+    // 1. Nemzetközi Kupák (Bajnokok Ligája, Európa Liga, Konferencia Liga)
+    if (h.contains('bajnokok ligája') || h.contains('európa liga') || h.contains('konferencia liga')) {
+      return true;
+    }
 
-    // 2. További engedélyezett országok (1. és esetleg 2. osztály / kupa a kézírásod alapján)
-    const allowedCountries = [
-      'portugália', 'hollandia', 'belgium', 'törökország', 'cseh', 'görög', 
-      'dánia', 'norvégia', 'svájc', 'ciprus', 'svédország', 'skócia', 
-      'ausztria', 'románia', 'horvátország', 'szlovénia', 'ukrajna', 
-      'izrael', 'írország', 'örményország', 'koszovó', 'bosznia', 
-      'lettország', 'finnország', 'kazahsztán', 'feröer', 'macedónia', 
-      'moldova', 'albánia', 'fehéroroszország', 'litvánia', 'málta', 
-      'észtország', 'andorra', 'bulgária', 'wales', 'argentína', 
-      'brazília', 'mexikó', 'kolumbia', 'usa', 'japán', 'kína', 
-      'dél-korea', 'irán', 'egyiptom', 'nigéria', 'tunézia', 'katár', 
-      'szaúd-arábia', 'fülöp-szigetek', 'india', 'hongkong', 'szerbia',
-      'ekvador', 'salvador', 'észtország', 'fiji', 'francia', 'georgia'
+    // 2. Magyarország (NB I, NB II, NB III, Kupa)
+    if (h.contains('magyarország')) {
+      if (h.contains('nb i.') || h.contains('nb i') || h.contains('nb ii') || h.contains('nb iii') || h.contains('kupa')) {
+        return true;
+      }
+      return false;
+    }
+
+    // 3. Top 5 Ligák + 2. osztály + Kupák
+    if (h.contains('angol')) {
+      if (h.contains('premier') || h.contains('championship') || h.contains('league one') || h.contains('league two') || h.contains('kupa')) {
+        return true;
+      }
+      return false;
+    }
+    if (h.contains('német')) {
+      if (h.contains('bundesliga') || h.contains('2.') || h.contains('kupa') || h.contains('pokal')) {
+        return true;
+      }
+      return false;
+    }
+    if (h.contains('francia')) {
+      if (h.contains('ligue 1') || h.contains('ligue 2') || h.contains('kupa')) {
+        return true;
+      }
+      return false;
+    }
+    if (h.contains('olasz')) {
+      if (h.contains('serie a') || h.contains('serie b') || h.contains('kupa')) {
+        return true;
+      }
+      return false;
+    }
+    if (h.contains('spanyol')) {
+      if (h.contains('la liga') || h.contains('segunda') || h.contains('kupa')) {
+        return true;
+      }
+      return false;
+    }
+
+    // 4. Egyéb országok (A füzeted alapján csak a megjelöltek)
+    // Portugália (1. és 2. osztály)
+    if (h.contains('portugália') && (h.contains('primeira') || h.contains('liga 2') || h.contains('2.') || h.contains('segunda'))) return true;
+    // Hollandia (1. és 2. osztály)
+    if (h.contains('hollandia') && (h.contains('eredivisie') || h.contains('eerste divisie') || h.contains('2.'))) return true;
+    // Belgium (1. és 2. osztály)
+    if (h.contains('belgium') && (h.contains('pro league') || h.contains('challenger pro league') || h.contains('2.'))) return true;
+    // Törökország (1. és 2. osztály)
+    if (h.contains('törökország') && (h.contains('super lig') || h.contains('1. lig') || h.contains('2.'))) return true;
+
+    // Egyéb országok, ahol csak az 1. osztály (vagy a megadottak) kellenek:
+    const strictFirstDivisionCountries = [
+      'cseh', 'görög', 'dánia', 'norvégia', 'svájc', 'ciprus', 'svédország', 
+      'skócia', 'ausztria', 'románia', 'horvátország', 'szlovénia', 'ukrajna', 
+      'izrael', 'írország', 'örményország', 'koszovó', 'bosznia', 'lettország', 
+      'finnország', 'kazahsztán', 'feröer', 'macedónia', 'moldova', 'albánia', 
+      'fehéroroszország', 'litvánia', 'málta', 'észtország', 'andorra', 'bulgária', 
+      'wales', 'argentína', 'brazília', 'mexikó', 'kolumbia', 'usa', 'japán', 
+      'kína', 'dél-korea', 'irán', 'egyiptom', 'nigéria', 'tunézia', 'katár', 
+      'szaúd-arábia', 'fülöp-szigetek', 'india', 'hongkong', 'szerbia', 'ekvador', 
+      'salvador', 'fiji', 'georgia'
     ];
 
-    for (var c in allowedCountries) {
+    for (var c in strictFirstDivisionCountries) {
       if (h.contains(c)) {
         return true;
       }
-    }
-
-    // Nemzetközi kupák (Bajnokok Ligája, Európa Liga, Konferencia Liga)
-    if (h.contains('bajnokok ligája') || h.contains('európa liga') || h.contains('konferencia liga')) {
-      return true;
     }
 
     return false;
@@ -285,7 +325,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
 
               final displayHeader = StatPalHelper.formatLeagueHeader(leagueCountry, rawLeagueName);
 
-              // Csak a listán szereplő ligák engedélyezése
+              // Szigorú szűrés alkalmazása
               if (!StatPalHelper.isAllowedLeague(displayHeader)) {
                 continue;
               }
