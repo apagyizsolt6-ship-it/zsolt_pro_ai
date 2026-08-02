@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard, Standings & Date Selector (Végleges Verzió)
+// Zsolt Pro AI - StatPal Dashboard, Standings & LeagueTranslator Integráció
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -10,92 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/statpal_provider.dart';
 import '../models/statpal_models.dart';
 import '../widgets/day_selector.dart';
+import '../utils/league_translator.dart';
 import 'match_detail_screen.dart';
-
-class StatPalHelper {
-  static String translateStatus(String rawStatus) {
-    final status = rawStatus.toUpperCase().trim();
-    if (status == 'FT' || status == 'FINISHED') return 'Vége';
-    if (status == 'NS' || status == 'NOT STARTED') return 'Kezdés';
-    if (status == 'HT') return 'Félidő';
-    if (status == 'AET') return 'Hossz. után';
-    if (status == 'PEN' || status == 'TIZI') return 'Büntetők';
-    if (status.contains('POSTP')) return 'Elhalasztva';
-    if (status.contains('CANCL') || status.contains('CANC')) return 'Törölve';
-    if (status.contains('SUSP')) return 'Felfüggesztve';
-    if (status.contains('PEN.')) return 'Büntető';
-    return rawStatus;
-  }
-
-  static String formatMatchTime(String rawTime) {
-    if (rawTime.isEmpty) return '';
-    
-    if (rawTime.contains(':') && rawTime.length <= 5) {
-      final parts = rawTime.split(':');
-      final hour = int.tryParse(parts[0]);
-      final minute = int.tryParse(parts[1]);
-      
-      if (hour != null && minute != null) {
-        int adjustedHour = (hour + 2) % 24;
-        final formattedHour = adjustedHour.toString().padLeft(2, '0');
-        final formattedMinute = minute.toString().padLeft(2, '0');
-        return '$formattedHour:$formattedMinute';
-      }
-    }
-    
-    return rawTime;
-  }
-
-  static String translateCountry(String rawCountry) {
-    final c = rawCountry.toLowerCase().trim();
-    const map = {
-      'germany': 'Németország',
-      'australia': 'Ausztrália',
-      'brazil': 'Brazília',
-      'kazakhstan': 'Kazahsztán',
-      'russia': 'Oroszország',
-      'ukraine': 'Ukrajna',
-      'denmark': 'Dánia',
-      'finland': 'Finnország',
-      'india': 'India',
-      'ireland': 'Írország',
-      'indonesia': 'Indonézia',
-      'lithuania': 'Litvánia',
-      'mexico': 'Mexikó',
-      'moldova': 'Moldova',
-      'uzbekistan': 'Üzbegisztán',
-      'colombia': 'Kolumbia',
-      'chile': 'Chile',
-      'czech republic': 'Csehország',
-      'bolivia': 'Bolívia',
-      'belarus': 'Fehéroroszország',
-      'south korea': 'Dél-Korea',
-      'world': 'Világszintű',
-      'asia': 'Ázsia',
-      'africa': 'Afrika',
-      'south america': 'Dél-Amerika',
-      'concacaf': 'CONCACAF',
-      'europe': 'Európa',
-    };
-    return map[c] ?? (rawCountry.isNotEmpty ? '${rawCountry[0].toUpperCase()}${rawCountry.substring(1)}' : 'Egyéb');
-  }
-
-  static String formatLeagueHeader(String country, String name) {
-    final translatedCountry = translateCountry(country);
-    
-    String cleanName = name;
-    if (cleanName.toLowerCase().startsWith('$country:')) {
-      cleanName = cleanName.substring(country.length + 1).trim();
-    } else if (cleanName.toLowerCase().startsWith('$translatedCountry:')) {
-      cleanName = cleanName.substring(translatedCountry.length + 1).trim();
-    }
-
-    if (translatedCountry.isEmpty || translatedCountry.toLowerCase() == 'ismeretlen') {
-      return cleanName;
-    }
-    return '$translatedCountry: $cleanName';
-  }
-}
 
 class StatPalDashboardScreen extends StatelessWidget {
   const StatPalDashboardScreen({super.key});
@@ -103,7 +19,7 @@ class StatPalDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => StatPalProvider()..loadInitialData(),
+      create: (_) => StatPalProvider()..loadInitialData(offset: 0),
       child: const _StatPalDashboardView(),
     );
   }
@@ -295,12 +211,16 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
             final List<Map<String, dynamic>> filteredLeagueGroups = [];
 
             for (var rawLeague in provider.rawLiveMatchesGroups) {
-              final leagueName = rawLeague['name']?.toString() ?? 'Ismeretlen Liga';
+              final rawLeagueName = rawLeague['name']?.toString() ?? 'Ismeretlen Liga';
               final leagueCountry = rawLeague['country']?.toString() ?? '';
               final leagueId = rawLeague['id']?.toString() ?? '';
               final matchesList = rawLeague['match'];
 
               if (matchesList is! List) continue;
+
+              // Itt használjuk a központi LeagueTranslator-t a tökéletes magyarításhoz[span_2](start_span)[span_2](end_span)
+              final fullRawName = leagueCountry.isNotEmpty ? '$leagueCountry: $rawLeagueName' : rawLeagueName;
+              final displayHeader = LeagueTranslator.translate(fullRawName);
 
               final List<StatMatch> matchedMeccsek = [];
 
@@ -340,8 +260,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 matchedMeccsek.sort((a, b) => a.time.compareTo(b.time));
                 filteredLeagueGroups.add({
                   'id': leagueId,
-                  'name': leagueName,
-                  'country': leagueCountry,
+                  'name': displayHeader, // Lefordított név mentése
                   'matches': matchedMeccsek,
                 });
               }
@@ -349,8 +268,9 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
 
             final filteredLeagues = provider.leagues.where((league) {
               if (_leagueSearchQuery.isEmpty) return true;
-              return league.name.toLowerCase().contains(_leagueSearchQuery) ||
-                     league.country.toLowerCase().contains(_leagueSearchQuery);
+              final translatedName = LeagueTranslator.translate('${league.country}: ${league.name}');
+              return translatedName.toLowerCase().contains(_leagueSearchQuery) ||
+                     league.name.toLowerCase().contains(_leagueSearchQuery);
             }).toList();
 
             return Column(
@@ -498,10 +418,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                           itemCount: filteredLeagueGroups.length,
                                           itemBuilder: (context, groupIndex) {
                                             final leagueGroup = filteredLeagueGroups[groupIndex];
-                                            final leagueName = leagueGroup['name'] as String;
-                                            final leagueCountry = leagueGroup['country'] as String;
+                                            final displayHeader = leagueGroup['name'] as String;
                                             final List<StatMatch> matches = leagueGroup['matches'] as List<StatMatch>;
-                                            final displayHeader = StatPalHelper.formatLeagueHeader(leagueCountry, leagueName);
 
                                             return Card(
                                               margin: const EdgeInsets.symmetric(vertical: 6),
@@ -526,8 +444,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                                 children: matches.map((matchItem) {
                                                   final bool isLive = _isMatchLive(matchItem);
                                                   final bool isUpcoming = _isMatchUpcoming(matchItem);
-                                                  final String translatedStatus = StatPalHelper.translateStatus(matchItem.status);
-                                                  final String correctedTime = StatPalHelper.formatMatchTime(matchItem.time);
+                                                  final String translatedStatus = LeagueTranslator.translateStatus(matchItem.status);
+                                                  final String correctedTime = LeagueTranslator.formatMatchTime(matchItem.time);
                                                   final bool isFav = _favoriteMatchIds.contains(matchItem.id);
 
                                                   return InkWell(
@@ -675,7 +593,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                     itemCount: filteredLeagues.length,
                                     itemBuilder: (context, index) {
                                       final league = filteredLeagues[index];
-                                      final translatedCountry = StatPalHelper.translateCountry(league.country);
+                                      final translatedName = LeagueTranslator.translate('${league.country}: ${league.name}');
                                       return Card(
                                         margin: const EdgeInsets.symmetric(vertical: 5),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -688,8 +606,8 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                             ),
                                             child: const Icon(Icons.emoji_events, color: Colors.amber),
                                           ),
-                                          title: Text(league.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                          subtitle: Text('Ország: $translatedCountry'),
+                                          title: Text(translatedName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          subtitle: Text('Eredeti: ${league.name}'),
                                           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                           onTap: () async {
                                             showDialog(
@@ -707,7 +625,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                                               context,
                                               MaterialPageRoute(
                                                 builder: (_) => LeagueStandingsScreen(
-                                                  leagueName: league.name,
+                                                  leagueName: translatedName,
                                                   standings: provider.standings,
                                                 ),
                                               ),
