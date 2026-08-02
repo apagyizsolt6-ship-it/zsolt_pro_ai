@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI - Központi Fordítási Központ
-// Version: v1.0.2 (StatPal Speciális Országnevekkel Bővítve)
+// Version: v1.0.3 (Teljesen Tiszta & Hibátlan Magyarítás)
 // File: lib/utils/league_translator.dart
 // ===========================================
 
@@ -47,115 +47,108 @@ class LeagueTranslator {
     return rawTime;
   }
 
-  static const Map<String, String> _countryPrefixes = <String, String>{
-    // StatPal alulvonásos és speciális formátumok kezelése először
-    'South_korea': 'Dél-Korea',
-    'Faroe_islands': 'Feröer-szigetek',
-    'El_salvador': 'Salvador',
-    'Costa_rica': 'Costa Rica',
-    'Czech_republic': 'Csehország',
-    
-    // Alap országnevek
-    'Hungarian': 'Magyarország',
-    'English': 'Angol',
-    'Spanish': 'Spanyol',
-    'Italian': 'Olasz',
-    'German': 'Német',
-    'French': 'Francia',
-    'Dutch': 'Holland',
-    'Portuguese': 'Portugál',
-    'Turkish': 'Török',
-    'Austrian': 'Osztrák',
-    'Swiss': 'Svájci',
-    'Belgian': 'Belga',
-    'Greek': 'Görög',
-    'Czech': 'Cseh',
-    'Polish': 'Lengyel',
-    'Danish': 'Dán',
-    'Swedish': 'Svéd',
-    'Norwegian': 'Norvég',
-    'Finnish': 'Finn',
-    'Croatian': 'Horvát',
-    'Serbian': 'Szerb',
-    'Romanian': 'Román',
-    'Slovakian': 'Szlovák',
-    'Slovak': 'Szlovák',
-    'Ukrainian': 'Ukrán',
-    'Russian': 'Orosz',
-    'Belarusian': 'Fehérorosz',
-    'Bulgarian': 'Bolgár',
-    'Irish': 'Ír',
-    'Scottish': 'Skót',
-    'Welsh': 'Walesi',
-    'Icelandic': 'Izlandi',
-    'Slovenian': 'Szlovén',
-    'Bosnian': 'Bosnyák',
-    'Albanian': 'Albán',
-    'Macedonian': 'Macedón',
-    'Moldovan': 'Moldáv',
-    'Georgian': 'Grúz',
-    'Armenian': 'Örmény',
-    'Azerbaijani': 'Azeri',
-    'Cypriot': 'Ciprusi',
-    'Maltese': 'Máltai',
-    'Estonian': 'Észt',
-    'Latvian': 'Lett',
-    'Lithuanian': 'Litván',
-    'Luxembourg': 'Luxemburgi',
-    'Faroe Islands': 'Feröer',
+  /// Országnevek pontos, tiszta szótára (kisbetűs kulcsokkal a biztonság kedvéért)
+  static const Map<String, String> _countries = <String, String>{
+    'germany': 'Németország',
+    'hungary': 'Magyarország',
+    'england': 'Angol',
+    'spain': 'Spanyol',
+    'italy': 'Olasz',
+    'france': 'Francia',
+    'netherlands': 'Holland',
+    'portugal': 'Portugál',
+    'turkey': 'Török',
+    'austria': 'Osztrák',
+    'switzerland': 'Svájc',
+    'belgium': 'Belga',
+    'greece': 'Görög',
+    'czech republic': 'Csehország',
+    'czech_republic': 'Csehország',
+    'poland': 'Lengyelország',
+    'denmark': 'Dánia',
+    'sweden': 'Svédország',
+    'norway': 'Norvégia',
+    'finland': 'Finnország',
+    'croatia': 'Horvátország',
+    'serbia': 'Szerbia',
+    'romania': 'Románia',
+    'slovakia': 'Szlovákia',
+    'ukraine': 'Ukrajna',
+    'russia': 'Oroszország',
+    'belarus': 'Fehéroroszország',
+    'bulgaria': 'Bulgária',
+    'ireland': 'Írország',
+    'scotland': 'Skócia',
+    'wales': 'Wales',
+    'iceland': 'Izland',
+    'slovenia': 'Szlovénia',
+    'bosnia': 'Bosznia-Hercegovina',
+    'albania': 'Albánia',
+    'macedonia': 'Macedónia',
+    'moldova': 'Moldova',
+    'georgia': 'Grúzia',
+    'armenia': 'Örményország',
+    'azerbaijan': 'Azerbajdzsán',
+    'cyprus': 'Ciprus',
+    'malta': 'Málta',
+    'estonia': 'Észtország',
+    'latvia': 'Lettország',
+    'lithuania': 'Litvánia',
+    'luxembourg': 'Luxemburg',
+    'faroe islands': 'Feröer-szigetek',
+    'faroe_islands': 'Feröer-szigetek',
 
-    'Brazilian': 'Brazília',
-    'Argentinian': 'Argentin',
-    'Argentine': 'Argentin',
-    'Peruvian': 'Perui',
-    'Bolivian': 'Bolíviai',
-    'Ecuadorian': 'Ecuadori',
-    'Colombian': 'Kolumbiai',
-    'Chilean': 'Chilei',
-    'Uruguayan': 'Uruguayi',
-    'Paraguayan': 'Paraguayi',
-    'Venezuelan': 'Venezuelai',
-    'Mexican': 'Mexikói',
-    'Costa Rican': 'Costa Rica-i',
-    'Guatemalan': 'Guatemalai',
-    'Honduran': 'Hondurasi',
-    'Panamanian': 'Panamai',
-    'Jamaican': 'Jamaicai',
+    'brazil': 'Brazília',
+    'argentina': 'Argentína',
+    'peru': 'Peru',
+    'bolivia': 'Bolívia',
+    'ecuador': 'Ecuador',
+    'colombia': 'Kolumbia',
+    'chile': 'Chile',
+    'uruguay': 'Uruguay',
+    'paraguay': 'Paraguay',
+    'venezuela': 'Venezuela',
+    'mexico': 'Mexikó',
+    'costa rica': 'Costa Rica',
+    'costa_rica': 'Costa Rica',
+    'guatemala': 'Guatemala',
+    'honduras': 'Honduras',
+    'panama': 'Panama',
+    'el salvador': 'Salvador',
+    'el_salvador': 'Salvador',
+    'jamaica': 'Jamaica',
 
-    'American': 'Amerikai',
-    'Canadian': 'Kanadai',
-    'Australia': 'Ausztrál',
-    'Australian': 'Ausztrál',
-    'New Zealand': 'Új-zélandi',
+    'usa': 'Egyesült Államok',
+    'canada': 'Kanada',
+    'australia': 'Ausztrália',
+    'new zealand': 'Új-Zéland',
 
-    'Korean': 'Koreai',
-    'Japanese': 'Japán',
-    'Chinese': 'Kínai',
-    'Saudi': 'Szaúdi',
-    'Kazakhstan': 'Kazah',
-    'Kazakhstani': 'Kazah',
-    'Kyrgyz': 'Kirgiz',
-    'Uzbek': 'Üzbég',
-    'Iranian': 'Iráni',
-    'Iraqi': 'Iraki',
-    'Qatari': 'Katari',
-    'Emirati': 'Emírségekbeli',
-    'Indian': 'Indiai',
-    'Thai': 'Thaiföldi',
-    'Vietnamese': 'Vietnámi',
-    'Indonesian': 'Indonéz',
-    'Malaysian': 'Maláj',
+    'south korea': 'Dél-Korea',
+    'south_korea': 'Dél-Korea',
+    'japan': 'Japán',
+    'china': 'Kína',
+    'saudi arabia': 'Szaúd-Arábia',
+    'kazakhstan': 'Kazahsztán',
+    'kyrgyzstan': 'Kirgizisztán',
+    'uzbekistan': 'Üzbegisztán',
+    'iran': 'Irán',
+    'iraq': 'Irak',
+    'qatar': 'Katár',
+    'india': 'India',
+    'thailand': 'Thaiföld',
+    'vietnam': 'Vietnám',
+    'indonesia': 'Indonézia',
+    'malaysia': 'Malajzia',
 
-    'Egyptian': 'Egyiptomi',
-    'Moroccan': 'Marokkói',
-    'Tunisian': 'Tunéziai',
-    'Algerian': 'Algériai',
-    'South African': 'Dél-afrikai',
-    'Nigerian': 'Nigériai',
-    'Ghanaian': 'Ghánai',
-    'Senegalese': 'Szenegáli',
-    'Cameroonian': 'Kameruni',
-    'Ivory Coast': 'Elefántcsontparti',
+    'egypt': 'Egyiptom',
+    'morocco': 'Marokkó',
+    'tunisia': 'Tunézia',
+    'algeria': 'Algéria',
+    'south africa': 'Dél-Afrika',
+    'nigeria': 'Nigéria',
+    'ghana': 'Ghána',
+    'senegal': 'Szenegál',
+    'cameroon': 'Kamerun',
   };
 
   static const Map<String, String> _commonTerms = <String, String>{
@@ -185,32 +178,43 @@ class LeagueTranslator {
       return _knownLeagues[trimmed]!;
     }
 
-    // Duplikációk szűrése (pl. "Costa Rica: Costa Rica: ...")
+    // Szétbontjuk országra és ligára, ha van benne kettőspont
+    String countryPart = '';
+    String leaguePart = trimmed;
+
     if (trimmed.contains(':')) {
       final parts = trimmed.split(':');
-      if (parts.length >= 2) {
-        final p0 = parts[0].trim().toLowerCase();
-        final p1 = parts[1].trim().toLowerCase();
-        if (p0 == p1 || p1.contains(p0)) {
-          trimmed = parts.skip(1).join(':').trim();
-        }
-      }
+      countryPart = parts[0].trim();
+      leaguePart = parts.skip(1).join(':').trim();
     }
 
-    String translated = trimmed;
+    // Ha a ligarészben benne van az ország is megint, kiszűrjük
+    if (leaguePart.toLowerCase().startsWith(countryPart.toLowerCase())) {
+      leaguePart = leaguePart.substring(countryPart.length).replaceAll(RegExp(r'^[:\s]+'), '').trim();
+    }
 
-    _countryPrefixes.forEach((String englishPrefix, String hungarianPrefix) {
-      if (translated.startsWith(englishPrefix)) {
-        translated = translated.replaceFirst(englishPrefix, hungarianPrefix);
+    // Ország fordítása a szótárból
+    String translatedCountry = countryPart;
+    final lowerCountry = countryPart.toLowerCase().replaceAll(' ', '_');
+    if (_countries.containsKey(lowerCountry)) {
+      translatedCountry = _countries[lowerCountry]!;
+    } else {
+      // Ha esetleg nem találná, csak csinálunk egy csinosabb formátumot
+      translatedCountry = countryPart.replaceAll('_', ' ');
+    }
+
+    // Ligatípusok fordítása
+    String translatedLeague = leaguePart;
+    _commonTerms.forEach((String eng, String hun) {
+      if (translatedLeague.contains(eng)) {
+        translatedLeague = translatedLeague.replaceAll(eng, hun);
       }
     });
 
-    _commonTerms.forEach((String englishTerm, String hungarianTerm) {
-      if (translated.contains(englishTerm)) {
-        translated = translated.replaceAll(englishTerm, hungarianTerm);
-      }
-    });
+    if (translatedCountry.isEmpty) {
+      return translatedLeague;
+    }
 
-    return translated;
+    return '$translatedCountry: $translatedLeague';
   }
 }
