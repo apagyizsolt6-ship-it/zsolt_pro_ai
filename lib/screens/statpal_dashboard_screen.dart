@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard, Standings & LeagueTranslator Integráció
+// Zsolt Pro AI - StatPal Dashboard, Standings & StatPalHelper Restored
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -12,6 +12,25 @@ import '../models/statpal_models.dart';
 import '../widgets/day_selector.dart';
 import '../utils/league_translator.dart';
 import 'match_detail_screen.dart';
+
+class StatPalHelper {
+  static String translateStatus(String rawStatus) {
+    return LeagueTranslator.translateStatus(rawStatus);
+  }
+
+  static String formatMatchTime(String rawTime) {
+    return LeagueTranslator.formatMatchTime(rawTime);
+  }
+
+  static String translateCountry(String rawCountry) {
+    return LeagueTranslator.translate(rawCountry);
+  }
+
+  static String formatLeagueHeader(String country, String name) {
+    final full = country.isNotEmpty ? '$country: $name' : name;
+    return LeagueTranslator.translate(full);
+  }
+}
 
 class StatPalDashboardScreen extends StatelessWidget {
   const StatPalDashboardScreen({super.key});
@@ -218,7 +237,6 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
 
               if (matchesList is! List) continue;
 
-              // Itt használjuk a központi LeagueTranslator-t a tökéletes magyarításhoz[span_2](start_span)[span_2](end_span)
               final fullRawName = leagueCountry.isNotEmpty ? '$leagueCountry: $rawLeagueName' : rawLeagueName;
               final displayHeader = LeagueTranslator.translate(fullRawName);
 
@@ -260,7 +278,7 @@ class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
                 matchedMeccsek.sort((a, b) => a.time.compareTo(b.time));
                 filteredLeagueGroups.add({
                   'id': leagueId,
-                  'name': displayHeader, // Lefordított név mentése
+                  'name': displayHeader,
                   'matches': matchedMeccsek,
                 });
               }
