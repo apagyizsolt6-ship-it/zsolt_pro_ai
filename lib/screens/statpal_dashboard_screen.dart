@@ -27,8 +27,30 @@ class StatPalHelper {
   }
 
   static String formatLeagueHeader(String country, String name) {
-    String cleanCountry = country.replaceAll('_', ' ');
-    String cleanName = name;
+    final String countryLower = country.trim().toLowerCase();
+    final String nameLower = name.trim().toLowerCase();
+
+    // Nemzetközi kupák kifejezett, szép formázása
+    if (countryLower == 'europe' || countryLower == 'world' || countryLower == 'international' || countryLower == 'uefa') {
+      String title = '';
+      if (nameLower.contains('champions') || nameLower.contains('bajnokok')) {
+        title = 'UEFA Bajnokok Ligája';
+      } else if (nameLower.contains('europa') || nameLower.contains('európa')) {
+        title = 'UEFA Európa Liga';
+      } else if (nameLower.contains('conference') || nameLower.contains('konferencia')) {
+        title = 'UEFA Konferencia Liga';
+      }
+
+      if (title.isNotEmpty) {
+        if (nameLower.contains('qualification') || nameLower.contains('selejtezo')) {
+          title += ' - Selejtező';
+        }
+        return title;
+      }
+    }
+
+    String cleanCountry = country.replaceAll('_', ' ').trim();
+    String cleanName = name.trim();
     if (cleanName.toLowerCase().startsWith(cleanCountry.toLowerCase())) {
       cleanName = cleanName.substring(cleanCountry.length).replaceAll(RegExp(r'^[:\s]+'), '').trim();
     }
@@ -36,7 +58,6 @@ class StatPalHelper {
     return LeagueTranslator.translate(full);
   }
 
-  /// KIZÁRÓLAG AZ ENGEDÉLYEZETT LISTA - Véglegesen javított nemzetközi kupa szűréssel
   static bool isAllowedLeague(String rawCountry, String rawName) {
     final String countryLower = rawCountry.trim().toLowerCase();
     final String nameLower = rawName.trim().toLowerCase();
@@ -49,26 +70,18 @@ class StatPalHelper {
         .replaceAll('á', 'a')
         .replaceAll('é', 'e');
 
-    final String normalizedCountry = countryLower
-        .replaceAll('-', '')
-        .replaceAll(' ', '');
+    final String normalizedCountry = countryLower.replaceAll('-', '').replaceAll(' ', '');
 
-    // 1. Nemzetközi kupák (BL, EL, KL, UEFA, UCL, UEL, UECL)
+    // 1. Nemzetközi kupák (BL, EL, KL, UEFA)
     if (normalizedCountry.contains('europe') || 
         normalizedCountry.contains('uefa') || 
         normalizedCountry.contains('world') || 
         normalizedCountry.contains('international') ||
-        normalizedCountry.contains('nemzetkozi') ||
-        normalizedName.contains('championsleague') || 
-        normalizedName.contains('europaleague') || 
-        normalizedName.contains('conferenceleague') || 
-        normalizedName.contains('bajnokokligaja') || 
-        normalizedName.contains('europaliga') || 
-        normalizedName.contains('konferencialiga') ||
-        normalizedName.contains('uefa') ||
-        normalizedName.contains('ucl') ||
-        normalizedName.contains('uel') ||
-        normalizedName.contains('uecl')) {
+        normalizedName.contains('champions') || 
+        normalizedName.contains('europa') || 
+        normalizedName.contains('conference') || 
+        normalizedName.contains('bajnokok') || 
+        normalizedName.contains('uefa')) {
       return true;
     }
 
@@ -80,7 +93,7 @@ class StatPalHelper {
     final full = cleanCountry.isNotEmpty ? '$cleanCountry: $cleanName' : cleanName;
     final h = LeagueTranslator.translate(full).toLowerCase();
 
-    // 2. Magyarország (Csak NB I, NB II, Kupa - NB III kizárva)
+    // 2. Magyarország (Csak NB I, NB II, Kupa)
     if (h.contains('magyarország')) {
       return (h.contains('nb i.') || h.contains('nb i') || h.contains('nb ii') || h.contains('kupa')) && !h.contains('nb iii');
     }
@@ -107,7 +120,6 @@ class StatPalHelper {
     if (h.contains('hollandia') && (h.contains('eredivisie') || h.contains('eerste divisie'))) return true;
     if (h.contains('belgium') && (h.contains('pro league') || h.contains('challenger pro league'))) return true;
     if (h.contains('törökország') && (h.contains('super lig') || h.contains('1. lig'))) return true;
-    
     if (h.contains('svédország') && (h.contains('allsvenskan') || h.contains('superettan'))) return true;
     if (h.contains('dánia') && (h.contains('superliga') || h.contains('1. division'))) return true;
     if (h.contains('norvégia') && (h.contains('eliteserien') || h.contains('obos-ligaen'))) return true;
@@ -129,7 +141,10 @@ class StatPalHelper {
       if (h.contains(item)) {
         if (h.contains('2.') || h.contains('3.') || h.contains('u17') || h.contains('u19') || 
             h.contains('u20') || h.contains('u21') || h.contains('women') || h.contains('női') ||
-            h.contains('b') || h.contains('amateur')) {
+            h.contains('amateur') || h.contains('reserve') || h.contains('tartalék') || 
+            h.contains('pershaya') || h.contains('1. deild') || h.contains('1.liga') || 
+            h.contains('liga 2') || h.contains('division 1') || h.contains('division 2') || 
+            h.contains('sub-')) {
           return false;
         }
         return true;
@@ -147,13 +162,6 @@ class StatPalDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const _StatPalDashboardView();
   }
-}
-
-class _StatPalDashboardView extends StatefulWidget {
-  const _StatPalDashboardView();
-
-  @override
-  State<_StatPalDashboardView> createState() => _StatPalDashboardViewState();
 }
 
 class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
