@@ -123,10 +123,7 @@ class StatPalDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => StatPalProvider()..loadInitialData(offset: 0),
-      child: const _StatPalDashboardView(),
-    );
+    return const _StatPalDashboardView();
   }
 }
 
