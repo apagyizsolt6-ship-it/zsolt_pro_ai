@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Dashboard & Szigorú Exkluzív Ligaszűrés
+// Zsolt Pro AI - StatPal Dashboard
 // File: lib/screens/statpal_dashboard_screen.dart
 // ============================================================================
 
@@ -23,40 +23,42 @@ class StatPalHelper {
   }
 
   static String translateCountry(String rawCountry) {
-    return LeagueTranslator.translate(rawCountry);
+    return LeagueTranslator.translateCountryName(rawCountry);
   }
 
   static String formatLeagueHeader(String country, String name) {
     final String nameLower = name.trim().toLowerCase();
 
-    // UEFA Kupák univerzális fejléc formázása (országfüggetlenül)
-    if (nameLower.contains('champions') || nameLower.contains('bajnokok') ||
-        nameLower.contains('europa') || nameLower.contains('európa') ||
-        nameLower.contains('conference') || nameLower.contains('konferencia')) {
-      String title = '';
-      if (nameLower.contains('champions') || nameLower.contains('bajnokok')) {
-        title = 'UEFA Bajnokok Ligája';
-      } else if (nameLower.contains('europa') || nameLower.contains('európa')) {
-        title = 'UEFA Európa Liga';
-      } else if (nameLower.contains('conference') || nameLower.contains('konferencia')) {
-        title = 'UEFA Konferencia Liga';
-      }
-
-      if (title.isNotEmpty) {
-        if (nameLower.contains('qualification') || nameLower.contains('selejtezo') || nameLower.contains('qualifying')) {
-          title += ' - Selejtező';
-        }
-        return title;
-      }
+    if (nameLower.contains('europa') || nameLower.contains('európa') || nameLower.contains('uel')) {
+      return (nameLower.contains('qualif') || nameLower.contains('selejt') || nameLower.contains('round'))
+          ? 'UEFA Európa Liga - Selejtező'
+          : 'UEFA Európa Liga';
+    }
+    if (nameLower.contains('champions') || nameLower.contains('bajnokok') || nameLower.contains('ucl')) {
+      return (nameLower.contains('qualif') || nameLower.contains('selejt') || nameLower.contains('round'))
+          ? 'UEFA Bajnokok Ligája - Selejtező'
+          : 'UEFA Bajnokok Ligája';
+    }
+    if (nameLower.contains('conference') || nameLower.contains('konferencia') || nameLower.contains('uecl')) {
+      return (nameLower.contains('qualif') || nameLower.contains('selejt') || nameLower.contains('round'))
+          ? 'UEFA Konferencia Liga - Selejtező'
+          : 'UEFA Konferencia Liga';
     }
 
-    String cleanCountry = country.replaceAll('_', ' ').trim();
+    String translatedCountry = LeagueTranslator.translateCountryName(country);
     String cleanName = name.trim();
-    if (cleanName.toLowerCase().startsWith(cleanCountry.toLowerCase())) {
-      cleanName = cleanName.substring(cleanCountry.length).replaceAll(RegExp(r'^[:\s]+'), '').trim();
+
+    if (cleanName.toLowerCase().startsWith(country.trim().toLowerCase())) {
+      cleanName = cleanName.substring(country.trim().length).replaceAll(RegExp(r'^[:\s]+'), '').trim();
     }
-    final full = cleanCountry.isNotEmpty ? '$cleanCountry: $cleanName' : cleanName;
-    return LeagueTranslator.translate(full);
+
+    cleanName = LeagueTranslator.translate(cleanName);
+
+    if (translatedCountry.isEmpty) return cleanName;
+    if (cleanName.toLowerCase().startsWith(translatedCountry.toLowerCase())) {
+      return cleanName;
+    }
+    return '$translatedCountry: $cleanName';
   }
 
   static bool isAllowedLeague(String rawCountry, String rawName) {
@@ -64,25 +66,37 @@ class StatPalHelper {
     final String n = rawName.trim().toLowerCase();
     final String fullRaw = '$c $n'.toLowerCase();
 
-    // 0. GLOBÁLIS KIZÁRÁSOK
-    if (fullRaw.contains('women') || fullRaw.contains('női') || fullRaw.contains(' w ') || fullRaw.endsWith(' w') ||
-        fullRaw.contains('u15') || fullRaw.contains('u16') || fullRaw.contains('u17') || fullRaw.contains('u18') || 
-        fullRaw.contains('u19') || fullRaw.contains('u20') || fullRaw.contains('u21') || fullRaw.contains('u23') ||
-        fullRaw.contains('youth') || fullRaw.contains('juniors') || fullRaw.contains('nextgen') ||
-        fullRaw.contains('friendly') || fullRaw.contains('barátságos') || fullRaw.contains('baratsagos') ||
-        fullRaw.contains('reserve') || fullRaw.contains('tartalék') || fullRaw.contains('tartalek')) {
-      return false;
+    // 0. Női és utánpótlás meccsek kiszűrése (Ékezetmentes változónévvel)
+    final bool isNoiVagyUtanpotlas = fullRaw.contains('women') || fullRaw.contains('női') || 
+        fullRaw.contains(' w ') || fullRaw.endsWith(' w') ||
+        fullRaw.contains('u15') || fullRaw.contains('u16') || fullRaw.contains('u17') || 
+        fullRaw.contains('u18') || fullRaw.contains('u19') || fullRaw.contains('u20') || 
+        fullRaw.contains('u21') || fullRaw.contains('u23') || fullRaw.contains('youth') || 
+        fullRaw.contains('juniors') || fullRaw.contains('nextgen') || fullRaw.contains('reserve') || 
+        fullRaw.contains('tartalék');
+
+    if (isNoiVagyUtanpotlas) return false;
+
+    // 1. ABSZOLÚT ELSŐBBSÉG: Férfi UEFA Kupák
+    if (n.contains('europa') || n.contains('európa') || 
+        n.contains('champions') || n.contains('bajnokok') || 
+        n.contains('conference') || n.contains('konferencia') ||
+        n.contains('uel') || n.contains('ucl') || n.contains('uecl')) {
+      if (!n.contains('concacaf') && !n.contains('afc') && !n.contains('caf') && !n.contains('durand')) {
+        return true;
+      }
     }
 
-    // 1. NEMZETKÖZI KUPÁK (BL, EL, KL) - Bármilyen országnév esetén!
-    if (n.contains('champions') || n.contains('bajnokok') ||
-        n.contains('europa') || n.contains('európa') ||
-        n.contains('conference') || n.contains('konferencia') ||
-        ((c == 'europe' || c == 'uefa') && n.contains('uefa'))) {
-      if (n.contains('concacaf') || n.contains('afc') || n.contains('caf') || n.contains('durand')) {
-        return false;
-      }
-      return true;
+    // 2. Barátságos mérkőzések kizárása
+    if (fullRaw.contains('friendly') || fullRaw.contains('barátságos')) return false;
+
+    // 3. Alsóbb osztályok kizárása
+    if (n.contains('gaucho') || n.contains('sergipe') || n.contains('rio') || n.contains('governo') ||
+        n.contains('ykkonen') || n.contains('kakkonen') || n.contains('usl') || n.contains('pershaya') || 
+        n.contains('1. deild') || n.contains('sub-') || n.contains('liga 3') || n.contains('liga 4') ||
+        n.contains('bajnokság two') || n.contains('division 3') || n.contains('division 2') ||
+        n.contains('2. liga') || n.contains('3. liga')) {
+      return false;
     }
 
     String cleanCountry = rawCountry.replaceAll('_', ' ').trim();
@@ -93,12 +107,12 @@ class StatPalHelper {
     final full = cleanCountry.isNotEmpty ? '$cleanCountry: $cleanName' : cleanName;
     final h = LeagueTranslator.translate(full).toLowerCase();
 
-    // 2. MAGYARORSZÁG
-    if (h.contains('magyarország')) {
+    // 4. MAGYARORSZÁG
+    if (h.contains('magyarország') || c == 'hungary') {
       return (h.contains('nb i.') || h.contains('nb i') || h.contains('nb ii') || h.contains('kupa')) && !h.contains('nb iii');
     }
 
-    // 3. TOP 5 + 2. OSZTÁLY + KUPÁK
+    // 5. TOP 5 + 2. OSZTÁLY + KUPÁK
     if (h.contains('angol') || c == 'england') {
       return h.contains('premier') || h.contains('championship') || h.contains('league one') || h.contains('league two') || h.contains('kupa') || n.contains('fa cup') || n.contains('efl cup');
     }
@@ -115,7 +129,7 @@ class StatPalHelper {
       return h.contains('la liga') || h.contains('segunda') || h.contains('kupa');
     }
 
-    // 4. KÜLFÖLDI LIGÁK (1. és 2. osztályok)
+    // 6. KÜLFÖLDI LIGÁK
     if ((h.contains('portugália') || c == 'portugal') && (h.contains('primeira') || h.contains('liga 2') || h.contains('segunda'))) return true;
     if ((h.contains('hollandia') || c == 'netherlands') && (h.contains('eredivisie') || h.contains('eerste divisie'))) return true;
     if ((h.contains('belgium') || c == 'belgium') && (h.contains('pro league') || h.contains('challenger pro league'))) return true;
@@ -125,14 +139,7 @@ class StatPalHelper {
     if ((h.contains('norvégia') || c == 'norway') && (h.contains('eliteserien') || h.contains('obos-ligaen'))) return true;
     if ((h.contains('svájc') || c == 'switzerland') && (h.contains('szuperbajnokság') || h.contains('super league') || h.contains('challenge league') || h.contains('promotion'))) return true;
 
-    // 5. TOVÁBBI ORSZÁGOK (Kizárólag 1. osztály)
-    if (n.contains('usl') || n.contains('liga 2') || n.contains('liga 3') || n.contains('liga 4') ||
-        n.contains('pershaya') || n.contains('1. deild') || n.contains('durand') || 
-        n.contains('primera nacional') || n.contains('clausura reserve') || n.contains('sub-') ||
-        n.contains('division 2') || n.contains('division 3') || n.contains('2. liga') || n.contains('3. liga')) {
-      return false;
-    }
-
+    // 7. TOVÁBBI ORSZÁGOK
     const strictFirstDivisionOnly = [
       'cseh', 'czech', 'görög', 'greece', 'ciprus', 'cyprus', 'skócia', 'scotland', 
       'ausztria', 'austria', 'románia', 'romania', 'horvátország', 'croatia', 
