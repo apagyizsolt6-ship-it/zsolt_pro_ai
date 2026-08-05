@@ -1,10 +1,12 @@
 // ===========================================
-// Zsolt Pro AI - Fő alkalmazás keret (StatPal PRO Integrációval)
+// Zsolt Pro AI - Fő alkalmazás keret (Globális StatPalProvider)
 // File: lib/app.dart
 // ===========================================
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'providers/statpal_provider.dart';
 import 'screens/ai_top5_screen.dart';
 import 'screens/betslip_screen.dart';
 import 'screens/home_screen.dart';
@@ -25,25 +27,28 @@ class _ZsoltProAppState extends State<ZsoltProApp> {
   final List<Widget> _pages = const [
     HomeScreen(),
     AITop5Screen(),
-    StatPalDashboardScreen(), // Cserélve a tiszta, szűrt PRO képernyőre
+    StatPalDashboardScreen(),
     BetslipScreen(),
     SettingsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: AppBottomNav(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+    return ChangeNotifierProvider(
+      create: (_) => StatPalProvider()..loadInitialData(offset: 0),
+      child: Scaffold(
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: _pages,
+        ),
+        bottomNavigationBar: AppBottomNav(
+          currentIndex: _selectedIndex,
+          onTap: (index) {
+            setState(() {
+              _selectedIndex = index;
+            });
+          },
+        ),
       ),
     );
   }
