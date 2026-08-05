@@ -1,5 +1,5 @@
 // ============================================================================
-// Zsolt Pro AI - StatPal Provider / Controller (Garandált EL/BL Felismeréssel)
+// Zsolt Pro AI - StatPal Provider / Controller
 // File: lib/providers/statpal_provider.dart
 // ============================================================================
 
@@ -36,8 +36,8 @@ class StatPalProvider with ChangeNotifier {
     final String n = rawName.trim().toLowerCase();
     final String fullRaw = '$c $n'.toLowerCase();
 
-    // 0. Női és utánpótlás meccsek kiszűrése
-    final bool isNőiVagyUtánpótlás = fullRaw.contains('women') || fullRaw.contains('női') || 
+    // 0. Női és utánpótlás meccsek kiszűrése (Ékezetmentes változónévvel)
+    final bool isNoiVagyUtanpotlas = fullRaw.contains('women') || fullRaw.contains('női') || 
         fullRaw.contains(' w ') || fullRaw.endsWith(' w') ||
         fullRaw.contains('u15') || fullRaw.contains('u16') || fullRaw.contains('u17') || 
         fullRaw.contains('u18') || fullRaw.contains('u19') || fullRaw.contains('u20') || 
@@ -45,9 +45,9 @@ class StatPalProvider with ChangeNotifier {
         fullRaw.contains('juniors') || fullRaw.contains('nextgen') || fullRaw.contains('reserve') || 
         fullRaw.contains('tartalék');
 
-    if (isNőiVagyUtánpótlás) return false;
+    if (isNoiVagyUtanpotlas) return false;
 
-    // 1. ABSZOLÚT ELSŐBBSÉG: Férfi UEFA Kupák (EL, BL, KL) - Minden egyéb szűrőt azonnal felülír!
+    // 1. ABSZOLÚT ELSŐBBSÉG: Férfi UEFA Kupák (EL, BL, KL)
     if (n.contains('europa') || n.contains('európa') || 
         n.contains('champions') || n.contains('bajnokok') || 
         n.contains('conference') || n.contains('konferencia') ||
@@ -60,7 +60,7 @@ class StatPalProvider with ChangeNotifier {
     // 2. Barátságos mérkőzések kizárása
     if (fullRaw.contains('friendly') || fullRaw.contains('barátságos')) return false;
 
-    // 3. Alsóbb osztályok kizárása (Kizárólag nem-UEFA meccseknél)
+    // 3. Alsóbb osztályok kizárása
     if (n.contains('gaucho') || n.contains('sergipe') || n.contains('rio') || n.contains('governo') ||
         n.contains('ykkonen') || n.contains('kakkonen') || n.contains('usl') || n.contains('pershaya') || 
         n.contains('1. deild') || n.contains('sub-') || n.contains('liga 3') || n.contains('liga 4') ||
@@ -77,7 +77,7 @@ class StatPalProvider with ChangeNotifier {
     final full = cleanCountry.isNotEmpty ? '$cleanCountry: $cleanName' : cleanName;
     final h = LeagueTranslator.translate(full).toLowerCase();
 
-    // 4. MAGYARORSZÁG (Csak NB I, NB II, Kupa - NB III kizárva)
+    // 4. MAGYARORSZÁG (Csak NB I, NB II, Kupa)
     if (h.contains('magyarország') || c == 'hungary') {
       return (h.contains('nb i.') || h.contains('nb i') || h.contains('nb ii') || h.contains('kupa')) && !h.contains('nb iii');
     }
