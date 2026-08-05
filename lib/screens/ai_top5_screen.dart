@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.25.1 - StatPal PRO AI Top 5 Fixed
+// Version: v0.25.2 - StatPal PRO AI Top 5 Type Safe
 // File: lib/screens/ai_top5_screen.dart
 // ===========================================
 
@@ -8,10 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/app_match.dart';
-import '../services/ai_engine_v2_service.dart';
+import '../models/statpal_models.dart';
 import '../providers/statpal_provider.dart';
-import 'statpal_dashboard_screen.dart';
+import '../services/ai_engine_v2_service.dart';
 import 'match_detail_screen.dart';
+import 'statpal_dashboard_screen.dart';
 
 class AITop5Screen extends StatefulWidget {
   const AITop5Screen({
@@ -40,23 +41,42 @@ class _AITop5ScreenState extends State<AITop5Screen> {
 
   void _loadTopMatchesFromProvider() {
     final provider = Provider.of<StatPalProvider>(context, listen: false);
-    
-    // Konvertáljuk a StatMatch elemeket AppMatch típusra a kompatibilitás érdekében
-    final List<AppMatch> allMatches = provider.liveMatches.map((statMatch) {
-      return AppMatch(
-        id: statMatch.id,
-        league: statMatch.leagueName,
-        homeTeam: statMatch.home.name,
-        awayTeam: statMatch.away.name,
-        matchDate: DateTime.now(),
-        matchTime: statMatch.time,
-        aiScore: 0,
-        homeScore: statMatch.home.goals ?? 0,
-        awayScore: statMatch.away.goals ?? 0,
-        status: statMatch.status,
-        isLive: true,
-      );
-    }).toList();
+
+    final List<AppMatch> allMatches = [];
+
+    // Bejárjuk a szűrt liga csoportokat a pontos liganév és adatok kinyeréséhez
+    for (final leagueGroup in provider.rawLiveMatchesGroups) {
+      final String rawLeagueName = leagueGroup['name']?.toString() ?? 'Ismeretlen Liga';
+      final String leagueCountry = leagueGroup['country']?.toString() ?? '';
+      final String leagueHeader = StatPalHelper.formatLeagueHeader(leagueCountry, rawLeagueName);
+
+      final matchesList = leagueGroup['match'];
+      if (matchesList is List) {
+        for (final mJson in matchesList) {
+          final statMatch = StatMatch.fromJson(mJson);
+
+          final int homeG = int.tryParse(statMatch.home.goals?.toString() ?? '0') ?? 0;
+          final int awayG = int.tryParse(statMatch.away.goals?.toString() ?? '0') ?? 0;
+
+          allMatches.add(
+            AppMatch(
+              id: statMatch.id,
+              league: leagueHeader,
+              country: leagueCountry,
+              homeTeam: statMatch.home.name,
+              awayTeam: statMatch.away.name,
+              matchDate: DateTime.now(),
+              matchTime: statMatch.time,
+              aiScore: 0,
+              homeScore: homeG,
+              awayScore: awayG,
+              status: statMatch.status,
+              isLive: true,
+            ),
+          );
+        }
+      }
+    }
 
     final Map<String, AiMatchAnalysis> newAnalyses = {};
     for (final match in allMatches) {
@@ -110,7 +130,7 @@ class _AITop5ScreenState extends State<AITop5Screen> {
       body: SafeArea(
         child: Consumer<StatPalProvider>(
           builder: (context, provider, child) {
-            if (!provider.isLoading && _topMatches.isEmpty && provider.liveMatches.isNotEmpty) {
+            if (!provider.isLoading && _topMatches.isEmpty && provider.rawLiveMatchesGroups.isNotEmpty) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _loadTopMatchesFromProvider();
               });
@@ -356,7 +376,6 @@ class _TopMatchCard extends StatelessWidget {
     final ColorScheme colors = Theme.of(context).colorScheme;
     final double progress = displayScore.clamp(0, 100) / 100;
     final Color aiColor = _aiColor();
-    final String translatedLeague = StatPalHelper.formatLeagueHeader(match.country, match.league);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -382,7 +401,7 @@ class _TopMatchCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      translatedLeague.isEmpty ? match.league : translatedLeague,
+                      match.league.isEmpty ? 'Ismeretlen bajnokság' : match.league,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: colors.primary, fontSize: 13.5, fontWeight: FontWeight.bold),
