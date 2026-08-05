@@ -1,54 +1,112 @@
 // ============================================================================
-// Zsolt Pro AI - League & Text Translator Utility
+// Zsolt Pro AI - League & Text Translator Utility (Teljes Országszótár)
 // File: lib/utils/league_translator.dart
 // ============================================================================
 
 class LeagueTranslator {
+  static final Map<String, String> _countryMap = {
+    'england': 'Anglia',
+    'germany': 'Németország',
+    'spain': 'Spanyolország',
+    'italy': 'Olaszország',
+    'france': 'Franciaország',
+    'hungary': 'Magyarország',
+    'brazil': 'Brazília',
+    'china': 'Kína',
+    'ecuador': 'Ekvador',
+    'equador': 'Ekvador',
+    'estonia': 'Észtország',
+    'finland': 'Finnország',
+    'israel': 'Izrael',
+    'poland': 'Lengyelország',
+    'romania': 'Románia',
+    'argentina': 'Argentína',
+    'belarus': 'Fehéroroszország',
+    'faroe islands': 'Feröer-szigetek',
+    'georgia': 'Grúzia',
+    'usa': 'USA',
+    'united states': 'USA',
+    'india': 'India',
+    'portugal': 'Portugália',
+    'netherlands': 'Hollandia',
+    'belgium': 'Belgium',
+    'turkey': 'Törökország',
+    'sweden': 'Svédország',
+    'denmark': 'Dánia',
+    'norway': 'Norvégia',
+    'switzerland': 'Svájc',
+    'czech republic': 'Csehország',
+    'czech': 'Csehország',
+    'greece': 'Görögország',
+    'cyprus': 'Ciprus',
+    'scotland': 'Skócia',
+    'austria': 'Ausztria',
+    'croatia': 'Horvátország',
+    'slovenia': 'Szlovénia',
+    'ukraine': 'Ukrajna',
+    'ireland': 'Írország',
+    'armenia': 'Örményország',
+    'kosovo': 'Koszovó',
+    'bosnia': 'Bosznia-Hercegovina',
+    'latvia': 'Lettország',
+    'kazakhstan': 'Kazahsztán',
+    'macedonia': 'Észak-Macedónia',
+    'moldova': 'Moldova',
+    'albania': 'Albánia',
+    'lithuania': 'Litvánia',
+    'malta': 'Málta',
+    'andorra': 'Andorra',
+    'bulgaria': 'Bulgária',
+    'wales': 'Wales',
+    'mexico': 'Mexikó',
+    'colombia': 'Kolumbia',
+    'japan': 'Japán',
+    'south korea': 'Dél-Korea',
+    'korea': 'Dél-Korea',
+    'iran': 'Irán',
+    'egypt': 'Egyiptom',
+    'nigeria': 'Nigéria',
+    'tunisia': 'Tunézia',
+    'qatar': 'Katár',
+    'saudi arabia': 'Szaúd-Arábia',
+    'philippines': 'Fülöp-szigetek',
+    'hong kong': 'Hongkong',
+    'serbia': 'Szerbia',
+    'el salvador': 'El Salvador',
+    'fiji': 'Fidzsi',
+  };
+
+  static String translateCountryName(String rawCountry) {
+    final c = rawCountry.trim().toLowerCase();
+    if (c.isEmpty || c == 'europe' || c == 'world' || c == 'international' || c == 'uefa') {
+      return '';
+    }
+    return _countryMap[c] ?? (c[0].toUpperCase() + c.substring(1));
+  }
+
   static String translate(String input) {
     if (input.trim().isEmpty) return input;
 
     String text = input;
 
-    // Nemzetközi kategóriák előtagjainak tisztítása
+    // Nemzetközi kategóriák tisztítása
     text = text.replaceAll(RegExp(r'^\s*europe:\s*', caseSensitive: false), '');
     text = text.replaceAll(RegExp(r'^\s*world:\s*', caseSensitive: false), '');
     text = text.replaceAll(RegExp(r'^\s*international:\s*', caseSensitive: false), '');
     text = text.replaceAll(RegExp(r'^\s*uefa:\s*', caseSensitive: false), '');
 
-    // UEFA Kupák pontos megnevezése
-    text = text.replaceAll(RegExp(r'europa\s+league', caseSensitive: false), 'UEFA Európa Liga');
-    text = text.replaceAll(RegExp(r'europa\s+bajnoksag', caseSensitive: false), 'UEFA Európa Liga');
-    text = text.replaceAll(RegExp(r'conference\s+league', caseSensitive: false), 'UEFA Konferencia Liga');
-    text = text.replaceAll(RegExp(r'conference\s+bajnoksag', caseSensitive: false), 'UEFA Konferencia Liga');
-    text = text.replaceAll(RegExp(r'champions\s+league', caseSensitive: false), 'UEFA Bajnokok Ligája');
-    text = text.replaceAll(RegExp(r'champions\s+bajnoksag', caseSensitive: false), 'UEFA Bajnokok Ligája');
-
-    // Duplikált UEFA szavak tisztítása
-    text = text.replaceAll(RegExp(r'UEFA\s+UEFA', caseSensitive: false), 'UEFA');
-
-    // Szavak fordítása
+    // Szavak és Kupák fordítása
     text = text.replaceAll(RegExp(r'\bqualification\b', caseSensitive: false), 'Selejtező');
     text = text.replaceAll(RegExp(r'\bqualifying\b', caseSensitive: false), 'Selejtező');
+    text = text.replaceAll(RegExp(r'\bestonian kupa\b', caseSensitive: false), 'Észt Kupa');
+    text = text.replaceAll(RegExp(r'\bpolish kupa\b', caseSensitive: false), 'Lengyel Kupa');
+    text = text.replaceAll(RegExp(r'\bromanian kupa\b', caseSensitive: false), 'Román Kupa');
+    text = text.replaceAll(RegExp(r'\bcupa\b', caseSensitive: false), 'Kupa');
     text = text.replaceAll(RegExp(r'\bcup\b', caseSensitive: false), 'Kupa');
 
-    // Általános League -> Bajnokság fordítás (ha nem UEFA kupa)
     if (!text.contains('Európa Liga') && !text.contains('Konferencia Liga') && !text.contains('Bajnokok Ligája')) {
       text = text.replaceAll(RegExp(r'\bleague\b', caseSensitive: false), 'Bajnokság');
     }
-
-    // Országnevek fordítása
-    text = text.replaceAll(RegExp(r'^england:', caseSensitive: false), 'Anglia:');
-    text = text.replaceAll(RegExp(r'^germany:', caseSensitive: false), 'Németország:');
-    text = text.replaceAll(RegExp(r'^spain:', caseSensitive: false), 'Spanyolország:');
-    text = text.replaceAll(RegExp(r'^italy:', caseSensitive: false), 'Olaszország:');
-    text = text.replaceAll(RegExp(r'^france:', caseSensitive: false), 'Franciaország:');
-    text = text.replaceAll(RegExp(r'^hungary:', caseSensitive: false), 'Magyarország:');
-    text = text.replaceAll(RegExp(r'^belarus:', caseSensitive: false), 'Fehéroroszország:');
-    text = text.replaceAll(RegExp(r'^faroe islands:', caseSensitive: false), 'Feröer-szigetek:');
-    text = text.replaceAll(RegExp(r'^argentina:', caseSensitive: false), 'Argentína:');
-    text = text.replaceAll(RegExp(r'^georgia:', caseSensitive: false), 'Grúzia:');
-    text = text.replaceAll(RegExp(r'^usa:', caseSensitive: false), 'USA:');
-    text = text.replaceAll(RegExp(r'^india:', caseSensitive: false), 'India:');
 
     return text.trim();
   }
