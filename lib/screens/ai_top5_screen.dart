@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.25.2 - StatPal PRO AI Top 5 Type Safe
+// Version: v0.25.3 - StatPal PRO AI Top 5 Global Integration
 // File: lib/screens/ai_top5_screen.dart
 // ===========================================
 
@@ -15,14 +15,10 @@ import 'match_detail_screen.dart';
 import 'statpal_dashboard_screen.dart';
 
 class AITop5Screen extends StatefulWidget {
-  const AITop5Screen({
-    super.key,
-  });
+  const AITop5Screen({super.key});
 
   @override
-  State<AITop5Screen> createState() {
-    return _AITop5ScreenState();
-  }
+  State<AITop5Screen> createState() => _AITop5ScreenState();
 }
 
 class _AITop5ScreenState extends State<AITop5Screen> {
@@ -40,11 +36,11 @@ class _AITop5ScreenState extends State<AITop5Screen> {
   }
 
   void _loadTopMatchesFromProvider() {
+    if (!mounted) return;
     final provider = Provider.of<StatPalProvider>(context, listen: false);
 
     final List<AppMatch> allMatches = [];
 
-    // Bejárjuk a szűrt liga csoportokat a pontos liganév és adatok kinyeréséhez
     for (final leagueGroup in provider.rawLiveMatchesGroups) {
       final String rawLeagueName = leagueGroup['name']?.toString() ?? 'Ismeretlen Liga';
       final String leagueCountry = leagueGroup['country']?.toString() ?? '';
