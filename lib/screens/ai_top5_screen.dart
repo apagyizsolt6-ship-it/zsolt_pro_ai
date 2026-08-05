@@ -1,6 +1,6 @@
 // ===========================================
 // Zsolt Pro AI
-// Version: v0.25.0 - StatPal PRO AI Top 5 Integration
+// Version: v0.25.1 - StatPal PRO AI Top 5 Fixed
 // File: lib/screens/ai_top5_screen.dart
 // ===========================================
 
@@ -9,7 +9,6 @@ import 'package:provider/provider.dart';
 
 import '../models/app_match.dart';
 import '../services/ai_engine_v2_service.dart';
-import '../utils/league_translator.dart';
 import '../providers/statpal_provider.dart';
 import 'statpal_dashboard_screen.dart';
 import 'match_detail_screen.dart';
@@ -42,8 +41,22 @@ class _AITop5ScreenState extends State<AITop5Screen> {
   void _loadTopMatchesFromProvider() {
     final provider = Provider.of<StatPalProvider>(context, listen: false);
     
-    // Lekérjük a providerben már szigorúan szűrt élő/napi meccseket
-    final allMatches = provider.liveMatches;
+    // Konvertáljuk a StatMatch elemeket AppMatch típusra a kompatibilitás érdekében
+    final List<AppMatch> allMatches = provider.liveMatches.map((statMatch) {
+      return AppMatch(
+        id: statMatch.id,
+        league: statMatch.leagueName,
+        homeTeam: statMatch.home.name,
+        awayTeam: statMatch.away.name,
+        matchDate: DateTime.now(),
+        matchTime: statMatch.time,
+        aiScore: 0,
+        homeScore: statMatch.home.goals ?? 0,
+        awayScore: statMatch.away.goals ?? 0,
+        status: statMatch.status,
+        isLive: true,
+      );
+    }).toList();
 
     final Map<String, AiMatchAnalysis> newAnalyses = {};
     for (final match in allMatches) {
@@ -97,7 +110,6 @@ class _AITop5ScreenState extends State<AITop5Screen> {
       body: SafeArea(
         child: Consumer<StatPalProvider>(
           builder: (context, provider, child) {
-            // Ha közben frissül a provider, frissítjük a top meccseket is
             if (!provider.isLoading && _topMatches.isEmpty && provider.liveMatches.isNotEmpty) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _loadTopMatchesFromProvider();
