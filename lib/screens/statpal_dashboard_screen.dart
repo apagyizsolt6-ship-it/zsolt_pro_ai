@@ -36,17 +36,39 @@ class StatPalHelper {
     return LeagueTranslator.translate(full);
   }
 
-  /// KIZÁRÓLAG AZ ENGEDÉLYEZETT LISTA - Megegyezik a provider szűrőjével
+  /// KIZÁRÓLAG AZ ENGEDÉLYEZETT LISTA - Véglegesen javított nemzetközi kupa szűréssel
   static bool isAllowedLeague(String rawCountry, String rawName) {
     final String countryLower = rawCountry.trim().toLowerCase();
     final String nameLower = rawName.trim().toLowerCase();
 
-    // 1. Nemzetközi kupák
-    if (countryLower == 'europe' || countryLower == 'world' || countryLower == 'international' ||
-        nameLower.contains('champions league') || nameLower.contains('europa league') || 
-        nameLower.contains('conference league') || nameLower.contains('uefa') ||
-        nameLower.contains('bajnokok ligája') || nameLower.contains('európa liga') || 
-        nameLower.contains('konferencia liga')) {
+    final String normalizedName = nameLower
+        .replaceAll('-', '')
+        .replaceAll(' ', '')
+        .replaceAll('ó', 'o')
+        .replaceAll('ő', 'o')
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e');
+
+    final String normalizedCountry = countryLower
+        .replaceAll('-', '')
+        .replaceAll(' ', '');
+
+    // 1. Nemzetközi kupák (BL, EL, KL, UEFA, UCL, UEL, UECL)
+    if (normalizedCountry.contains('europe') || 
+        normalizedCountry.contains('uefa') || 
+        normalizedCountry.contains('world') || 
+        normalizedCountry.contains('international') ||
+        normalizedCountry.contains('nemzetkozi') ||
+        normalizedName.contains('championsleague') || 
+        normalizedName.contains('europaleague') || 
+        normalizedName.contains('conferenceleague') || 
+        normalizedName.contains('bajnokokligaja') || 
+        normalizedName.contains('europaliga') || 
+        normalizedName.contains('konferencialiga') ||
+        normalizedName.contains('uefa') ||
+        normalizedName.contains('ucl') ||
+        normalizedName.contains('uel') ||
+        normalizedName.contains('uecl')) {
       return true;
     }
 
@@ -58,7 +80,7 @@ class StatPalHelper {
     final full = cleanCountry.isNotEmpty ? '$cleanCountry: $cleanName' : cleanName;
     final h = LeagueTranslator.translate(full).toLowerCase();
 
-    // 2. Magyarország (Csak NB I, NB II, Kupa)
+    // 2. Magyarország (Csak NB I, NB II, Kupa - NB III kizárva)
     if (h.contains('magyarország')) {
       return (h.contains('nb i.') || h.contains('nb i') || h.contains('nb ii') || h.contains('kupa')) && !h.contains('nb iii');
     }
