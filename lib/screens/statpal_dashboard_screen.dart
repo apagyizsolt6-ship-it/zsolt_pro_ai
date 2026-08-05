@@ -30,7 +30,6 @@ class StatPalHelper {
     final String countryLower = country.trim().toLowerCase();
     final String nameLower = name.trim().toLowerCase();
 
-    // Nemzetközi kupák kifejezett, szép formázása
     if (countryLower == 'europe' || countryLower == 'world' || countryLower == 'international' || countryLower == 'uefa') {
       String title = '';
       if (nameLower.contains('champions') || nameLower.contains('bajnokok')) {
@@ -155,16 +154,14 @@ class StatPalHelper {
   }
 }
 
-class StatPalDashboardScreen extends StatelessWidget {
+class StatPalDashboardScreen extends StatefulWidget {
   const StatPalDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const _StatPalDashboardView();
-  }
+  State<StatPalDashboardScreen> createState() => _StatPalDashboardScreenState();
 }
 
-class _StatPalDashboardViewState extends State<_StatPalDashboardView> {
+class _StatPalDashboardScreenState extends State<StatPalDashboardScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _matchSearchController = TextEditingController();
   final TextEditingController _leagueSearchController = TextEditingController();
