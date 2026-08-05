@@ -9,11 +9,13 @@ class LeagueTranslator {
 
     String text = input;
 
-    // 1. Különleges nemzetközi kupa elnevezések pontosítása
+    // Nemzetközi kategóriák előtagjainak tisztítása
     text = text.replaceAll(RegExp(r'^\s*europe:\s*', caseSensitive: false), '');
     text = text.replaceAll(RegExp(r'^\s*world:\s*', caseSensitive: false), '');
     text = text.replaceAll(RegExp(r'^\s*international:\s*', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'^\s*uefa:\s*', caseSensitive: false), '');
 
+    // UEFA Kupák pontos megnevezése
     text = text.replaceAll(RegExp(r'europa\s+league', caseSensitive: false), 'UEFA Európa Liga');
     text = text.replaceAll(RegExp(r'europa\s+bajnoksag', caseSensitive: false), 'UEFA Európa Liga');
     text = text.replaceAll(RegExp(r'conference\s+league', caseSensitive: false), 'UEFA Konferencia Liga');
@@ -21,15 +23,15 @@ class LeagueTranslator {
     text = text.replaceAll(RegExp(r'champions\s+league', caseSensitive: false), 'UEFA Bajnokok Ligája');
     text = text.replaceAll(RegExp(r'champions\s+bajnoksag', caseSensitive: false), 'UEFA Bajnokok Ligája');
 
-    // Duplikált UEFA előtagok tisztítása
+    // Duplikált UEFA szavak tisztítása
     text = text.replaceAll(RegExp(r'UEFA\s+UEFA', caseSensitive: false), 'UEFA');
 
-    // 2. Szavak fordítása
+    // Szavak fordítása
     text = text.replaceAll(RegExp(r'\bqualification\b', caseSensitive: false), 'Selejtező');
     text = text.replaceAll(RegExp(r'\bqualifying\b', caseSensitive: false), 'Selejtező');
     text = text.replaceAll(RegExp(r'\bcup\b', caseSensitive: false), 'Kupa');
 
-    // Ha nem UEFA kupáról van szó, általános League -> Bajnokság fordítás
+    // Általános League -> Bajnokság fordítás (ha nem UEFA kupa)
     if (!text.contains('Európa Liga') && !text.contains('Konferencia Liga') && !text.contains('Bajnokok Ligája')) {
       text = text.replaceAll(RegExp(r'\bleague\b', caseSensitive: false), 'Bajnokság');
     }
@@ -44,6 +46,9 @@ class LeagueTranslator {
     text = text.replaceAll(RegExp(r'^belarus:', caseSensitive: false), 'Fehéroroszország:');
     text = text.replaceAll(RegExp(r'^faroe islands:', caseSensitive: false), 'Feröer-szigetek:');
     text = text.replaceAll(RegExp(r'^argentina:', caseSensitive: false), 'Argentína:');
+    text = text.replaceAll(RegExp(r'^georgia:', caseSensitive: false), 'Grúzia:');
+    text = text.replaceAll(RegExp(r'^usa:', caseSensitive: false), 'USA:');
+    text = text.replaceAll(RegExp(r'^india:', caseSensitive: false), 'India:');
 
     return text.trim();
   }
